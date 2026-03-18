@@ -1,0 +1,327 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraPrints — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">AP</div>
+            <div class="logo-text">
+                <div class="logo-name">AuraPrints</div>
+                <div class="logo-sub">Management</div>
+            </div>
+        </div>
+
+        <div class="sidebar-section-label">Navigation</div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" onclick="showPage('overview')">
+                <span class="nav-icon">⬛</span>
+                <span>Übersicht</span>
+            </button>
+            <button class="nav-item" onclick="showPage('roadmap')">
+                <span class="nav-icon">📋</span>
+                <span>Roadmap</span>
+            </button>
+            <button class="nav-item" onclick="showPage('produkte')">
+                <span class="nav-icon">📦</span>
+                <span>Produkte</span>
+            </button>
+            <button class="nav-item" onclick="showPage('finanzen')">
+                <span class="nav-icon">💰</span>
+                <span>Finanzen</span>
+            </button>
+            <button class="nav-item" onclick="showPage('admin')">
+                <span class="nav-icon">⚙️</span>
+                <span>Planung</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-date" id="sidebar-date"></div>
+            <div class="sidebar-footer-launch" id="sidebar-launch"></div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+
+        <!-- ÜBERSICHT -->
+        <div class="page active" id="page-overview">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Dashboard</div>
+                    <div class="page-sub">AuraPrints Launch Übersicht</div>
+                </div>
+                <div class="page-header-right" id="topbar-date"></div>
+            </div>
+            <div class="kpi-strip" id="kpi-strip"></div>
+            <div class="overview-grid">
+                <div class="overview-left">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Diese Woche</div>
+                            <div class="card-badge" id="cw-badge"></div>
+                        </div>
+                        <div class="cw-title" id="cw-title">Lädt...</div>
+                        <div class="cw-date" id="cw-date"></div>
+                        <div id="cw-tasks"></div>
+                    </div>
+                </div>
+                <div class="overview-right">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Gesamtfortschritt</div>
+                        </div>
+                        <div class="donut-wrap">
+                            <svg viewBox="0 0 120 120" class="donut-svg">
+                                <circle class="donut-bg" cx="60" cy="60" r="50" />
+                                <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
+                                        stroke-dasharray="0 314" stroke-dashoffset="78" />
+                            </svg>
+                            <div class="donut-center">
+                                <div class="donut-pct" id="donut-pct">0%</div>
+                                <div class="donut-label">Erledigt</div>
+                            </div>
+                        </div>
+                        <div class="donut-stats">
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-done">0</div>
+                                <div class="donut-stat-label">Erledigt</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-open">0</div>
+                                <div class="donut-stat-label">Offen</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-weeks">8</div>
+                                <div class="donut-stat-label">Wochen</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:20px">
+                <div class="card-header">
+                    <div class="card-title">Alle Wochen</div>
+                </div>
+                <div class="weeks-grid" id="weeks-grid"></div>
+            </div>
+        </div>
+
+        <!-- ROADMAP -->
+        <div class="page" id="page-roadmap">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Roadmap</div>
+                    <div class="page-sub">8 Wochen Launch-Plan</div>
+                </div>
+            </div>
+            <div id="roadmap-content"></div>
+        </div>
+
+        <!-- PRODUKTE -->
+        <div class="page" id="page-produkte">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Produkte</div>
+                    <div class="page-sub">Sortiment, Preise & Kalkulation</div>
+                </div>
+            </div>
+            <div id="produkte-content"></div>
+        </div>
+
+        <!-- FINANZEN -->
+        <div class="page" id="page-finanzen">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Finanzen</div>
+                    <div class="page-sub">Ausgaben erfassen & verwalten</div>
+                </div>
+                <button class="btn-primary" onclick="openExpenseModal()">+ Ausgabe erfassen</button>
+            </div>
+            <div class="fin-kpi-strip" id="fin-kpi-strip"></div>
+            <div class="fin-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Nach Kategorie</div>
+                        <button class="btn-secondary" onclick="openCategoryModal()">Kategorien verwalten</button>
+                    </div>
+                    <div id="category-summary"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Alle Ausgaben</div>
+                    </div>
+                    <div id="expenses-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMIN / PLANUNG -->
+        <div class="page" id="page-admin">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Planung</div>
+                    <div class="page-sub">Wochen und Tasks verwalten</div>
+                </div>
+                <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+            </div>
+            <div id="admin-content"></div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: Ausgabe erfassen -->
+    <div class="modal-backdrop" id="expense-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Ausgabe erfassen</div>
+                <button class="modal-close" onclick="closeExpenseModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Kategorie</label>
+                    <select id="exp-category"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Betrag (CHF)</label>
+                        <input type="number" id="exp-amount" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="exp-date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg weiss">
+                </div>
+                <div class="form-group">
+                    <label>Link (optional)</label>
+                    <input type="url" id="exp-link" placeholder="https://...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Woche (optional)</label>
+                        <select id="exp-week">
+                            <option value="">Keine Zuweisung</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Task (optional)</label>
+                        <select id="exp-task">
+                            <option value="">Keine Zuweisung</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeExpenseModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveExpense()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kategorien verwalten -->
+    <div class="modal-backdrop" id="category-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Kategorien verwalten</div>
+                <button class="modal-close" onclick="closeCategoryModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="category-list"></div>
+                <div class="form-row" style="margin-top:16px">
+                    <div class="form-group" style="flex:1">
+                        <label>Neue Kategorie</label>
+                        <input type="text" id="new-cat-name" placeholder="Name">
+                    </div>
+                    <div class="form-group" style="width:80px">
+                        <label>Farbe</label>
+                        <input type="color" id="new-cat-color" value="#4f8ef7">
+                    </div>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" onclick="addCategory()">Kategorie hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Woche erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="week-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="week-modal-title">Woche erstellen</div>
+                <button class="modal-close" onclick="closeWeekModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Titel</label>
+                    <input type="text" id="week-title" placeholder="z.B. Produktfotos — Shooting">
+                </div>
+                <div class="form-group">
+                    <label>Phase</label>
+                    <input type="text" id="week-phase" placeholder="z.B. Phase 1 — Fundament">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Badge PC</label>
+                        <input type="text" id="week-badge-pc" placeholder="z.B. 4h PC">
+                    </div>
+                    <div class="form-group">
+                        <label>Badge Physisch</label>
+                        <input type="text" id="week-badge-phys" placeholder="z.B. 2h Drucker">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notiz (optional)</label>
+                    <textarea id="week-note" rows="3" placeholder="Hinweis der unter den Tasks angezeigt wird..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeWeekModal()">Abbrechen</button>
+                <button class="btn-primary" id="week-modal-save" onclick="saveWeek()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Task erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="task-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="task-modal-title">Task erstellen</div>
+                <button class="modal-close" onclick="closeTaskModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Typ</label>
+                    <select id="task-type">
+                        <option value="pc">PC</option>
+                        <option value="phys">Physisch</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <textarea id="task-text" rows="4" placeholder="Was muss gemacht werden?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Zeitaufwand</label>
+                    <input type="text" id="task-hours" placeholder="z.B. 1h oder 1.5h">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTaskModal()">Abbrechen</button>
+                <button class="btn-primary" id="task-modal-save" onclick="saveTask()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="/js/app.js"></script>
+</body>
+</html>

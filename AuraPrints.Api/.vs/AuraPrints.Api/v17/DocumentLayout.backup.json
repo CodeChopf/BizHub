@@ -1,0 +1,107 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|d:\\dokumente\\projekt x\\bizhub\\bizhub\\auraprints.api\\wwwroot\\js\\app.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|solutionrelative:wwwroot\\js\\app.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|d:\\dokumente\\projekt x\\bizhub\\bizhub\\auraprints.api\\wwwroot\\index.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|solutionrelative:wwwroot\\index.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|d:\\dokumente\\projekt x\\bizhub\\bizhub\\auraprints.api\\wwwroot\\css\\app.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|solutionrelative:wwwroot\\css\\app.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|d:\\dokumente\\projekt x\\bizhub\\bizhub\\auraprints.api\\repositories\\roadmaprepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|solutionrelative:repositories\\roadmaprepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|d:\\dokumente\\projekt x\\bizhub\\bizhub\\auraprints.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{F124DEBE-7CEA-4DB5-BEDA-B3DCC3761AB4}|AuraPrintsApi.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "RoadmapRepository.cs",
+              "DocumentMoniker": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\Repositories\\RoadmapRepository.cs",
+              "RelativeDocumentMoniker": "Repositories\\RoadmapRepository.cs",
+              "ToolTip": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\Repositories\\RoadmapRepository.cs",
+              "RelativeToolTip": "Repositories\\RoadmapRepository.cs",
+              "ViewState": "AgIAABUAAAAAAAAAAAAowDMAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-18T10:07:27.537Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "app.css",
+              "DocumentMoniker": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\css\\app.css",
+              "RelativeDocumentMoniker": "wwwroot\\css\\app.css",
+              "ToolTip": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\css\\app.css",
+              "RelativeToolTip": "wwwroot\\css\\app.css",
+              "ViewState": "AgIAAOcFAAAAAAAAAAAAwBUGAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2026-03-18T08:21:56.592Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "index.html",
+              "DocumentMoniker": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\index.html",
+              "RelativeDocumentMoniker": "wwwroot\\index.html",
+              "ToolTip": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\index.html",
+              "RelativeToolTip": "wwwroot\\index.html",
+              "ViewState": "AgIAAGgAAAAAAAAAAADwv4cAAAAOAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
+              "WhenOpened": "2026-03-18T08:21:44.616Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "app.js",
+              "DocumentMoniker": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\js\\app.js",
+              "RelativeDocumentMoniker": "wwwroot\\js\\app.js",
+              "ToolTip": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\wwwroot\\js\\app.js",
+              "RelativeToolTip": "wwwroot\\js\\app.js",
+              "ViewState": "AgIAABMDAAAAAAAAAAAcwEADAAAHAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-03-18T07:19:02.989Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "D:\\Dokumente\\Projekt X\\BizHub\\BizHub\\AuraPrints.Api\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAAJ8AAAAAAAAAAAAAALgAAAADAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-17T14:10:56.246Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
