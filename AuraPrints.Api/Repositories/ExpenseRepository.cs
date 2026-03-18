@@ -134,4 +134,49 @@ public class ExpenseRepository : IExpenseRepository
         cmd.Parameters.AddWithValue("@id", id);
         cmd.ExecuteNonQuery();
     }
+
+    public Expense Update(int id, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = @"
+        UPDATE expenses SET
+            category_id = @c, amount = @a, description = @d,
+            link = @l, date = @dt, week_number = @w, task_id = @t
+        WHERE id = @id";
+        cmd.Parameters.AddWithValue("@c", categoryId);
+        cmd.Parameters.AddWithValue("@a", amount);
+        cmd.Parameters.AddWithValue("@d", description);
+        cmd.Parameters.AddWithValue("@l", (object?)link ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@dt", date);
+        cmd.Parameters.AddWithValue("@w", (object?)weekNumber ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@t", (object?)taskId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.ExecuteNonQuery();
+
+        using var rCmd = con.CreateCommand();
+        rCmd.CommandText = @"
+        SELECT e.id, e.category_id, c.name, c.color, e.amount,
+               e.description, e.link, e.date, e.week_number, e.task_id
+        FROM expenses e
+        JOIN categories c ON c.id = e.category_id
+        WHERE e.id = @id";
+        rCmd.Parameters.AddWithValue("@id", id);
+        using var r = rCmd.ExecuteReader();
+        r.Read();
+        return new Expense
+        {
+            Id = r.GetInt32(0),
+            CategoryId = r.GetInt32(1),
+            CategoryName = r.GetString(2),
+            CategoryColor = r.GetString(3),
+            Amount = r.GetDecimal(4),
+            Description = r.GetString(5),
+            Link = r.IsDBNull(6) ? null : r.GetString(6),
+            Date = r.GetString(7),
+            WeekNumber = r.IsDBNull(8) ? null : r.GetInt32(8),
+            TaskId = r.IsDBNull(9) ? null : r.GetInt32(9)
+        };
+    }
 }

@@ -1,4 +1,7 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using AuraPrintsApi.Models;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Data.Sqlite;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace AuraPrintsApi.Data;
 
@@ -101,7 +104,16 @@ public class DatabaseContext
                 week_number INTEGER,
                 task_id     INTEGER,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
-            );";
+            );
+            CREATE TABLE IF NOT EXISTS expense_attachments(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            expense_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (expense_id) REFERENCES expenses(id)
+            )";
         cmd.ExecuteNonQuery();
     }
 }

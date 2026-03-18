@@ -1555,3 +1555,19 @@ textarea {
         color: var(--accent);
         background: var(--accent-dim);
     }
+
+.exp-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.exp-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto;
+    gap: 12px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}

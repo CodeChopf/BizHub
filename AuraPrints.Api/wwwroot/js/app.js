@@ -14,6 +14,9 @@ function formatDateStr(dateStr) {
     const [y, m, d] = dateStr.split('-');
     return `${d}.${m}.${y}`;
 }
+function fmtChf(amount) {
+    return amount.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -179,7 +182,6 @@ function renderProdukte() {
     const container = document.getElementById('produkte-content');
     container.innerHTML = '';
 
-    // Produkt-Grid — kein Label, page-header zeigt bereits "Produkte"
     let prodGrid = '<div class="prod-grid">';
     productData.products.forEach(p => {
         const tagClass = p.type === 'wand' ? 'tag-w' : 'tag-a';
@@ -256,7 +258,7 @@ function renderFinanzen() {
     strip.innerHTML = `
     <div class="kpi-card red">
       <div class="kpi-icon">💸</div>
-      <div class="kpi-val">CHF ${total.toFixed(2)}</div>
+      <div class="kpi-val">CHF ${fmtChf(total)}</div>
       <div class="kpi-label">Gesamtausgaben</div>
     </div>
     <div class="kpi-card amber">
@@ -283,7 +285,7 @@ function renderFinanzen() {
           <div class="cat-bar-fill" style="width:${Math.round((s.total / maxTotal) * 100)}%;background:${getCategoryColor(s.categoryName)}"></div>
         </div>
         <div class="cat-count">${s.count}×</div>
-        <div class="cat-amount">CHF ${s.total.toFixed(2)}</div>
+        <div class="cat-amount">CHF ${fmtChf(s.total)}</div>
       </div>`).join('');
     }
 
@@ -300,11 +302,21 @@ function renderFinanzen() {
           <div>
             <div class="exp-desc">${e.description}</div>
             <div class="exp-meta">${formatDateStr(e.date)} ${weekLabel} ${linkHtml}</div>
+            <div id="attachments-${e.id}" class="exp-attachments"></div>
           </div>
-          <div class="exp-amount">−CHF ${e.amount.toFixed(2)}</div>
+          <div class="exp-amount">−CHF ${fmtChf(e.amount)}</div>
+          <button class="btn-icon" onclick="openEditExpenseModal(${e.id})" title="Bearbeiten">✏️</button>
           <button class="exp-delete" onclick="deleteExpense(${e.id})" title="Löschen">✕</button>
         </div>`;
         }).join('');
+
+        // Belege asynchron nachladen
+        financeData.expenses.forEach(async e => {
+            const res = await fetch('/api/expenses/' + e.id + '/attachments');
+            const attachments = await res.json();
+            const container = document.getElementById('attachments-' + e.id);
+            if (container) renderAttachments(e.id, attachments, container);
+        });
     }
 }
 
@@ -313,10 +325,71 @@ function getCategoryColor(name) {
     return cat?.color ?? '#9699a8';
 }
 
+// ── ATTACHMENT HELPERS ──
+function renderAttachments(expenseId, attachments, container) {
+    if (!attachments || attachments.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = attachments.map(a => `
+        <div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;margin-right:6px">
+            <img src="data:${a.mimeType};base64,${a.data}"
+                style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border2);cursor:pointer"
+                onclick="openAttachment('${a.mimeType}','${a.data}')"
+                title="${a.fileName}">
+            <button class="exp-delete" onclick="deleteAttachment(${a.id}, ${expenseId})" title="Beleg löschen">✕</button>
+        </div>`).join('');
+}
+
+function openAttachment(mimeType, base64) {
+    const win = window.open();
+    win.document.write(`<img src="data:${mimeType};base64,${base64}" style="max-width:100%;max-height:100vh;object-fit:contain">`);
+}
+
+async function deleteAttachment(id, expenseId) {
+    if (!confirm('Beleg löschen?')) return;
+    try {
+        await api('/api/attachments/' + id, 'DELETE');
+        const res = await fetch('/api/expenses/' + expenseId + '/attachments');
+        const attachments = await res.json();
+        const container = document.getElementById('attachments-' + expenseId);
+        if (container) renderAttachments(expenseId, attachments, container);
+        showToast('✓ Beleg gelöscht');
+    } catch {
+        showToast('Fehler beim Löschen.');
+    }
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function handleFilePreview() {
+    const file = document.getElementById('exp-file').files[0];
+    const preview = document.getElementById('exp-attachment-preview');
+    const nameEl = document.getElementById('exp-file-name');
+    if (!file) { preview.innerHTML = ''; nameEl.textContent = ''; return; }
+
+    nameEl.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+        preview.innerHTML = `
+            <img src="${e.target.result}" style="
+                max-width:100%; max-height:120px;
+                border-radius:8px; margin-top:8px;
+                border:1px solid var(--border2);
+                object-fit:cover; display:block;">`;
+    };
+    reader.readAsDataURL(file);
+}
+
 // ── EXPENSE MODAL ──
 function openExpenseModal() {
-    const modal = document.getElementById('expense-modal');
-
     const sel = document.getElementById('exp-category');
     sel.innerHTML = financeData.categories.map(c =>
         `<option value="${c.id}">${c.name}</option>`).join('');
@@ -327,14 +400,14 @@ function openExpenseModal() {
 
     document.getElementById('exp-task').innerHTML = '<option value="">Keine Zuweisung</option>';
     document.getElementById('exp-date').value = today.toISOString().split('T')[0];
+    document.getElementById('exp-attachment-preview').innerHTML = '';
+    document.getElementById('exp-file').value = '';
+    document.getElementById('exp-file-name').textContent = '';
 
     weekSel.onchange = () => {
         const wNum = parseInt(weekSel.value);
         const taskSel = document.getElementById('exp-task');
-        if (!wNum) {
-            taskSel.innerHTML = '<option value="">Keine Zuweisung</option>';
-            return;
-        }
+        if (!wNum) { taskSel.innerHTML = '<option value="">Keine Zuweisung</option>'; return; }
         const week = appData.weeks.find(w => w.number === wNum);
         taskSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
             (week?.tasks.map(t =>
@@ -342,7 +415,7 @@ function openExpenseModal() {
             ) ?? []).join('');
     };
 
-    modal.classList.add('open');
+    document.getElementById('expense-modal').classList.add('open');
 }
 
 function closeExpenseModal() {
@@ -364,7 +437,19 @@ async function saveExpense() {
     }
 
     try {
-        await api('/api/expenses', 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
+        const expense = await api('/api/expenses', 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
+
+        const fileInput = document.getElementById('exp-file');
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const base64 = await fileToBase64(file);
+            await api(`/api/expenses/${expense.id}/attachments`, 'POST', {
+                fileName: file.name,
+                mimeType: file.type,
+                data: base64
+            });
+        }
+
         financeData = await api('/api/finance');
         renderFinanzen();
         closeExpenseModal();
@@ -387,6 +472,125 @@ async function deleteExpense(id) {
     } catch {
         showToast('Fehler beim Löschen.');
     }
+}
+
+// ── EDIT EXPENSE MODAL ──
+function openEditExpenseModal(id) {
+    const expense = financeData.expenses.find(e => e.id === id);
+    if (!expense) return;
+
+    document.getElementById('edit-exp-id').value = expense.id;
+    document.getElementById('edit-exp-amount').value = expense.amount;
+    document.getElementById('edit-exp-description').value = expense.description;
+    document.getElementById('edit-exp-link').value = expense.link ?? '';
+    document.getElementById('edit-exp-date').value = expense.date;
+
+    const catSel = document.getElementById('edit-exp-category');
+    catSel.innerHTML = financeData.categories.map(c =>
+        `<option value="${c.id}" ${c.id === expense.categoryId ? 'selected' : ''}>${c.name}</option>`).join('');
+
+    const weekSel = document.getElementById('edit-exp-week');
+    weekSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
+        appData.weeks.map(w =>
+            `<option value="${w.number}" ${w.number === expense.weekNumber ? 'selected' : ''}>Woche ${w.number}: ${w.title}</option>`
+        ).join('');
+
+    const taskSel = document.getElementById('edit-exp-task');
+    if (expense.weekNumber) {
+        const week = appData.weeks.find(w => w.number === expense.weekNumber);
+        taskSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
+            (week?.tasks.map(t =>
+                `<option value="${t.id}" ${t.id === expense.taskId ? 'selected' : ''}>${t.text.substring(0, 60)}...</option>`
+            ) ?? []).join('');
+    } else {
+        taskSel.innerHTML = '<option value="">Keine Zuweisung</option>';
+    }
+
+    weekSel.onchange = () => {
+        const wNum = parseInt(weekSel.value);
+        if (!wNum) { taskSel.innerHTML = '<option value="">Keine Zuweisung</option>'; return; }
+        const week = appData.weeks.find(w => w.number === wNum);
+        taskSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
+            (week?.tasks.map(t =>
+                `<option value="${t.id}">${t.text.substring(0, 60)}...</option>`
+            ) ?? []).join('');
+    };
+    document.getElementById('edit-exp-file').value = '';
+    document.getElementById('edit-exp-file-name').textContent = '';
+    document.getElementById('edit-exp-attachment-preview').innerHTML = '';
+    document.getElementById('edit-expense-modal').classList.add('open');
+}
+
+function closeEditExpenseModal() {
+    document.getElementById('edit-expense-modal').classList.remove('open');
+}
+
+async function updateExpense() {
+    const id = parseInt(document.getElementById('edit-exp-id').value);
+    const categoryId = parseInt(document.getElementById('edit-exp-category').value);
+    const amount = parseFloat(document.getElementById('edit-exp-amount').value);
+    const description = document.getElementById('edit-exp-description').value.trim();
+    const link = document.getElementById('edit-exp-link').value.trim() || null;
+    const date = document.getElementById('edit-exp-date').value;
+    const weekNumber = document.getElementById('edit-exp-week').value ? parseInt(document.getElementById('edit-exp-week').value) : null;
+    const taskId = document.getElementById('edit-exp-task').value ? parseInt(document.getElementById('edit-exp-task').value) : null;
+
+    if (!description || !amount || amount <= 0) {
+        showToast('Bitte Beschreibung und Betrag eingeben.');
+        return;
+    }
+
+    try {
+        await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
+        financeData = await api('/api/finance');
+        renderFinanzen();
+        closeEditExpenseModal();
+        showToast('✓ Ausgabe aktualisiert');
+    } catch {
+        showToast('Fehler beim Speichern.');
+    }
+
+    try {
+        await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
+
+        // Neuen Beleg hochladen falls vorhanden
+        const fileInput = document.getElementById('edit-exp-file');
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const base64 = await fileToBase64(file);
+            await api(`/api/expenses/${id}/attachments`, 'POST', {
+                fileName: file.name,
+                mimeType: file.type,
+                data: base64
+            });
+        }
+
+        financeData = await api('/api/finance');
+        renderFinanzen();
+        closeEditExpenseModal();
+        showToast('✓ Ausgabe aktualisiert');
+    } catch {
+        showToast('Fehler beim Speichern.');
+    }
+}
+
+function handleEditFilePreview() {
+    const file = document.getElementById('edit-exp-file').files[0];
+    const preview = document.getElementById('edit-exp-attachment-preview');
+    const nameEl = document.getElementById('edit-exp-file-name');
+    if (!file) { preview.innerHTML = ''; nameEl.textContent = ''; return; }
+
+    nameEl.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+        preview.innerHTML = `
+            <img src="${e.target.result}" style="
+                max-width:100%; max-height:120px;
+                border-radius:8px; margin-top:8px;
+                border:1px solid var(--border2);
+                object-fit:cover; display:block;">`;
+    };
+    reader.readAsDataURL(file);
 }
 
 // ── CATEGORY MODAL ──

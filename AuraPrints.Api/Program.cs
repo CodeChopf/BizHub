@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IStateRepository, StateRepository>();
 builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<IExpenseRepository, ExpenseRepository>();
 builder.Services.AddSingleton<IAdminRepository, AdminRepository>();
+builder.Services.AddSingleton<IAttachmentRepository, AttachmentRepository>();
 
 var app = builder.Build();
 
@@ -182,6 +183,44 @@ app.MapGet("/api/admin/tasks/ids", (int weekNumber, IRoadmapRepository roadmapRe
     using var reader = cmd.ExecuteReader();
     while (reader.Read()) ids.Add(reader.GetInt32(0));
     return Results.Ok(ids);
+});
+
+// GET /api/expenses/{id}/attachments
+app.MapGet("/api/expenses/{id}/attachments", (int id, IAttachmentRepository repo) =>
+    Results.Ok(repo.GetByExpenseId(id)));
+
+// POST /api/expenses/{id}/attachments
+app.MapPost("/api/expenses/{id}/attachments", async (int id, HttpRequest request, IAttachmentRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var fileName = body.GetProperty("fileName").GetString() ?? "beleg";
+    var mimeType = body.GetProperty("mimeType").GetString() ?? "image/jpeg";
+    var data = body.GetProperty("data").GetString() ?? "";
+    if (string.IsNullOrEmpty(data)) return Results.BadRequest();
+    var attachment = repo.Add(id, fileName, mimeType, data);
+    return Results.Ok(attachment);
+});
+
+// DELETE /api/attachments/{id}
+app.MapDelete("/api/attachments/{id}", (int id, IAttachmentRepository repo) =>
+{
+    repo.Delete(id);
+    return Results.Ok(new { deleted = true });
+});
+
+// PUT /api/expenses/{id}
+app.MapPut("/api/expenses/{id}", async (int id, HttpRequest request, IExpenseRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var categoryId = body.GetProperty("categoryId").GetInt32();
+    var amount = body.GetProperty("amount").GetDecimal();
+    var description = body.GetProperty("description").GetString() ?? "";
+    var link = body.TryGetProperty("link", out var l) ? l.GetString() : null;
+    var date = body.GetProperty("date").GetString() ?? DateTime.Today.ToString("yyyy-MM-dd");
+    var weekNumber = body.TryGetProperty("weekNumber", out var w) && w.ValueKind != JsonValueKind.Null ? w.GetInt32() : (int?)null;
+    var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
+    var expense = repo.Update(id, categoryId, amount, description, link, date, weekNumber, taskId);
+    return Results.Ok(expense);
 });
 
 app.Run();

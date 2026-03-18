@@ -220,10 +220,83 @@
                         </select>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Beleg (optional)</label>
+                    <input type="file" id="exp-file" accept="image/*" onchange="handleFilePreview()" style="display:none">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('exp-file').click()">
+                        📎 Datei auswählen
+                    </button>
+                    <div id="exp-file-name" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center"></div>
+                    <div id="exp-attachment-preview"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeExpenseModal()">Abbrechen</button>
                 <button class="btn-primary" onclick="saveExpense()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ausgabe bearbeiten -->
+    <div class="modal-backdrop" id="edit-expense-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Ausgabe bearbeiten</div>
+                <button class="modal-close" onclick="closeEditExpenseModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-exp-id">
+                <div class="form-group">
+                    <label>Kategorie</label>
+                    <select id="edit-exp-category"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Betrag (CHF)</label>
+                        <input type="number" id="edit-exp-amount" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="edit-exp-date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="edit-exp-description">
+                </div>
+                <div class="form-group">
+                    <label>Link (optional)</label>
+                    <input type="url" id="edit-exp-link" placeholder="https://...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Woche (optional)</label>
+                        <select id="edit-exp-week">
+                            <option value="">Keine Zuweisung</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Task (optional)</label>
+                        <select id="edit-exp-task">
+                            <option value="">Keine Zuweisung</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beleg hinzufügen (optional)</label>
+                    <input type="file" id="edit-exp-file" accept="image/*" onchange="handleEditFilePreview()" style="display:none">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('edit-exp-file').click()">
+                        📎 Beleg hinzufügen
+                    </button>
+                    <div id="edit-exp-file-name" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center"></div>
+                    <div id="edit-exp-attachment-preview"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEditExpenseModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="updateExpense()">Speichern</button>
             </div>
         </div>
     </div>
