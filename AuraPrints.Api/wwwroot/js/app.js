@@ -1679,23 +1679,22 @@ async function loadCatalog() {
 
 async function renderProdukte() {
     await loadCatalog();
+
+    // Aktive Kategorie setzen bevor wir rendern
+    if (!activeCategoryId || !catalogData.categories.find(c => c.id === activeCategoryId)) {
+        activeCategoryId = catalogData.categories[0]?.id ?? null;
+    }
+
     renderCatalogSidebar();
     renderCatalogMain();
 }
 
 function renderCatalogSidebar() {
     const sidebar = document.getElementById('catalog-sidebar');
-
-    // Aktive Kategorie setzen
-    if (!activeCategoryId || !catalogData.categories.find(c => c.id === activeCategoryId)) {
-        activeCategoryId = catalogData.categories[0]?.id ?? null;
-    }
-
     const addBtn = document.getElementById('btn-add-product');
     if (addBtn) addBtn.style.display = activeCategoryId ? 'block' : 'none';
 
     let html = '';
-
     if (catalogData.categories.length === 0) {
         html = '<div class="empty-state" style="padding:20px 0;font-size:12px">Noch keine Kategorien.<br>Erstelle zuerst eine Kategorie.</div>';
     } else {
@@ -1752,7 +1751,9 @@ function renderCatalogMain() {
 }
 
 function renderProductCard(product, category) {
-    const attrValues = JSON.parse(product.attributeValues || '{}');
+    const attrValues = typeof product.attributeValues === 'string'
+        ? JSON.parse(product.attributeValues || '{}')
+        : (product.attributeValues ?? {});
 
     // Attribute anzeigen
     let attrsHtml = '';
