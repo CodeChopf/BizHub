@@ -3,194 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuraPrints — Dashboard</title>
+    <title>BizHub — Projektmanagement</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
 
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <div class="logo-icon">AP</div>
-            <div class="logo-text">
-                <div class="logo-name">AuraPrints</div>
-                <div class="logo-sub">Management</div>
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen" style="display:none">
+        <div class="setup-wrap">
+            <div class="setup-logo">
+                <div class="setup-logo-icon">BH</div>
+                <div class="setup-logo-name">BizHub</div>
+                <div class="setup-logo-sub">Projektmanagement</div>
             </div>
-        </div>
 
-        <div class="sidebar-section-label">Navigation</div>
-        <nav class="sidebar-nav">
-            <button class="nav-item active" onclick="showPage('overview')">
-                <span class="nav-icon">⬛</span>
-                <span>Übersicht</span>
-            </button>
-            <button class="nav-item" onclick="showPage('roadmap')">
-                <span class="nav-icon">📋</span>
-                <span>Roadmap</span>
-            </button>
-            <button class="nav-item" onclick="showPage('produkte')">
-                <span class="nav-icon">📦</span>
-                <span>Produkte</span>
-            </button>
-            <button class="nav-item" onclick="showPage('finanzen')">
-                <span class="nav-icon">💰</span>
-                <span>Finanzen</span>
-            </button>
-            <button class="nav-item" onclick="showPage('meilensteine')">
-                <span class="nav-icon">🏁</span>
-                <span>Meilensteine</span>
-            </button>
-            <button class="nav-item" onclick="showPage('admin')">
-                <span class="nav-icon">⚙️</span>
-                <span>Planung</span>
-            </button>
-        </nav>
+            <div class="setup-tabs">
+                <button class="setup-tab active" onclick="switchSetupTab('new')">Neues Projekt</button>
+                <button class="setup-tab" onclick="switchSetupTab('import')">Projekt importieren</button>
+            </div>
 
-        <div class="sidebar-footer">
-            <div class="sidebar-footer-date" id="sidebar-date"></div>
-            <div class="sidebar-footer-launch" id="sidebar-launch"></div>
-        </div>
-    </aside>
-
-    <main class="main-content">
-
-        <!-- ÜBERSICHT -->
-        <div class="page active" id="page-overview">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Dashboard</div>
-                    <div class="page-sub">AuraPrints Launch Übersicht</div>
+            <!-- Neues Projekt -->
+            <div id="setup-tab-new" class="setup-panel">
+                <div class="form-group">
+                    <label>Projektname</label>
+                    <input type="text" id="setup-name" placeholder="z.B. MeinStartup, Webshop Launch...">
                 </div>
-                <div class="page-header-right" id="topbar-date"></div>
+                <div class="form-group">
+                    <label>Startdatum</label>
+                    <input type="date" id="setup-start">
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="setup-desc" rows="2" placeholder="Worum geht es bei diesem Projekt?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Währung</label>
+                    <select id="setup-currency">
+                        <option value="CHF">CHF — Schweizer Franken</option>
+                        <option value="EUR">EUR — Euro</option>
+                        <option value="USD">USD — US Dollar</option>
+                        <option value="GBP">GBP — Britisches Pfund</option>
+                    </select>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" onclick="createProject()">Projekt erstellen</button>
             </div>
-            <div class="kpi-strip" id="kpi-strip"></div>
-            <div class="overview-grid">
-                <div class="overview-left">
+
+            <!-- Import -->
+            <div id="setup-tab-import" class="setup-panel" style="display:none">
+                <div class="form-group">
+                    <label>Projekt-Datei (.json)</label>
+                    <input type="file" id="setup-import-file" accept=".json" style="display:none" onchange="handleImportPreview()">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('setup-import-file').click()">
+                        📂 JSON-Datei auswählen
+                    </button>
+                    <div id="setup-import-preview" style="margin-top:12px"></div>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" id="setup-import-btn" disabled onclick="importProject()">Projekt importieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app" style="display:none">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon" id="sidebar-logo-icon">BH</div>
+                <div class="logo-text">
+                    <div class="logo-name" id="sidebar-project-name">BizHub</div>
+                    <div class="logo-sub">Management</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section-label">Navigation</div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" onclick="showPage('overview')">
+                    <span class="nav-icon">⬛</span>
+                    <span>Übersicht</span>
+                </button>
+                <button class="nav-item" onclick="showPage('roadmap')">
+                    <span class="nav-icon">📋</span>
+                    <span>Roadmap</span>
+                </button>
+                <button class="nav-item" onclick="showPage('finanzen')">
+                    <span class="nav-icon">💰</span>
+                    <span>Finanzen</span>
+                </button>
+                <button class="nav-item" onclick="showPage('meilensteine')">
+                    <span class="nav-icon">🏁</span>
+                    <span>Meilensteine</span>
+                </button>
+                <button class="nav-item" onclick="showPage('admin')">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Planung</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-section-label">System</div>
+            <nav class="sidebar-nav">
+                <button class="nav-item" onclick="exportData()">
+                    <span class="nav-icon">💾</span>
+                    <span>Exportieren</span>
+                </button>
+                <button class="nav-item" onclick="openImportModal()">
+                    <span class="nav-icon">📂</span>
+                    <span>Importieren</span>
+                </button>
+                <button class="nav-item" onclick="showPage('einstellungen')">
+                    <span class="nav-icon">🔧</span>
+                    <span>Einstellungen</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-footer-date" id="sidebar-date"></div>
+                <div class="sidebar-footer-launch" id="sidebar-launch"></div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+
+            <!-- ÜBERSICHT -->
+            <div class="page active" id="page-overview">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title" id="overview-title">Dashboard</div>
+                        <div class="page-sub" id="overview-sub">Projektübersicht</div>
+                    </div>
+                    <div class="page-header-right" id="topbar-date"></div>
+                </div>
+                <div class="kpi-strip" id="kpi-strip"></div>
+                <div class="overview-grid">
+                    <div class="overview-left">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Diese Woche</div>
+                                <div class="card-badge" id="cw-badge"></div>
+                            </div>
+                            <div class="cw-title" id="cw-title">Lädt...</div>
+                            <div class="cw-date" id="cw-date"></div>
+                            <div id="cw-tasks"></div>
+                        </div>
+                    </div>
+                    <div class="overview-right">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Gesamtfortschritt</div>
+                            </div>
+                            <div class="donut-wrap">
+                                <svg viewBox="0 0 120 120" class="donut-svg">
+                                    <circle class="donut-bg" cx="60" cy="60" r="50" />
+                                    <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
+                                            stroke-dasharray="0 314" stroke-dashoffset="78" />
+                                </svg>
+                                <div class="donut-center">
+                                    <div class="donut-pct" id="donut-pct">0%</div>
+                                    <div class="donut-label">Erledigt</div>
+                                </div>
+                            </div>
+                            <div class="donut-stats">
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-done">0</div>
+                                    <div class="donut-stat-label">Erledigt</div>
+                                </div>
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-open">0</div>
+                                    <div class="donut-stat-label">Offen</div>
+                                </div>
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-weeks">0</div>
+                                    <div class="donut-stat-label">Wochen</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:20px">
+                    <div class="card-header">
+                        <div class="card-title">Alle Wochen</div>
+                    </div>
+                    <div class="weeks-grid" id="weeks-grid"></div>
+                </div>
+            </div>
+
+            <!-- ROADMAP -->
+            <div class="page" id="page-roadmap">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Roadmap</div>
+                        <div class="page-sub" id="roadmap-sub">Launch-Plan</div>
+                    </div>
+                </div>
+                <div id="roadmap-content"></div>
+            </div>
+
+            <!-- FINANZEN -->
+            <div class="page" id="page-finanzen">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Finanzen</div>
+                        <div class="page-sub">Ausgaben erfassen & verwalten</div>
+                    </div>
+                    <button class="btn-primary" onclick="openExpenseModal()">+ Ausgabe erfassen</button>
+                </div>
+                <div class="fin-kpi-strip" id="fin-kpi-strip"></div>
+                <div class="fin-grid">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Diese Woche</div>
-                            <div class="card-badge" id="cw-badge"></div>
+                            <div class="card-title">Nach Kategorie</div>
+                            <button class="btn-secondary" onclick="openCategoryModal()">Kategorien verwalten</button>
                         </div>
-                        <div class="cw-title" id="cw-title">Lädt...</div>
-                        <div class="cw-date" id="cw-date"></div>
-                        <div id="cw-tasks"></div>
+                        <div id="category-summary"></div>
                     </div>
-                </div>
-                <div class="overview-right">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Gesamtfortschritt</div>
+                            <div class="card-title">Alle Ausgaben</div>
                         </div>
-                        <div class="donut-wrap">
-                            <svg viewBox="0 0 120 120" class="donut-svg">
-                                <circle class="donut-bg" cx="60" cy="60" r="50" />
-                                <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
-                                        stroke-dasharray="0 314" stroke-dashoffset="78" />
-                            </svg>
-                            <div class="donut-center">
-                                <div class="donut-pct" id="donut-pct">0%</div>
-                                <div class="donut-label">Erledigt</div>
-                            </div>
-                        </div>
-                        <div class="donut-stats">
-                            <div class="donut-stat">
-                                <div class="donut-stat-val" id="stat-done">0</div>
-                                <div class="donut-stat-label">Erledigt</div>
-                            </div>
-                            <div class="donut-stat">
-                                <div class="donut-stat-val" id="stat-open">0</div>
-                                <div class="donut-stat-label">Offen</div>
-                            </div>
-                            <div class="donut-stat">
-                                <div class="donut-stat-val" id="stat-weeks">8</div>
-                                <div class="donut-stat-label">Wochen</div>
-                            </div>
-                        </div>
+                        <div id="expenses-list"></div>
                     </div>
                 </div>
             </div>
-            <div class="card" style="margin-top:20px">
-                <div class="card-header">
-                    <div class="card-title">Alle Wochen</div>
-                </div>
-                <div class="weeks-grid" id="weeks-grid"></div>
-            </div>
-        </div>
 
-        <!-- ROADMAP -->
-        <div class="page" id="page-roadmap">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Roadmap</div>
-                    <div class="page-sub">8 Wochen Launch-Plan</div>
+            <!-- MEILENSTEINE -->
+            <div class="page" id="page-meilensteine">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Meilensteine</div>
+                        <div class="page-sub">Snapshots & Verlauf</div>
+                    </div>
+                    <button class="btn-primary" onclick="openMilestoneModal()">+ Meilenstein setzen</button>
                 </div>
+                <div id="milestones-list"></div>
             </div>
-            <div id="roadmap-content"></div>
-        </div>
 
-        <!-- PRODUKTE -->
-        <div class="page" id="page-produkte">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Produkte</div>
-                    <div class="page-sub">Sortiment, Preise & Kalkulation</div>
+            <!-- ADMIN / PLANUNG -->
+            <div class="page" id="page-admin">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Planung</div>
+                        <div class="page-sub">Wochen und Tasks verwalten</div>
+                    </div>
+                    <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
                 </div>
+                <div id="admin-content"></div>
             </div>
-            <div id="produkte-content"></div>
-        </div>
 
-        <!-- FINANZEN -->
-        <div class="page" id="page-finanzen">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Finanzen</div>
-                    <div class="page-sub">Ausgaben erfassen & verwalten</div>
+            <!-- EINSTELLUNGEN -->
+            <div class="page" id="page-einstellungen">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Einstellungen</div>
+                        <div class="page-sub">Projektkonfiguration</div>
+                    </div>
                 </div>
-                <button class="btn-primary" onclick="openExpenseModal()">+ Ausgabe erfassen</button>
-            </div>
-            <div class="fin-kpi-strip" id="fin-kpi-strip"></div>
-            <div class="fin-grid">
-                <div class="card">
+                <div class="card" style="max-width:560px">
                     <div class="card-header">
-                        <div class="card-title">Nach Kategorie</div>
-                        <button class="btn-secondary" onclick="openCategoryModal()">Kategorien verwalten</button>
+                        <div class="card-title">Projekt</div>
                     </div>
-                    <div id="category-summary"></div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Alle Ausgaben</div>
+                    <div class="form-group">
+                        <label>Projektname</label>
+                        <input type="text" id="settings-name">
                     </div>
-                    <div id="expenses-list"></div>
+                    <div class="form-group">
+                        <label>Startdatum</label>
+                        <input type="date" id="settings-start">
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung</label>
+                        <textarea id="settings-desc" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Währung</label>
+                        <select id="settings-currency">
+                            <option value="CHF">CHF — Schweizer Franken</option>
+                            <option value="EUR">EUR — Euro</option>
+                            <option value="USD">USD — US Dollar</option>
+                            <option value="GBP">GBP — Britisches Pfund</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" style="margin-top:8px" onclick="saveSettings()">Speichern</button>
                 </div>
             </div>
-        </div>
 
-        <!-- MEILENSTEINE -->
-        <div class="page" id="page-meilensteine">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Meilensteine</div>
-                    <div class="page-sub">Snapshots & Verlauf</div>
-                </div>
-                <button class="btn-primary" onclick="openMilestoneModal()">+ Meilenstein setzen</button>
+        </main>
+    </div>
+
+    <!-- MODAL: Import -->
+    <div class="modal-backdrop" id="import-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Projekt importieren</div>
+                <button class="modal-close" onclick="closeImportModal()">✕</button>
             </div>
-            <div id="milestones-list"></div>
-        </div>
-
-        <!-- ADMIN / PLANUNG -->
-        <div class="page" id="page-admin">
-            <div class="page-header">
-                <div>
-                    <div class="page-title">Planung</div>
-                    <div class="page-sub">Wochen und Tasks verwalten</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>JSON-Datei auswählen</label>
+                    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImportFileChange()">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('import-file').click()">
+                        📂 Datei auswählen
+                    </button>
+                    <div id="import-preview" style="margin-top:12px"></div>
                 </div>
-                <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                <div style="font-size:12px;color:var(--amber);background:var(--amber-dim);border-radius:8px;padding:10px 14px;margin-top:8px">
+                    ⚠ Der Import überschreibt alle bestehenden Wochen, Tasks und Einstellungen. Ausgaben und Meilensteine bleiben erhalten.
+                </div>
             </div>
-            <div id="admin-content"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeImportModal()">Abbrechen</button>
+                <button class="btn-primary" id="import-confirm-btn" disabled onclick="confirmImport()">Importieren</button>
+            </div>
         </div>
-
-    </main>
+    </div>
 
     <!-- MODAL: Ausgabe erfassen -->
     <div class="modal-backdrop" id="expense-modal" onclick="closeModals(event)">
@@ -206,7 +331,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Betrag (CHF)</label>
+                        <label>Betrag</label>
                         <input type="number" id="exp-amount" step="0.01" min="0" placeholder="0.00">
                     </div>
                     <div class="form-group">
@@ -216,7 +341,7 @@
                 </div>
                 <div class="form-group">
                     <label>Beschreibung</label>
-                    <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg weiss">
+                    <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg">
                 </div>
                 <div class="form-group">
                     <label>Link (optional)</label>
@@ -225,15 +350,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Woche (optional)</label>
-                        <select id="exp-week">
-                            <option value="">Keine Zuweisung</option>
-                        </select>
+                        <select id="exp-week"><option value="">Keine Zuweisung</option></select>
                     </div>
                     <div class="form-group">
                         <label>Task (optional)</label>
-                        <select id="exp-task">
-                            <option value="">Keine Zuweisung</option>
-                        </select>
+                        <select id="exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -269,7 +390,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Betrag (CHF)</label>
+                        <label>Betrag</label>
                         <input type="number" id="edit-exp-amount" step="0.01" min="0" placeholder="0.00">
                     </div>
                     <div class="form-group">
@@ -288,15 +409,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Woche (optional)</label>
-                        <select id="edit-exp-week">
-                            <option value="">Keine Zuweisung</option>
-                        </select>
+                        <select id="edit-exp-week"><option value="">Keine Zuweisung</option></select>
                     </div>
                     <div class="form-group">
                         <label>Task (optional)</label>
-                        <select id="edit-exp-task">
-                            <option value="">Keine Zuweisung</option>
-                        </select>
+                        <select id="edit-exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
                 <div class="form-group">

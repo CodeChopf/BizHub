@@ -13,23 +13,7 @@ public class DatabaseSeeder
 
     public void Seed()
     {
-        using var con = _context.CreateConnection();
-        con.Open();
-
-        using var check = con.CreateCommand();
-        check.CommandText = "SELECT COUNT(*) FROM weeks";
-        var count = (long)(check.ExecuteScalar() ?? 0L);
-        if (count > 0) return;
-
-        using var tx = con.BeginTransaction();
-        SeedWeeks(con);
-        SeedTasks(con);
-        SeedProducts(con);
-        SeedCalculations(con);
-        SeedPhase2(con);
-        SeedLegal(con);
-        SeedCategories(con);
-        tx.Commit();
+        
     }
 
     private void SeedWeeks(SqliteConnection con)

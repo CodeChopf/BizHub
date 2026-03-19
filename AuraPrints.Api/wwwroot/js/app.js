@@ -1,5 +1,42 @@
-﻿const START = new Date('2026-03-17');
+﻿// ── PROJEKT SETTINGS ──
+let projectSettings = null;
+let START = new Date();
 
+function getStart() { return START; }
+
+function applySettings(settings) {
+    projectSettings = settings;
+    START = new Date(settings.startDate);
+
+    // Sidebar
+    const nameEl = document.getElementById('sidebar-project-name');
+    const iconEl = document.getElementById('sidebar-logo-icon');
+    if (nameEl) nameEl.textContent = settings.projectName;
+    if (iconEl) iconEl.textContent = settings.projectName.substring(0, 2).toUpperCase();
+
+    // Overview
+    const titleEl = document.getElementById('overview-title');
+    if (titleEl) titleEl.textContent = settings.projectName;
+
+    // Einstellungen
+    const sName = document.getElementById('settings-name');
+    const sStart = document.getElementById('settings-start');
+    const sDesc = document.getElementById('settings-desc');
+    const sCurr = document.getElementById('settings-currency');
+    if (sName) sName.value = settings.projectName;
+    if (sStart) sStart.value = settings.startDate;
+    if (sDesc) sDesc.value = settings.description ?? '';
+    if (sCurr) sCurr.value = settings.currency ?? 'CHF';
+
+    // Document title
+    document.title = settings.projectName + ' — BizHub';
+}
+
+function getCurrency() {
+    return projectSettings?.currency ?? 'CHF';
+}
+
+// ── DATE HELPERS ──
 function addDays(d, n) {
     const r = new Date(d); r.setDate(r.getDate() + n); return r;
 }
@@ -24,21 +61,16 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-const weekRanges = [];
-for (let i = 0; i < 8; i++) {
-    weekRanges.push({ start: addDays(START, i * 7), end: addDays(START, i * 7 + 6) });
+function getWeekRanges() {
+    const ranges = [];
+    if (!appData?.weeks) return ranges;
+    for (let i = 0; i < appData.weeks.length; i++) {
+        ranges.push({ start: addDays(START, i * 7), end: addDays(START, i * 7 + 6) });
+    }
+    return ranges;
 }
 
 const today = new Date();
-let currentWeek = 1;
-for (let i = 0; i < 8; i++) {
-    if (today >= weekRanges[i].start && today <= weekRanges[i].end) { currentWeek = i + 1; break; }
-    if (today > weekRanges[i].end) currentWeek = i + 1;
-}
-
-const launchDate = weekRanges[5].start;
-const daysToLaunch = Math.ceil((launchDate - today) / (1000 * 60 * 60 * 24));
-
 let state = {};
 let appData = null;
 let productData = null;
@@ -60,17 +92,93 @@ async function saveState() {
     try { await api('/api/state', 'POST', state); } catch { console.error('Speichern fehlgeschlagen'); }
 }
 
+// ── SETUP SCREEN ──
+function switchSetupTab(tab) {
+    document.querySelectorAll('.setup-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.setup-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('setup-tab-' + tab).style.display = 'block';
+    event.target.classList.add('active');
+}
+
+async function createProject() {
+    const name = document.getElementById('setup-name').value.trim();
+    const start = document.getElementById('setup-start').value;
+    const desc = document.getElementById('setup-desc').value.trim();
+    const currency = document.getElementById('setup-currency').value;
+
+    if (!name) { alert('Bitte einen Projektnamen eingeben.'); return; }
+    if (!start) { alert('Bitte ein Startdatum wählen.'); return; }
+
+    await api('/api/settings', 'POST', { projectName: name, startDate: start, description: desc, currency });
+    location.reload();
+}
+
+let _importData = null;
+
+function handleImportPreview() {
+    const file = document.getElementById('setup-import-file').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            _importData = data;
+            const preview = document.getElementById('setup-import-preview');
+            preview.innerHTML = `
+                <div class="import-preview-card">
+                    <div class="import-preview-name">${data.settings?.projectName ?? 'Unbekannt'}</div>
+                    <div class="import-preview-meta">
+                        <div class="import-preview-item">Start: <span>${formatDateStr(data.settings?.startDate ?? '')}</span></div>
+                        <div class="import-preview-item">Wochen: <span>${data.weeks?.length ?? 0}</span></div>
+                        <div class="import-preview-item">Ausgaben: <span>${data.finance?.expenses?.length ?? 0}</span></div>
+                        <div class="import-preview-item">Exportiert: <span>${formatDateStr((data.exportedAt ?? '').split(' ')[0])}</span></div>
+                    </div>
+                </div>`;
+            document.getElementById('setup-import-btn').disabled = false;
+        } catch {
+            alert('Ungültige JSON-Datei.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function importProject() {
+    if (!_importData) return;
+    try {
+        await api('/api/import', 'POST', _importData);
+        location.reload();
+    } catch {
+        alert('Fehler beim Importieren.');
+    }
+}
+
 // ── INIT ──
 async function init() {
+    // Settings laden
+    const settings = await api('/api/settings');
+
+    if (!settings.isSetup) {
+        // Setup-Screen anzeigen
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+        // Datum auf heute vorbelegen
+        document.getElementById('setup-start').value = today.toISOString().split('T')[0];
+        return;
+    }
+
+    // App anzeigen
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    applySettings(settings);
+
     await loadState();
     try {
-        const [dataRes, prodRes, finRes] = await Promise.all([
+        const [dataRes, finRes] = await Promise.all([
             fetch('/api/data'),
-            fetch('/api/products'),
             fetch('/api/finance')
         ]);
         appData = await dataRes.json();
-        productData = await prodRes.json();
         financeData = await finRes.json();
     } catch {
         document.getElementById('roadmap-content').innerHTML =
@@ -78,15 +186,27 @@ async function init() {
         return;
     }
 
+    const weekRanges = getWeekRanges();
+    let currentWeek = 1;
+    for (let i = 0; i < weekRanges.length; i++) {
+        if (today >= weekRanges[i].start && today <= weekRanges[i].end) { currentWeek = i + 1; break; }
+        if (today > weekRanges[i].end) currentWeek = i + 1;
+    }
+    window._currentWeek = currentWeek;
+
+    const launchDate = weekRanges.length >= 6 ? weekRanges[5].start : addDays(START, 35);
+    const daysToLaunch = Math.ceil((launchDate - today) / (1000 * 60 * 60 * 24));
+    window._daysToLaunch = daysToLaunch;
+    window._launchDate = launchDate;
+
     document.getElementById('sidebar-date').textContent = 'Heute: ' + fmt(today);
     document.getElementById('sidebar-launch').textContent =
-        daysToLaunch > 0 ? '🚀 Launch in ' + daysToLaunch + ' Tagen' : '🚀 Launch!';
+        daysToLaunch > 0 ? '🚀 in ' + daysToLaunch + ' Tagen' : '🚀 Gestartet!';
     document.getElementById('topbar-date').innerHTML =
-        'Heute: ' + fmt(today) + '<br>Launch-Ziel: ' + fmt(launchDate);
+        'Heute: ' + fmt(today) + '<br>Start: ' + fmt(START);
 
     renderKpis();
     renderRoadmap();
-    renderProdukte();
     renderFinanzen();
     updateAll();
 
@@ -96,9 +216,83 @@ async function init() {
     if (cwChev) cwChev.classList.add('open');
 }
 
+// ── EINSTELLUNGEN ──
+async function saveSettings() {
+    const name = document.getElementById('settings-name').value.trim();
+    const start = document.getElementById('settings-start').value;
+    const desc = document.getElementById('settings-desc').value.trim();
+    const currency = document.getElementById('settings-currency').value;
+
+    if (!name || !start) { showToast('Name und Startdatum sind Pflicht.'); return; }
+
+    const settings = await api('/api/settings', 'POST', { projectName: name, startDate: start, description: desc, currency });
+    applySettings(settings);
+    showToast('✓ Einstellungen gespeichert');
+}
+
+// ── EXPORT / IMPORT ──
+function exportData() {
+    const a = document.createElement('a');
+    a.href = '/api/export';
+    a.download = '';
+    a.click();
+    showToast('✓ Export wird heruntergeladen');
+}
+
+function openImportModal() {
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-preview').innerHTML = '';
+    document.getElementById('import-confirm-btn').disabled = true;
+    _importData = null;
+    document.getElementById('import-modal').classList.add('open');
+}
+
+function closeImportModal() {
+    document.getElementById('import-modal').classList.remove('open');
+}
+
+function handleImportFileChange() {
+    const file = document.getElementById('import-file').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            _importData = data;
+            document.getElementById('import-preview').innerHTML = `
+                <div class="import-preview-card">
+                    <div class="import-preview-name">${data.settings?.projectName ?? 'Unbekannt'}</div>
+                    <div class="import-preview-meta">
+                        <div class="import-preview-item">Start: <span>${formatDateStr(data.settings?.startDate ?? '')}</span></div>
+                        <div class="import-preview-item">Wochen: <span>${data.weeks?.length ?? 0}</span></div>
+                        <div class="import-preview-item">Ausgaben: <span>${data.finance?.expenses?.length ?? 0}</span></div>
+                        <div class="import-preview-item">Exportiert: <span>${formatDateStr((data.exportedAt ?? '').split(' ')[0])}</span></div>
+                    </div>
+                </div>`;
+            document.getElementById('import-confirm-btn').disabled = false;
+        } catch {
+            showToast('Ungültige JSON-Datei.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function confirmImport() {
+    if (!_importData) return;
+    try {
+        await api('/api/import', 'POST', _importData);
+        closeImportModal();
+        showToast('✓ Import erfolgreich — App wird neu geladen');
+        setTimeout(() => location.reload(), 1500);
+    } catch {
+        showToast('Fehler beim Importieren.');
+    }
+}
+
 // ── KPIs ──
 function renderKpis() {
     const strip = document.getElementById('kpi-strip');
+    if (!strip || !appData) return;
     const total = appData.weeks.reduce((s, w) => s + w.tasks.length, 0);
     const done = Object.values(state).filter(Boolean).length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -107,8 +301,8 @@ function renderKpis() {
         { icon: '📊', val: pct + '%', label: 'Fortschritt', color: 'blue' },
         { icon: '✅', val: done, label: 'Erledigt', color: 'green' },
         { icon: '⏳', val: total - done, label: 'Offen', color: 'amber' },
-        { icon: '📅', val: 'W' + currentWeek, label: 'Aktuelle Woche', color: 'purple' },
-        { icon: '🚀', val: daysToLaunch > 0 ? daysToLaunch : '🎉', label: 'Tage bis Launch', color: 'red' }
+        { icon: '📅', val: 'W' + window._currentWeek, label: 'Aktuelle Woche', color: 'purple' },
+        { icon: '🚀', val: window._daysToLaunch > 0 ? window._daysToLaunch : '🎉', label: 'Tage bis Launch', color: 'red' }
     ];
 
     strip.innerHTML = kpis.map(k => `
@@ -122,8 +316,10 @@ function renderKpis() {
 // ── ROADMAP ──
 function renderRoadmap() {
     const container = document.getElementById('roadmap-content');
+    if (!container || !appData) return;
     container.innerHTML = '';
     let lastPhase = '';
+    const weekRanges = getWeekRanges();
 
     appData.weeks.forEach(week => {
         if (week.phase !== lastPhase) {
@@ -177,75 +373,6 @@ function renderRoadmap() {
     });
 }
 
-// ── PRODUKTE ──
-function renderProdukte() {
-    const container = document.getElementById('produkte-content');
-    container.innerHTML = '';
-
-    let prodGrid = '<div class="prod-grid">';
-    productData.products.forEach(p => {
-        const tagClass = p.type === 'wand' ? 'tag-w' : 'tag-a';
-        const tagLabel = p.type === 'wand' ? 'Wand' : 'Aufstell';
-        let rows = p.variants.map(v => `
-      <tr>
-        <td><span class="size-pill">${v.size}</span></td>
-        <td>${v.height}</td><td>${v.printTime}</td>
-        <td><span class="price-a">${v.price}</span></td>
-      </tr>`).join('');
-        prodGrid += `
-      <div class="prod-card">
-        <div class="prod-head">
-          <div class="prod-name">${p.name}</div>
-          <span class="prod-tag ${tagClass}">${tagLabel}</span>
-        </div>
-        <table class="prod-table">
-          <tr><th>Grösse</th><th>Höhe</th><th>Druckzeit</th><th>Preis</th></tr>
-          ${rows}
-        </table>
-      </div>`;
-    });
-    prodGrid += '</div>';
-    container.innerHTML += prodGrid;
-
-    container.innerHTML += `<div class="prod-lbl">Kostenkalkulation</div>`;
-    let calcGrid = '<div class="calc-grid">';
-    productData.calculations.forEach(c => {
-        let costRows = c.costs.map(cost =>
-            `<div class="calc-row"><span>${cost.label}</span><span class="neg">${cost.amount}</span></div>`
-        ).join('');
-        calcGrid += `
-      <div class="calc-card">
-        <div class="calc-head"><div class="calc-sku">${c.sku}</div><div class="calc-name">${c.name}</div></div>
-        <div class="calc-body">
-          ${costRows}
-          <div class="calc-row total"><span>Gewinn</span><span class="pos">${c.profit}</span></div>
-        </div>
-      </div>`;
-    });
-    calcGrid += '</div>';
-    container.innerHTML += calcGrid;
-
-    container.innerHTML += `<div class="prod-lbl">Phase 2 — Geplant</div>`;
-    let p2Grid = '<div class="p2-grid">';
-    productData.phase2.forEach(p => {
-        p2Grid += `
-      <div class="p2-card">
-        <div class="p2-lbl">${p.label}</div>
-        <div class="p2-name">${p.name}</div>
-        <div class="p2-price">${p.price}</div>
-        <div class="p2-note">${p.note}</div>
-      </div>`;
-    });
-    p2Grid += '</div>';
-    container.innerHTML += p2Grid;
-
-    container.innerHTML += `<div class="prod-lbl">Rechtliches</div>`;
-    let legal = '<div class="legal-box"><ul>';
-    productData.legal.forEach(l => { legal += `<li>${l.text}</li>`; });
-    legal += '</ul></div>';
-    container.innerHTML += legal;
-}
-
 // ── FINANZEN ──
 function renderFinanzen() {
     if (!financeData) return;
@@ -254,11 +381,12 @@ function renderFinanzen() {
     const total = financeData.totalExpenses;
     const count = financeData.expenses.length;
     const cats = financeData.categories.length;
+    const currency = getCurrency();
 
     strip.innerHTML = `
     <div class="kpi-card red">
       <div class="kpi-icon">💸</div>
-      <div class="kpi-val">CHF ${fmtChf(total)}</div>
+      <div class="kpi-val">${currency} ${fmtChf(total)}</div>
       <div class="kpi-label">Gesamtausgaben</div>
     </div>
     <div class="kpi-card amber">
@@ -285,7 +413,7 @@ function renderFinanzen() {
           <div class="cat-bar-fill" style="width:${Math.round((s.total / maxTotal) * 100)}%;background:${getCategoryColor(s.categoryName)}"></div>
         </div>
         <div class="cat-count">${s.count}×</div>
-        <div class="cat-amount">CHF ${fmtChf(s.total)}</div>
+        <div class="cat-amount">${currency} ${fmtChf(s.total)}</div>
       </div>`).join('');
     }
 
@@ -304,13 +432,12 @@ function renderFinanzen() {
             <div class="exp-meta">${formatDateStr(e.date)} ${weekLabel} ${linkHtml}</div>
             <div id="attachments-${e.id}" class="exp-attachments"></div>
           </div>
-          <div class="exp-amount">−CHF ${fmtChf(e.amount)}</div>
+          <div class="exp-amount">−${currency} ${fmtChf(e.amount)}</div>
           <button class="btn-icon" onclick="openEditExpenseModal(${e.id})" title="Bearbeiten">✏️</button>
           <button class="exp-delete" onclick="deleteExpense(${e.id})" title="Löschen">✕</button>
         </div>`;
         }).join('');
 
-        // Belege asynchron nachladen
         financeData.expenses.forEach(async e => {
             const res = await fetch('/api/expenses/' + e.id + '/attachments');
             const attachments = await res.json();
@@ -327,16 +454,12 @@ function getCategoryColor(name) {
 
 // ── ATTACHMENT HELPERS ──
 function renderAttachments(expenseId, attachments, container) {
-    if (!attachments || attachments.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
+    if (!attachments || attachments.length === 0) { container.innerHTML = ''; return; }
     container.innerHTML = attachments.map(a => `
         <div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;margin-right:6px">
             <img src="data:${a.mimeType};base64,${a.data}"
                 style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border2);cursor:pointer"
-                onclick="openAttachment('${a.mimeType}','${a.data}')"
-                title="${a.fileName}">
+                onclick="openAttachment('${a.mimeType}','${a.data}')" title="${a.fileName}">
             <button class="exp-delete" onclick="deleteAttachment(${a.id}, ${expenseId})" title="Beleg löschen">✕</button>
         </div>`).join('');
 }
@@ -355,9 +478,7 @@ async function deleteAttachment(id, expenseId) {
         const container = document.getElementById('attachments-' + expenseId);
         if (container) renderAttachments(expenseId, attachments, container);
         showToast('✓ Beleg gelöscht');
-    } catch {
-        showToast('Fehler beim Löschen.');
-    }
+    } catch { showToast('Fehler beim Löschen.'); }
 }
 
 function fileToBase64(file) {
@@ -374,16 +495,23 @@ function handleFilePreview() {
     const preview = document.getElementById('exp-attachment-preview');
     const nameEl = document.getElementById('exp-file-name');
     if (!file) { preview.innerHTML = ''; nameEl.textContent = ''; return; }
-
     nameEl.textContent = file.name;
     const reader = new FileReader();
     reader.onload = e => {
-        preview.innerHTML = `
-            <img src="${e.target.result}" style="
-                max-width:100%; max-height:120px;
-                border-radius:8px; margin-top:8px;
-                border:1px solid var(--border2);
-                object-fit:cover; display:block;">`;
+        preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:120px;border-radius:8px;margin-top:8px;border:1px solid var(--border2);object-fit:cover;display:block;">`;
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleEditFilePreview() {
+    const file = document.getElementById('edit-exp-file').files[0];
+    const preview = document.getElementById('edit-exp-attachment-preview');
+    const nameEl = document.getElementById('edit-exp-file-name');
+    if (!file) { preview.innerHTML = ''; nameEl.textContent = ''; return; }
+    nameEl.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+        preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:120px;border-radius:8px;margin-top:8px;border:1px solid var(--border2);object-fit:cover;display:block;">`;
     };
     reader.readAsDataURL(file);
 }
@@ -410,9 +538,7 @@ function openExpenseModal() {
         if (!wNum) { taskSel.innerHTML = '<option value="">Keine Zuweisung</option>'; return; }
         const week = appData.weeks.find(w => w.number === wNum);
         taskSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
-            (week?.tasks.map(t =>
-                `<option value="${t.id}">${t.text.substring(0, 60)}...</option>`
-            ) ?? []).join('');
+            (week?.tasks.map(t => `<option value="${t.id}">${t.text.substring(0, 60)}...</option>`) ?? []).join('');
     };
 
     document.getElementById('expense-modal').classList.add('open');
@@ -431,10 +557,7 @@ async function saveExpense() {
     const weekNumber = document.getElementById('exp-week').value ? parseInt(document.getElementById('exp-week').value) : null;
     const taskId = document.getElementById('exp-task').value ? parseInt(document.getElementById('exp-task').value) : null;
 
-    if (!description || !amount || amount <= 0) {
-        showToast('Bitte Beschreibung und Betrag eingeben.');
-        return;
-    }
+    if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
         const expense = await api('/api/expenses', 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
@@ -443,11 +566,7 @@ async function saveExpense() {
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${expense.id}/attachments`, 'POST', {
-                fileName: file.name,
-                mimeType: file.type,
-                data: base64
-            });
+            await api(`/api/expenses/${expense.id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
         financeData = await api('/api/finance');
@@ -457,9 +576,7 @@ async function saveExpense() {
         document.getElementById('exp-amount').value = '';
         document.getElementById('exp-description').value = '';
         document.getElementById('exp-link').value = '';
-    } catch {
-        showToast('Fehler beim Speichern.');
-    }
+    } catch { showToast('Fehler beim Speichern.'); }
 }
 
 async function deleteExpense(id) {
@@ -469,9 +586,7 @@ async function deleteExpense(id) {
         financeData = await api('/api/finance');
         renderFinanzen();
         showToast('✓ Ausgabe gelöscht');
-    } catch {
-        showToast('Fehler beim Löschen.');
-    }
+    } catch { showToast('Fehler beim Löschen.'); }
 }
 
 // ── EDIT EXPENSE MODAL ──
@@ -484,6 +599,9 @@ function openEditExpenseModal(id) {
     document.getElementById('edit-exp-description').value = expense.description;
     document.getElementById('edit-exp-link').value = expense.link ?? '';
     document.getElementById('edit-exp-date').value = expense.date;
+    document.getElementById('edit-exp-file').value = '';
+    document.getElementById('edit-exp-file-name').textContent = '';
+    document.getElementById('edit-exp-attachment-preview').innerHTML = '';
 
     const catSel = document.getElementById('edit-exp-category');
     catSel.innerHTML = financeData.categories.map(c =>
@@ -511,13 +629,9 @@ function openEditExpenseModal(id) {
         if (!wNum) { taskSel.innerHTML = '<option value="">Keine Zuweisung</option>'; return; }
         const week = appData.weeks.find(w => w.number === wNum);
         taskSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
-            (week?.tasks.map(t =>
-                `<option value="${t.id}">${t.text.substring(0, 60)}...</option>`
-            ) ?? []).join('');
+            (week?.tasks.map(t => `<option value="${t.id}">${t.text.substring(0, 60)}...</option>`) ?? []).join('');
     };
-    document.getElementById('edit-exp-file').value = '';
-    document.getElementById('edit-exp-file-name').textContent = '';
-    document.getElementById('edit-exp-attachment-preview').innerHTML = '';
+
     document.getElementById('edit-expense-modal').classList.add('open');
 }
 
@@ -535,62 +649,23 @@ async function updateExpense() {
     const weekNumber = document.getElementById('edit-exp-week').value ? parseInt(document.getElementById('edit-exp-week').value) : null;
     const taskId = document.getElementById('edit-exp-task').value ? parseInt(document.getElementById('edit-exp-task').value) : null;
 
-    if (!description || !amount || amount <= 0) {
-        showToast('Bitte Beschreibung und Betrag eingeben.');
-        return;
-    }
-
-    try {
-        await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
-        financeData = await api('/api/finance');
-        renderFinanzen();
-        closeEditExpenseModal();
-        showToast('✓ Ausgabe aktualisiert');
-    } catch {
-        showToast('Fehler beim Speichern.');
-    }
+    if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
         await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
 
-        // Neuen Beleg hochladen falls vorhanden
         const fileInput = document.getElementById('edit-exp-file');
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${id}/attachments`, 'POST', {
-                fileName: file.name,
-                mimeType: file.type,
-                data: base64
-            });
+            await api(`/api/expenses/${id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
         financeData = await api('/api/finance');
         renderFinanzen();
         closeEditExpenseModal();
         showToast('✓ Ausgabe aktualisiert');
-    } catch {
-        showToast('Fehler beim Speichern.');
-    }
-}
-
-function handleEditFilePreview() {
-    const file = document.getElementById('edit-exp-file').files[0];
-    const preview = document.getElementById('edit-exp-attachment-preview');
-    const nameEl = document.getElementById('edit-exp-file-name');
-    if (!file) { preview.innerHTML = ''; nameEl.textContent = ''; return; }
-
-    nameEl.textContent = file.name;
-    const reader = new FileReader();
-    reader.onload = e => {
-        preview.innerHTML = `
-            <img src="${e.target.result}" style="
-                max-width:100%; max-height:120px;
-                border-radius:8px; margin-top:8px;
-                border:1px solid var(--border2);
-                object-fit:cover; display:block;">`;
-    };
-    reader.readAsDataURL(file);
+    } catch { showToast('Fehler beim Speichern.'); }
 }
 
 // ── CATEGORY MODAL ──
@@ -644,7 +719,7 @@ async function addCategory() {
 }
 
 async function deleteCategory(id) {
-    if (!confirm('Kategorie löschen? Alle zugehörigen Ausgaben bleiben erhalten.')) return;
+    if (!confirm('Kategorie löschen?')) return;
     await api('/api/categories/' + id, 'DELETE');
     financeData = await api('/api/finance');
     renderCategoryList();
@@ -679,8 +754,9 @@ function showPage(id) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
     document.getElementById('page-' + id).classList.add('active');
-    const idx = { overview: 0, roadmap: 1, produkte: 2, finanzen: 3, meilensteine: 4, admin: 5 };
-    document.querySelectorAll('.nav-item')[idx[id]].classList.add('active');
+    const idx = { overview: 0, roadmap: 1, finanzen: 2, meilensteine: 3, admin: 4, einstellungen: 5 };
+    const navItems = document.querySelectorAll('.nav-item');
+    if (idx[id] !== undefined && navItems[idx[id]]) navItems[idx[id]].classList.add('active');
     if (id === 'admin') renderAdmin();
     if (id === 'meilensteine') renderMilestones();
 }
@@ -699,6 +775,7 @@ function updateAll() {
     document.getElementById('donut-pct').textContent = pct + '%';
     document.getElementById('stat-done').textContent = done;
     document.getElementById('stat-open').textContent = total - done;
+    document.getElementById('stat-weeks').textContent = appData.weeks.length;
 
     renderKpis();
 
@@ -721,7 +798,9 @@ function updateAll() {
 
 function updateOverview() {
     if (!appData) return;
+    const currentWeek = window._currentWeek ?? 1;
     const week = appData.weeks.find(w => w.number === currentWeek);
+    const weekRanges = getWeekRanges();
     if (!week) return;
 
     document.getElementById('cw-badge').textContent = 'Woche ' + currentWeek;
@@ -846,49 +925,38 @@ function renderAdminTasks(week) {
       </div>`).join('');
 }
 
-// ── DRAG & DROP ──
 function initDragDrop() {
     document.querySelectorAll('.admin-tasks').forEach(container => {
         const weekNumber = parseInt(container.id.replace('admin-tasks-', ''));
-
         container.querySelectorAll('.admin-task-row').forEach(row => {
             row.setAttribute('draggable', true);
-
             row.addEventListener('dragstart', e => {
                 e.dataTransfer.setData('text/plain', row.dataset.taskDbId);
                 setTimeout(() => row.style.opacity = '0.4', 0);
             });
-
             row.addEventListener('dragend', () => {
                 row.style.opacity = '1';
                 container.querySelectorAll('.admin-task-row').forEach(r => r.classList.remove('drag-over'));
             });
-
             row.addEventListener('dragover', e => {
                 e.preventDefault();
                 container.querySelectorAll('.admin-task-row').forEach(r => r.classList.remove('drag-over'));
                 row.classList.add('drag-over');
             });
-
             row.addEventListener('drop', async e => {
                 e.preventDefault();
                 container.querySelectorAll('.admin-task-row').forEach(r => r.classList.remove('drag-over'));
-
                 const draggedDbId = parseInt(e.dataTransfer.getData('text/plain'));
                 const targetDbId = parseInt(row.dataset.taskDbId);
                 if (draggedDbId === targetDbId) return;
-
                 const allRows = [...container.querySelectorAll('.admin-task-row')];
                 const ids = allRows.map(r => parseInt(r.dataset.taskDbId));
-
                 const fromIdx = ids.indexOf(draggedDbId);
                 const toIdx = ids.indexOf(targetDbId);
                 if (fromIdx === -1 || toIdx === -1) return;
-
                 const reordered = [...ids];
                 const [moved] = reordered.splice(fromIdx, 1);
                 reordered.splice(toIdx, 0, moved);
-
                 await api('/api/admin/weeks/' + weekNumber + '/reorder', 'PUT', { taskIds: reordered });
                 appData = await api('/api/data');
                 renderRoadmap();
@@ -900,7 +968,6 @@ function initDragDrop() {
     });
 }
 
-// ── WEEK MODAL ──
 function openNewWeekModal() {
     editingWeekNumber = null;
     document.getElementById('week-modal-title').textContent = 'Woche erstellen';
@@ -957,7 +1024,7 @@ async function saveWeek() {
 }
 
 async function deleteWeek(number) {
-    if (!confirm(`Woche ${number} und alle zugehörigen Tasks löschen?`)) return;
+    if (!confirm(`Woche ${number} und alle Tasks löschen?`)) return;
     try {
         await api('/api/admin/weeks/' + number, 'DELETE');
         appData = await api('/api/data');
@@ -968,7 +1035,6 @@ async function deleteWeek(number) {
     } catch { showToast('Fehler beim Löschen.'); }
 }
 
-// ── TASK MODAL ──
 function openNewTaskModal(weekNumber) {
     editingTaskId = null;
     editingTaskWeekNumber = weekNumber;
@@ -985,7 +1051,6 @@ function openEditTaskModal(taskDbId, weekNumber) {
     if (!week) return;
     const task = week.tasks.find(t => t.id === taskDbId);
     if (!task) return;
-
     editingTaskId = taskDbId;
     editingTaskWeekNumber = weekNumber;
     document.getElementById('task-modal-title').textContent = 'Task bearbeiten';
@@ -1085,7 +1150,6 @@ async function saveMilestone() {
 
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
 
-    // Snapshot des aktuellen Zustands erstellen
     const snapshot = {
         createdAt: new Date().toISOString(),
         fortschritt: Object.values(state).filter(Boolean).length,
@@ -1099,17 +1163,11 @@ async function saveMilestone() {
     };
 
     try {
-        await api('/api/milestones', 'POST', {
-            name,
-            description,
-            snapshot: JSON.stringify(snapshot)
-        });
+        await api('/api/milestones', 'POST', { name, description, snapshot: JSON.stringify(snapshot) });
         closeMilestoneModal();
         renderMilestones();
         showToast('✓ Meilenstein gespeichert');
-    } catch {
-        showToast('Fehler beim Speichern.');
-    }
+    } catch { showToast('Fehler beim Speichern.'); }
 }
 
 async function deleteMilestone(id) {
@@ -1118,14 +1176,13 @@ async function deleteMilestone(id) {
         await api('/api/milestones/' + id, 'DELETE');
         renderMilestones();
         showToast('✓ Meilenstein gelöscht');
-    } catch {
-        showToast('Fehler beim Löschen.');
-    }
+    } catch { showToast('Fehler beim Löschen.'); }
 }
 
 async function openMilestoneDetail(id) {
     const milestone = await api('/api/milestones/' + id);
     const snap = JSON.parse(milestone.snapshot);
+    const currency = getCurrency();
 
     document.getElementById('ms-detail-title').textContent = milestone.name;
 
@@ -1139,13 +1196,12 @@ async function openMilestoneDetail(id) {
             <div class="ms-stat-grid">
                 <div class="ms-stat"><div class="ms-stat-val">${pct}%</div><div class="ms-stat-label">Fortschritt</div></div>
                 <div class="ms-stat"><div class="ms-stat-val">${snap.fortschritt}/${snap.totalTasks}</div><div class="ms-stat-label">Tasks erledigt</div></div>
-                <div class="ms-stat"><div class="ms-stat-val">CHF ${fmtChf(snap.totalExpenses ?? 0)}</div><div class="ms-stat-label">Ausgaben</div></div>
+                <div class="ms-stat"><div class="ms-stat-val">${currency} ${fmtChf(snap.totalExpenses ?? 0)}</div><div class="ms-stat-label">Ausgaben</div></div>
             </div>
             <div style="font-size:12px;color:var(--text3)">Gespeichert am ${date} um ${time} Uhr</div>
             ${milestone.description ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${milestone.description}</div>` : ''}
         </div>`;
 
-    // Wochen & Tasks
     if (snap.weeks?.length > 0) {
         snap.weeks.forEach(week => {
             const wDone = week.tasks.filter(t => snap.state?.['task-' + t.id]).length;
@@ -1153,37 +1209,33 @@ async function openMilestoneDetail(id) {
             const wPct = wTotal > 0 ? Math.round((wDone / wTotal) * 100) : 0;
 
             html += `
-        <div class="ms-detail-section">
-            <div class="ms-detail-label">
-                W0${week.number} — ${week.title}
-                <span style="float:right;color:${wPct === 100 ? 'var(--green)' : 'var(--text2)'}">
-                    ${wDone}/${wTotal} (${wPct}%)
-                </span>
-            </div>
-            <table class="ms-detail-table">
-                <tr><th>Status</th><th>Typ</th><th>Task</th><th>Zeit</th></tr>`;
+            <div class="ms-detail-section">
+                <div class="ms-detail-label">
+                    W0${week.number} — ${week.title}
+                    <span style="float:right;color:${wPct === 100 ? 'var(--green)' : 'var(--text2)'}">
+                        ${wDone}/${wTotal} (${wPct}%)
+                    </span>
+                </div>
+                <table class="ms-detail-table">
+                    <tr><th>Status</th><th>Typ</th><th>Task</th><th>Zeit</th></tr>`;
 
             week.tasks.forEach(task => {
                 const isDone = !!snap.state?.['task-' + task.id];
                 html += `<tr>
-                <td style="color:${isDone ? 'var(--green)' : 'var(--text3)'}">
-                    ${isDone ? '✓ Erledigt' : '○ Offen'}
-                </td>
-                <td><span class="task-type type-${task.type}" style="font-size:10px;padding:2px 6px">
-                    ${task.type === 'pc' ? 'PC' : 'Physisch'}
-                </span></td>
-                <td style="color:${isDone ? 'var(--text3)' : 'var(--text)'}">
-                    ${isDone ? '<s>' : ''}${task.text}${isDone ? '</s>' : ''}
-                </td>
-                <td style="white-space:nowrap">${task.hours}</td>
-            </tr>`;
+                    <td style="color:${isDone ? 'var(--green)' : 'var(--text3)'}">${isDone ? '✓ Erledigt' : '○ Offen'}</td>
+                    <td><span style="font-size:10px;padding:2px 6px;border-radius:99px;background:${task.type === 'pc' ? 'var(--accent-dim)' : 'var(--green-dim)'};color:${task.type === 'pc' ? 'var(--accent)' : 'var(--green)'}">
+                        ${task.type === 'pc' ? 'PC' : 'Physisch'}
+                    </span></td>
+                    <td style="color:${isDone ? 'var(--text3)' : 'var(--text)'}">
+                        ${isDone ? '<s>' : ''}${task.text}${isDone ? '</s>' : ''}
+                    </td>
+                    <td style="white-space:nowrap">${task.hours}</td>
+                </tr>`;
             });
-
             html += '</table></div>';
         });
     }
 
-    // Ausgaben
     if (snap.expenses?.length > 0) {
         html += `<div class="ms-detail-section">
             <div class="ms-detail-label">Ausgaben (${snap.expenses.length})</div>
@@ -1194,17 +1246,14 @@ async function openMilestoneDetail(id) {
                 <td>${formatDateStr(e.date)}</td>
                 <td>${e.categoryName}</td>
                 <td>${e.description}</td>
-                <td style="color:var(--red)">−CHF ${fmtChf(e.amount)}</td>
+                <td style="color:var(--red)">−${currency} ${fmtChf(e.amount)}</td>
             </tr>`;
         });
         html += '</table></div>';
     }
 
     document.getElementById('ms-detail-body').innerHTML = html;
-
-    // Snapshot für Export speichern
     window._currentMilestone = { milestone, snap };
-
     document.getElementById('milestone-detail-modal').classList.add('open');
 }
 
@@ -1216,28 +1265,25 @@ function exportMilestonePdf() {
     if (!window._currentMilestone) return;
     const { milestone } = window._currentMilestone;
     const content = document.getElementById('ms-detail-body').innerHTML;
-
     const win = window.open('', '_blank');
-    win.document.write(`
-        <!DOCTYPE html><html><head>
+    win.document.write(`<!DOCTYPE html><html><head>
         <meta charset="UTF-8">
         <title>Meilenstein — ${milestone.name}</title>
         <style>
             body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 32px; }
             h1 { font-size: 22px; margin-bottom: 4px; }
-            h2 { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin: 20px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
             th { font-size: 10px; text-transform: uppercase; color: #888; padding: 6px 8px; border-bottom: 2px solid #eee; text-align: left; }
             td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
-            .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
-            .stat { background: #f8f8f8; border-radius: 8px; padding: 12px; }
-            .stat-val { font-size: 20px; font-weight: 700; }
-            .stat-label { font-size: 11px; color: #888; }
+            .ms-stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+            .ms-stat { background: #f8f8f8; border-radius: 8px; padding: 12px; }
+            .ms-stat-val { font-size: 20px; font-weight: 700; }
+            .ms-stat-label { font-size: 11px; color: #888; }
+            .ms-detail-label { font-size: 10px; text-transform: uppercase; color: #888; letter-spacing: 0.1em; margin: 16px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
             @media print { body { padding: 0; } }
-        </style>
-        </head><body>
+        </style></head><body>
         <h1>Meilenstein: ${milestone.name}</h1>
-        ${content.replace(/var\(--[^)]+\)/g, 'inherit').replace(/class="ms-detail-label"/g, 'class="ms-detail-label"><h2').replace(/<\/div>/g, '</h2></div>')}
+        ${content}
         <script>window.onload = () => { window.print(); }<\/script>
         </body></html>`);
     win.document.close();
@@ -1246,13 +1292,13 @@ function exportMilestonePdf() {
 function exportMilestoneExcel() {
     if (!window._currentMilestone) return;
     const { milestone, snap } = window._currentMilestone;
+    const currency = getCurrency();
     const date = formatDateStr(milestone.createdAt.split(' ')[0]);
 
-    // Einfaches CSV das Excel öffnen kann
     let csv = `Meilenstein;${milestone.name}\n`;
     csv += `Datum;${date}\n`;
     csv += `Fortschritt;${snap.fortschritt}/${snap.totalTasks}\n`;
-    csv += `Gesamtausgaben;CHF ${fmtChf(snap.totalExpenses ?? 0)}\n\n`;
+    csv += `Gesamtausgaben;${currency} ${fmtChf(snap.totalExpenses ?? 0)}\n\n`;
 
     if (snap.weeks?.length > 0) {
         csv += `Woche;Titel;Erledigt;Total;%\n`;
@@ -1261,8 +1307,13 @@ function exportMilestoneExcel() {
             const wTotal = week.tasks.length;
             const wPct = wTotal > 0 ? Math.round((wDone / wTotal) * 100) : 0;
             csv += `W0${week.number};${week.title};${wDone};${wTotal};${wPct}%\n`;
+
+            week.tasks.forEach(task => {
+                const isDone = !!snap.state?.['task-' + task.id];
+                csv += `;${isDone ? 'Erledigt' : 'Offen'};${task.type === 'pc' ? 'PC' : 'Physisch'};${task.text};${task.hours}\n`;
+            });
+            csv += '\n';
         });
-        csv += '\n';
     }
 
     if (snap.expenses?.length > 0) {
