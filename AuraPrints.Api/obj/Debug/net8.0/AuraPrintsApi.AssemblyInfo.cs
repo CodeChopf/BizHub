@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AuraPrintsApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e16113b60a88ad34640b911061b99954413d93d7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+de3cb09e25662e512eade27a7e18d487b092aeb7")]
 [assembly: System.Reflection.AssemblyProductAttribute("AuraPrintsApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AuraPrintsApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

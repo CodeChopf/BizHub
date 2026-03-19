@@ -16,6 +16,7 @@ builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<IExpenseRepository, ExpenseRepository>();
 builder.Services.AddSingleton<IAdminRepository, AdminRepository>();
 builder.Services.AddSingleton<IAttachmentRepository, AttachmentRepository>();
+builder.Services.AddSingleton<IMilestoneRepository, MilestoneRepository>();
 
 var app = builder.Build();
 
@@ -221,6 +222,35 @@ app.MapPut("/api/expenses/{id}", async (int id, HttpRequest request, IExpenseRep
     var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
     var expense = repo.Update(id, categoryId, amount, description, link, date, weekNumber, taskId);
     return Results.Ok(expense);
+});
+
+// GET /api/milestones
+app.MapGet("/api/milestones", (IMilestoneRepository repo) =>
+    Results.Ok(repo.GetAll()));
+
+// GET /api/milestones/{id}
+app.MapGet("/api/milestones/{id}", (int id, IMilestoneRepository repo) =>
+{
+    try { return Results.Ok(repo.GetById(id)); }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+});
+
+// POST /api/milestones
+app.MapPost("/api/milestones", async (HttpRequest request, IMilestoneRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var name = body.GetProperty("name").GetString() ?? "";
+    var description = body.TryGetProperty("description", out var d) ? d.GetString() : null;
+    var snapshot = body.GetProperty("snapshot").GetString() ?? "{}";
+    var milestone = repo.Create(name, description, snapshot);
+    return Results.Ok(milestone);
+});
+
+// DELETE /api/milestones/{id}
+app.MapDelete("/api/milestones/{id}", (int id, IMilestoneRepository repo) =>
+{
+    repo.Delete(id);
+    return Results.Ok(new { deleted = true });
 });
 
 app.Run();

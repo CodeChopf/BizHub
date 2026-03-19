@@ -113,7 +113,14 @@ public class DatabaseContext
             data TEXT NOT NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY (expense_id) REFERENCES expenses(id)
-            )";
+            );
+            CREATE TABLE IF NOT EXISTS milestones (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                description TEXT,
+                created_at  TEXT NOT NULL,
+                snapshot    TEXT NOT NULL
+            );";
         cmd.ExecuteNonQuery();
     }
 }

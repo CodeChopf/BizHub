@@ -115,3 +115,4 @@ D:\Dokumente\Projekt X\BizHub\BizHub\AuraPrints.Api\obj\Debug\net8.0\AuraPrintsA
 D:\Dokumente\Projekt X\BizHub\BizHub\AuraPrints.Api\obj\Debug\net8.0\AuraPrintsApi.genruntimeconfig.cache
 D:\Dokumente\Projekt X\BizHub\BizHub\AuraPrints.Api\obj\Debug\net8.0\ref\AuraPrintsApi.dll
 D:\Dokumente\Projekt X\BizHub\BizHub\AuraPrints.Api\obj\Debug\net8.0\AuraPrintsApi.sourcelink.json
+D:\Dokumente\Projekt X\BizHub\BizHub\AuraPrints.Api\bin\Debug\net8.0\TemplateEngineHost\vs\templatecache.json

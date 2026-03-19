@@ -36,6 +36,10 @@
                 <span class="nav-icon">💰</span>
                 <span>Finanzen</span>
             </button>
+            <button class="nav-item" onclick="showPage('meilensteine')">
+                <span class="nav-icon">🏁</span>
+                <span>Meilensteine</span>
+            </button>
             <button class="nav-item" onclick="showPage('admin')">
                 <span class="nav-icon">⚙️</span>
                 <span>Planung</span>
@@ -160,6 +164,18 @@
                     <div id="expenses-list"></div>
                 </div>
             </div>
+        </div>
+
+        <!-- MEILENSTEINE -->
+        <div class="page" id="page-meilensteine">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Meilensteine</div>
+                    <div class="page-sub">Snapshots & Verlauf</div>
+                </div>
+                <button class="btn-primary" onclick="openMilestoneModal()">+ Meilenstein setzen</button>
+            </div>
+            <div id="milestones-list"></div>
         </div>
 
         <!-- ADMIN / PLANUNG -->
@@ -390,6 +406,46 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeTaskModal()">Abbrechen</button>
                 <button class="btn-primary" id="task-modal-save" onclick="saveTask()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Meilenstein erstellen -->
+    <div class="modal-backdrop" id="milestone-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Meilenstein setzen</div>
+                <button class="modal-close" onclick="closeMilestoneModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="ms-name" placeholder="z.B. Phase 1 abgeschlossen">
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="ms-description" rows="3" placeholder="Was wurde erreicht?"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeMilestoneModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveMilestone()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Meilenstein Detail -->
+    <div class="modal-backdrop" id="milestone-detail-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:640px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="ms-detail-title"></div>
+                <button class="modal-close" onclick="closeMilestoneDetailModal()">✕</button>
+            </div>
+            <div class="modal-body" id="ms-detail-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="exportMilestonePdf()">📄 PDF</button>
+                <button class="btn-secondary" onclick="exportMilestoneExcel()">📊 Excel</button>
+                <button class="btn-primary" onclick="closeMilestoneDetailModal()">Schliessen</button>
             </div>
         </div>
     </div>
