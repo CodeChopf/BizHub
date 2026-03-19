@@ -86,6 +86,10 @@
                     <span class="nav-icon">📋</span>
                     <span>Roadmap</span>
                 </button>
+                <button class="nav-item" onclick="showPage('produkte')">
+                    <span class="nav-icon">📦</span>
+                    <span>Produkte</span>
+                </button>
                 <button class="nav-item" onclick="showPage('finanzen')">
                     <span class="nav-icon">💰</span>
                     <span>Finanzen</span>
@@ -196,6 +200,27 @@
                     </div>
                 </div>
                 <div id="roadmap-content"></div>
+            </div>
+
+            <!-- PRODUKTE -->
+            <div class="page" id="page-produkte">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Produkte</div>
+                        <div class="page-sub">Produktkatalog</div>
+                    </div>
+                    <button class="btn-primary" id="btn-add-product" style="display:none" onclick="openAddProductModal()">+ Produkt hinzufügen</button>
+                </div>
+                <div class="catalog-layout">
+                    <div class="catalog-sidebar" id="catalog-sidebar">
+                        <div class="empty-state">Lädt...</div>
+                    </div>
+                    <div class="catalog-main" id="catalog-main">
+                        <div class="empty-state" style="margin-top:40px">
+                            Wähle links eine Kategorie aus oder erstelle zuerst eine neue Kategorie.
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- FINANZEN -->
@@ -563,6 +588,239 @@
                 <button class="btn-secondary" onclick="exportMilestonePdf()">📄 PDF</button>
                 <button class="btn-secondary" onclick="exportMilestoneExcel()">📊 Excel</button>
                 <button class="btn-primary" onclick="closeMilestoneDetailModal()">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkttypen verwalten -->
+    <div class="modal-backdrop" id="manage-types-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Produkttypen verwalten</div>
+                <button class="modal-close" onclick="closeManageTypesModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="types-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neuer Produkttyp</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-type-name" placeholder="z.B. Physisches Produkt">
+                        </div>
+                        <div class="form-group" style="width:80px">
+                            <label>Farbe</label>
+                            <input type="color" id="new-type-color" value="#4f8ef7">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung (optional)</label>
+                        <input type="text" id="new-type-desc" placeholder="Kurze Beschreibung">
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addProductType()">Typ erstellen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageTypesModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Felder verwalten -->
+    <div class="modal-backdrop" id="manage-fields-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="manage-fields-title">Felder verwalten</div>
+                <button class="modal-close" onclick="closeManageFieldsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="fields-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neues Feld</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Feldname</label>
+                            <input type="text" id="new-field-name" placeholder="z.B. Preis, Farbe, Link...">
+                        </div>
+                        <div class="form-group" style="width:140px">
+                            <label>Typ</label>
+                            <select id="new-field-type" onchange="toggleFieldOptions()">
+                                <option value="text">Text</option>
+                                <option value="number">Zahl</option>
+                                <option value="url">URL / Link</option>
+                                <option value="select">Auswahl (Select)</option>
+                                <option value="textarea">Langer Text</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="field-options-wrap" style="display:none">
+                        <label>Optionen (kommagetrennt)</label>
+                        <input type="text" id="new-field-options" placeholder="z.B. S, M, L, XL">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="checkbox" id="new-field-required">
+                            Pflichtfeld
+                        </label>
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addField()">Feld hinzufügen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageFieldsModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkt hinzufügen/bearbeiten -->
+    <div class="modal-backdrop" id="product-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="product-modal-title">Produkt hinzufügen</div>
+                <button class="modal-close" onclick="closeProductModal()">✕</button>
+            </div>
+            <div class="modal-body" id="product-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeProductModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveProduct()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kategorien & Attribute verwalten -->
+    <div class="modal-backdrop" id="manage-catalog-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:580px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Kategorien verwalten</div>
+                <button class="modal-close" onclick="closeManageCatalogModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="catalog-categories-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neue Kategorie</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-cat-type-name" placeholder="z.B. Wandbuchstaben">
+                        </div>
+                        <div class="form-group" style="width:80px">
+                            <label>Farbe</label>
+                            <input type="color" id="new-cat-type-color" value="#4f8ef7">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung (optional)</label>
+                        <input type="text" id="new-cat-type-desc" placeholder="Kurze Beschreibung">
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addCatalogCategory()">Kategorie erstellen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageCatalogModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Attribute verwalten -->
+    <div class="modal-backdrop" id="manage-attributes-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="manage-attr-title">Attribute verwalten</div>
+                <button class="modal-close" onclick="closeManageAttributesModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+                    Attribute sind Eigenschaften die alle Produkte in dieser Kategorie haben — z.B. Material, Schriftart, Farbe.
+                </div>
+                <div id="attributes-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neues Attribut</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-attr-name" placeholder="z.B. Material, Farbe...">
+                        </div>
+                        <div class="form-group" style="width:150px">
+                            <label>Typ</label>
+                            <select id="new-attr-type" onchange="toggleAttrOptions()">
+                                <option value="text">Text</option>
+                                <option value="number">Zahl</option>
+                                <option value="select">Auswahl</option>
+                                <option value="url">URL</option>
+                                <option value="textarea">Langer Text</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="attr-options-wrap" style="display:none">
+                        <label>Optionen (kommagetrennt)</label>
+                        <input type="text" id="new-attr-options" placeholder="z.B. PLA, PETG, ABS">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="checkbox" id="new-attr-required">
+                            Pflichtfeld
+                        </label>
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addCatalogAttribute()">Attribut hinzufügen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageAttributesModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkt erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="catalog-product-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="catalog-product-modal-title">Produkt hinzufügen</div>
+                <button class="modal-close" onclick="closeCatalogProductModal()">✕</button>
+            </div>
+            <div class="modal-body" id="catalog-product-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCatalogProductModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveCatalogProduct()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Variation hinzufügen/bearbeiten -->
+    <div class="modal-backdrop" id="variation-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="variation-modal-title">Variation hinzufügen</div>
+                <button class="modal-close" onclick="closeVariationModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="var-product-id">
+                <input type="hidden" id="var-edit-id">
+                <div class="form-group">
+                    <label>Name der Variation</label>
+                    <input type="text" id="var-name" placeholder="z.B. S, M, L oder Schwarz, Weiss">
+                </div>
+                <div class="form-group">
+                    <label>Artikelnummer (SKU)</label>
+                    <div style="display:flex;gap:8px">
+                        <input type="text" id="var-sku" placeholder="Wird automatisch generiert" style="flex:1">
+                        <button type="button" class="btn-secondary" onclick="generateSku()" style="white-space:nowrap">🔄 Generieren</button>
+                    </div>
+                    <div id="sku-error" style="font-size:11px;color:var(--red);margin-top:4px;display:none"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preis (<span id="var-currency"></span>)</label>
+                        <input type="number" id="var-price" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Lagerbestand</label>
+                        <input type="number" id="var-stock" step="1" min="0" placeholder="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeVariationModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveVariation()">Speichern</button>
             </div>
         </div>
     </div>

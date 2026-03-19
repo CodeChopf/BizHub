@@ -1,7 +1,4 @@
-﻿using AuraPrintsApi.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Data.Sqlite;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+﻿using Microsoft.Data.Sqlite;
 
 namespace AuraPrintsApi.Data;
 
@@ -24,6 +21,18 @@ public class DatabaseContext
         Directory.CreateDirectory(Path.GetDirectoryName(_dbFile)!);
         using var con = CreateConnection();
         con.Open();
+
+        // Schritt 1: Alte Produkte-Tabellen droppen (Foreign Keys kurz deaktivieren)
+        using var dropCmd = con.CreateCommand();
+        dropCmd.CommandText = @"
+            PRAGMA foreign_keys = OFF;
+            DROP TABLE IF EXISTS products_generic;
+            DROP TABLE IF EXISTS product_fields;
+            DROP TABLE IF EXISTS product_types;
+            PRAGMA foreign_keys = ON;";
+        dropCmd.ExecuteNonQuery();
+
+        // Schritt 2: Alle Tabellen erstellen
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS weeks (
@@ -43,47 +52,6 @@ public class DatabaseContext
                 text        TEXT NOT NULL,
                 hours       TEXT NOT NULL,
                 FOREIGN KEY (week_number) REFERENCES weeks(number)
-            );
-            CREATE TABLE IF NOT EXISTS products (
-                id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                sku  TEXT NOT NULL,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS product_variants (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                product_id INTEGER NOT NULL,
-                size       TEXT NOT NULL,
-                height     TEXT NOT NULL,
-                print_time TEXT NOT NULL,
-                price      TEXT NOT NULL,
-                FOREIGN KEY (product_id) REFERENCES products(id)
-            );
-            CREATE TABLE IF NOT EXISTS calculations (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                sku        TEXT NOT NULL,
-                name       TEXT NOT NULL,
-                sale_price TEXT NOT NULL,
-                profit     TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS cost_items (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                calculation_id INTEGER NOT NULL,
-                label          TEXT NOT NULL,
-                amount         TEXT NOT NULL,
-                sort_order     INTEGER NOT NULL,
-                FOREIGN KEY (calculation_id) REFERENCES calculations(id)
-            );
-            CREATE TABLE IF NOT EXISTS phase2 (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                label TEXT NOT NULL,
-                name  TEXT NOT NULL,
-                price TEXT NOT NULL,
-                note  TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS legal (
-                id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS state (
                 key   TEXT PRIMARY KEY,
@@ -105,14 +73,14 @@ public class DatabaseContext
                 task_id     INTEGER,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
             );
-            CREATE TABLE IF NOT EXISTS expense_attachments(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            expense_id INTEGER NOT NULL,
-            file_name TEXT NOT NULL,
-            mime_type TEXT NOT NULL,
-            data TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (expense_id) REFERENCES expenses(id)
+            CREATE TABLE IF NOT EXISTS expense_attachments (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id INTEGER NOT NULL,
+                file_name  TEXT NOT NULL,
+                mime_type  TEXT NOT NULL,
+                data       TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (expense_id) REFERENCES expenses(id)
             );
             CREATE TABLE IF NOT EXISTS milestones (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +92,41 @@ public class DatabaseContext
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS product_categories (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                description TEXT,
+                color       TEXT NOT NULL DEFAULT '#4f8ef7'
+            );
+            CREATE TABLE IF NOT EXISTS product_attributes (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                name        TEXT NOT NULL,
+                field_type  TEXT NOT NULL DEFAULT 'text',
+                options     TEXT,
+                required    INTEGER NOT NULL DEFAULT 0,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (category_id) REFERENCES product_categories(id)
+            );
+            CREATE TABLE IF NOT EXISTS products_v2 (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id      INTEGER NOT NULL,
+                name             TEXT NOT NULL,
+                description      TEXT,
+                attribute_values TEXT NOT NULL DEFAULT '{}',
+                created_at       TEXT NOT NULL,
+                FOREIGN KEY (category_id) REFERENCES product_categories(id)
+            );
+            CREATE TABLE IF NOT EXISTS product_variations (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                name       TEXT NOT NULL,
+                sku        TEXT NOT NULL UNIQUE,
+                price      REAL NOT NULL DEFAULT 0,
+                stock      INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (product_id) REFERENCES products_v2(id)
             );";
         cmd.ExecuteNonQuery();
     }
