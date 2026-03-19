@@ -14,7 +14,9 @@
     <div id="setup-screen" style="display:none">
         <div class="setup-wrap">
             <div class="setup-logo">
-                <div class="setup-logo-icon">BH</div>
+                <div class="setup-logo-icon" style="padding:0;overflow:hidden">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
                 <div class="setup-logo-name">BizHub</div>
                 <div class="setup-logo-sub">Projektmanagement</div>
             </div>
@@ -138,6 +140,7 @@
                     </div>
                     <div class="page-header-right" id="topbar-date"></div>
                 </div>
+                <div id="overview-project-image" style="margin-bottom:16px"></div>
                 <div class="kpi-strip" id="kpi-strip"></div>
                 <div class="overview-grid">
                     <div class="overview-left">
@@ -307,6 +310,21 @@
                             <option value="USD">USD — US Dollar</option>
                             <option value="GBP">GBP — Britisches Pfund</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Projektbild (optional)</label>
+                        <div id="project-image-preview" style="margin-bottom:8px"></div>
+                        <input type="file" id="settings-image" accept="image/*" style="display:none" onchange="handleProjectImagePreview()">
+                        <div style="display:flex;gap:8px">
+                            <button type="button" class="btn-secondary" style="flex:1;justify-content:center"
+                                    onclick="document.getElementById('settings-image').click()">
+                                📷 Bild hochladen
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="removeProjectImage()"
+                                    id="btn-remove-image" style="display:none">
+                                🗑 Entfernen
+                            </button>
+                        </div>
                     </div>
                     <button class="btn-primary" style="margin-top:8px" onclick="saveSettings()">Speichern</button>
                 </div>

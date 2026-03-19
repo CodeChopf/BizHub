@@ -39,6 +39,7 @@ public class SettingsRepository : ISettingsRepository
             StartDate = dict.GetValueOrDefault("start_date", ""),
             Description = dict.GetValueOrDefault("description", ""),
             Currency = dict.GetValueOrDefault("currency", "CHF"),
+            ProjectImage = dict.ContainsKey("project_image") ? dict["project_image"] : null,
             IsSetup = dict.ContainsKey("project_name")
         };
     }
@@ -49,20 +50,29 @@ public class SettingsRepository : ISettingsRepository
         con.Open();
         using var tx = con.BeginTransaction();
 
-        var values = new Dictionary<string, string>
+        var values = new Dictionary<string, string?>
         {
             ["project_name"] = settings.ProjectName,
             ["start_date"] = settings.StartDate,
             ["description"] = settings.Description,
-            ["currency"] = settings.Currency
+            ["currency"] = settings.Currency,
+            ["project_image"] = settings.ProjectImage
         };
 
         foreach (var (key, value) in values)
         {
+            if (value == null)
+            {
+                using var delCmd = con.CreateCommand();
+                delCmd.CommandText = "DELETE FROM settings WHERE key = @k";
+                delCmd.Parameters.AddWithValue("@k", key);
+                delCmd.ExecuteNonQuery();
+                continue;
+            }
             using var cmd = con.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO settings (key, value) VALUES (@k, @v)
-                ON CONFLICT(key) DO UPDATE SET value = @v";
+            INSERT INTO settings (key, value) VALUES (@k, @v)
+            ON CONFLICT(key) DO UPDATE SET value = @v";
             cmd.Parameters.AddWithValue("@k", key);
             cmd.Parameters.AddWithValue("@v", value);
             cmd.ExecuteNonQuery();
