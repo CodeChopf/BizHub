@@ -29,6 +29,7 @@ namespace BizHubLauncher
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1280, 800);
             Controls.Add(webView);
+            Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "favicon.ico"));
             Name = "Form1";
             Text = "BizHub";
             WindowState = FormWindowState.Maximized;
