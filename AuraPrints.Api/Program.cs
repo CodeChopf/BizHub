@@ -113,16 +113,6 @@ app.MapDelete("/api/categories/{id}", (int id, ICategoryRepository repo) =>
     return Results.Ok(new { deleted = true });
 });
 
-// Browser öffnen
-var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-    {
-        FileName = url,
-        UseShellExecute = true
-    });
-});
 
 // ── ADMIN: WOCHEN ──
 app.MapPost("/api/admin/weeks", async (HttpRequest request, IAdminRepository repo) =>
