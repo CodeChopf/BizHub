@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using Microsoft.Web.WebView2.Core;
 
 namespace BizHubLauncher
 {
@@ -16,7 +17,11 @@ namespace BizHubLauncher
 
         private async void Form1_Load(object sender, EventArgs e)
         {
-            await webView.EnsureCoreWebView2Async();
+            var userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "BizHub");
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            await webView.EnsureCoreWebView2Async(env);
             webView.NavigateToString(LoadingHtml());
 
             StartApi();
