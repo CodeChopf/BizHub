@@ -1,93 +1,108 @@
 ; BizHub Inno Setup Installer Script
-; Requires Inno Setup 6.x: https://jrsoftware.org/isinfo.php
+; Requires Inno Setup 6.1+: https://jrsoftware.org/isinfo.php
+;
+; Build with:
+;   Windows: installer\build.ps1
+;   Linux/CI: installer\build.sh
 
-#define AppName "BizHub"
-#define AppVersion "1.0.0"
-#define AppPublisher "BizHub"
-#define AppExeName "BizHubLauncher.exe"
+#define MyAppName     "BizHub"
+#define MyAppVersion  "1.0.0"
+#define MyAppPublisher "BizHub"
+#define MyAppExeName  "BizHubLauncher.exe"
+#define MyApiExeName  "AuraPrintsApi.exe"
+
+; Published binary paths (relative to this .iss file)
+; build.ps1 / build.sh publish into publish/launcher/ and publish/api/
+#define LauncherSrc "..\publish\launcher\BizHubLauncher.exe"
+#define ApiSrc      "..\publish\api\AuraPrintsApi.exe"
+#define IconSrc     "..\Launcher\BizHubLauncher\favicon.ico"
 
 [Setup]
+; NOTE: Keep AppId stable across versions for correct upgrade detection
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
-AppName={#AppName}
-AppVersion={#AppVersion}
-AppPublisher={#AppPublisher}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
 AppPublisherURL=https://github.com/CodeChopf/BizHub
 AppSupportURL=https://github.com/CodeChopf/BizHub/issues
 AppUpdatesURL=https://github.com/CodeChopf/BizHub/releases
-DefaultDirName={autopf}\{#AppName}
-DefaultGroupName={#AppName}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=Output
-OutputBaseFilename=BizHub_Setup_{#AppVersion}
-SetupIconFile=..\Launcher\BizHubLauncher\favicon.ico
+OutputDir=output
+OutputBaseFilename=BizHub-Setup-{#MyAppVersion}
+SetupIconFile={#IconSrc}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+; 64-bit Windows only (matches win-x64 build target)
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0
-UninstallDisplayIcon={app}\{#AppExeName}
-UninstallDisplayName={#AppName}
+; Minimum Windows 10 1809 (required for WebView2)
+MinVersion=10.0.17763
+PrivilegesRequired=admin
+UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName} {#MyAppVersion}
 CloseApplications=yes
 
 [Languages]
-Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+Name: "german";  MessagesFile: "compiler:Languages\German.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-
 [Files]
-; Main application executables (both must be in the same directory)
-Source: "..\build\BizHubLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\build\AuraPrintsApi.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Both executables must be in the same directory — the launcher finds
+; AuraPrintsApi.exe via AppDomain.CurrentDomain.BaseDirectory
+Source: "{#LauncherSrc}"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+Source: "{#ApiSrc}";      DestDir: "{app}"; DestName: "{#MyApiExeName}"; Flags: ignoreversion
 
-; WebView2 bootstrapper - only included if WebView2 is not already installed
-; Download MicrosoftEdgeWebview2Setup.exe from:
-; https://go.microsoft.com/fwlink/p/?LinkId=2124703
-; and place it in the installer/ directory before building
-Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: NeedsWebView2
+; App icon for shortcuts
+Source: "{#IconSrc}"; DestDir: "{app}"; DestName: "favicon.ico"; Flags: ignoreversion
+
+[Dirs]
+; AuraPrintsApi.exe creates Data\auraprints.db here at runtime.
+; uninsneveruninstall preserves user data when the app is uninstalled.
+Name: "{app}\Data"; Flags: uninsneveruninstall
 
 [Icons]
 ; Start Menu entry
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
-
-; Optional Desktop shortcut (only if task selected)
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\favicon.ico"; Comment: "BizHub starten"
+Name: "{autoprograms}\{#MyAppName}\{#MyAppName} deinstallieren"; Filename: "{uninstallexe}"
 
 [Run]
 ; Offer to launch BizHub after installation
-Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-
-[UninstallDelete]
-; Remove the data directory created by the app on uninstall (optional, user data)
-; Type: filesandordirs; Name: "{app}\Data"
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 
-// Check if WebView2 runtime is installed
+const
+  // WebView2 stable channel GUID (do not change)
+  WebView2Guid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  // Microsoft's official evergreen bootstrapper URL
+  WebView2BootstrapperURL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+
+// Returns True when WebView2 is NOT installed (i.e. installation is needed)
 function NeedsWebView2: Boolean;
 var
-  RegKey: String;
-  RegValue: String;
+  Version: String;
 begin
-  RegKey := 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
-  // Check machine-wide installation
-  if RegQueryStringValue(HKLM, RegKey, 'pv', RegValue) then
+  // Machine-wide install (enterprise MSI / system-level bootstrapper)
+  if RegQueryStringValue(HKLM,
+      'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\' + WebView2Guid,
+      'pv', Version) then
   begin
-    if (RegValue <> '') and (RegValue <> '0.0.0.0') then
+    if (Version <> '') and (Version <> '0.0.0.0') then
     begin
       Result := False;
       Exit;
     end;
   end;
 
-  // Check user-level installation
-  RegKey := 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
-  if RegQueryStringValue(HKCU, RegKey, 'pv', RegValue) then
+  // Per-user install (evergreen bootstrapper default)
+  if RegQueryStringValue(HKCU,
+      'Software\Microsoft\EdgeUpdate\Clients\' + WebView2Guid,
+      'pv', Version) then
   begin
-    if (RegValue <> '') and (RegValue <> '0.0.0.0') then
+    if (Version <> '') and (Version <> '0.0.0.0') then
     begin
       Result := False;
       Exit;
@@ -97,43 +112,79 @@ begin
   Result := True;
 end;
 
-// Install WebView2 if needed before copying app files
-procedure CurStepChanged(CurStep: TSetupStep);
+// Called before the wizard is shown — downloads and installs WebView2 if needed
+function InitializeSetup(): Boolean;
 var
-  WebView2Installer: String;
+  BootstrapperPath: String;
   ResultCode: Integer;
 begin
-  if CurStep = ssInstall then
-  begin
-    if NeedsWebView2 then
-    begin
-      WebView2Installer := ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe');
-      if FileExists(WebView2Installer) then
-      begin
-        if not Exec(WebView2Installer, '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-        begin
-          MsgBox('WebView2 konnte nicht installiert werden (Fehlercode: ' + IntToStr(ResultCode) + ').'
-            + #13#10 + 'BizHub benoetigt WebView2. Bitte installieren Sie es manuell von:'
-            + #13#10 + 'https://go.microsoft.com/fwlink/p/?LinkId=2124703',
-            mbError, MB_OK);
-        end;
-      end;
-    end;
-  end;
-end;
-
-// Show a warning if WebView2 bootstrapper is missing from the installer package
-function InitializeSetup(): Boolean;
-begin
   Result := True;
-  if NeedsWebView2 then
+
+  if not NeedsWebView2 then
   begin
-    if not FileExists(ExpandConstant('{src}\MicrosoftEdgeWebview2Setup.exe')) then
-    begin
-      MsgBox('Hinweis: WebView2 Runtime ist nicht installiert und der Bootstrapper fehlt im Installer-Paket.'
-        + #13#10 + 'BizHub benoetigt WebView2. Bitte installieren Sie es nach der Installation manuell von:'
-        + #13#10 + 'https://go.microsoft.com/fwlink/p/?LinkId=2124703',
-        mbInformation, MB_OK);
-    end;
+    Log('WebView2 is already installed.');
+    Exit;
   end;
+
+  // Inform the user and ask for consent before downloading
+  if MsgBox(
+    'BizHub benötigt die Microsoft WebView2 Runtime, die aktuell nicht installiert ist.' + #13#10 +
+    #13#10 +
+    'Der Installer lädt jetzt den WebView2-Bootstrapper von Microsoft herunter' + #13#10 +
+    'und installiert ihn automatisch. Eine Internetverbindung ist erforderlich.' + #13#10 +
+    #13#10 +
+    'Auf OK klicken, um fortzufahren, oder Abbrechen zum Beenden.',
+    mbConfirmation, MB_OKCANCEL) = IDCANCEL then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  // DownloadTemporaryFile is built into Inno Setup 6.1+ (no plugin required)
+  BootstrapperPath := ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe');
+
+  Log('Downloading WebView2 bootstrapper...');
+  try
+    DownloadTemporaryFile(WebView2BootstrapperURL, 'MicrosoftEdgeWebview2Setup.exe', '', nil);
+  except
+    MsgBox(
+      'Der Download des WebView2-Bootstrappers ist fehlgeschlagen.' + #13#10 +
+      'Bitte installieren Sie WebView2 manuell von:' + #13#10 +
+      'https://developer.microsoft.com/en-us/microsoft-edge/webview2/' + #13#10 +
+      #13#10 +
+      'Die Installation wird fortgesetzt, aber BizHub startet möglicherweise' + #13#10 +
+      'erst nach der manuellen WebView2-Installation.',
+      mbError, MB_OK);
+    Exit; // Continue installation without WebView2
+  end;
+
+  if not FileExists(BootstrapperPath) then
+  begin
+    MsgBox(
+      'Die heruntergeladene WebView2-Datei wurde nicht gefunden.' + #13#10 +
+      'Bitte installieren Sie WebView2 manuell nach der Installation.',
+      mbError, MB_OK);
+    Exit;
+  end;
+
+  // Run bootstrapper silently
+  Log('Running WebView2 bootstrapper...');
+  if not Exec(BootstrapperPath, '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    MsgBox(
+      'Der WebView2-Bootstrapper konnte nicht gestartet werden (Fehlercode: ' + IntToStr(ResultCode) + ').' + #13#10 +
+      'Bitte installieren Sie WebView2 manuell und starten Sie BizHub erneut.',
+      mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  Log('WebView2 bootstrapper completed with exit code: ' + IntToStr(ResultCode));
+
+  if NeedsWebView2 then
+    MsgBox(
+      'Die WebView2-Installation war möglicherweise nicht erfolgreich.' + #13#10 +
+      'Falls BizHub nicht startet, installieren Sie WebView2 bitte manuell von:' + #13#10 +
+      'https://developer.microsoft.com/en-us/microsoft-edge/webview2/',
+      mbInformation, MB_OK);
 end;

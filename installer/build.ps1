@@ -1,83 +1,120 @@
-# BizHub Build & Installer Script
-# Run this script on Windows to build the app and create the installer.
+# BizHub Build & Installer Script (Windows)
+#
+# Publishes both .NET projects and compiles the Inno Setup installer.
+#
 # Requirements:
 #   - .NET 8 SDK (https://dotnet.microsoft.com/download)
-#   - Inno Setup 6 (https://jrsoftware.org/isinfo.php)
-#   - MicrosoftEdgeWebview2Setup.exe in the installer/ directory
-#     (download from https://go.microsoft.com/fwlink/p/?LinkId=2124703)
+#   - Inno Setup 6.1+ (https://jrsoftware.org/isinfo.php)
+#
+# Usage:
+#   .\installer\build.ps1
+#   .\installer\build.ps1 -Version 1.2.0
+#   .\installer\build.ps1 -SkipPublish    # recompile installer only
+#   .\installer\build.ps1 -SkipInnoSetup  # build binaries only
 
+[CmdletBinding()]
 param(
     [string]$Version = "1.0.0",
-    [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+    [switch]$SkipPublish,
+    [switch]$SkipInnoSetup
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$ScriptDir = $PSScriptRoot
-$RepoRoot = Resolve-Path "$ScriptDir\.."
-$BuildDir = "$RepoRoot\build"
-$OutputDir = "$ScriptDir\Output"
 
-Write-Host "=== BizHub Build ===" -ForegroundColor Cyan
-Write-Host "Version:    $Version"
-Write-Host "Repo Root:  $RepoRoot"
-Write-Host "Build Dir:  $BuildDir"
+# ── Paths ──────────────────────────────────────────────────────────────────────
+
+$RepoRoot      = Resolve-Path (Join-Path $PSScriptRoot "..")
+$LauncherProj  = Join-Path $RepoRoot "Launcher\BizHubLauncher\BizHubLauncher.csproj"
+$ApiProj       = Join-Path $RepoRoot "AuraPrints.Api\AuraPrintsApi.csproj"
+$IssFile       = Join-Path $PSScriptRoot "BizHub.iss"
+
+# Output dirs — must match the #define paths in BizHub.iss
+$LauncherOut   = Join-Path $RepoRoot "publish\launcher"
+$ApiOut        = Join-Path $RepoRoot "publish\api"
+$InstallerOut  = Join-Path $PSScriptRoot "output"
+
+# ── Helper ─────────────────────────────────────────────────────────────────────
+
+function Step([string]$Name) {
+    Write-Host ""
+    Write-Host "==> $Name" -ForegroundColor Cyan
+}
+
+function Assert-FileExists([string]$Path, [string]$Description) {
+    if (-not (Test-Path $Path)) {
+        Write-Error "$Description not found: $Path"
+        exit 1
+    }
+}
+
+# ── Publish ────────────────────────────────────────────────────────────────────
+
+if (-not $SkipPublish) {
+    Step "Publishing BizHubLauncher"
+    dotnet publish $LauncherProj `
+        --configuration Release `
+        --runtime win-x64 `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        --output $LauncherOut `
+        /nologo
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Assert-FileExists (Join-Path $LauncherOut "BizHubLauncher.exe") "BizHubLauncher.exe"
+    Write-Host "  OK: $LauncherOut\BizHubLauncher.exe" -ForegroundColor Green
+
+    Step "Publishing AuraPrintsApi"
+    dotnet publish $ApiProj `
+        --configuration Release `
+        --runtime win-x64 `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        --output $ApiOut `
+        /nologo
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Assert-FileExists (Join-Path $ApiOut "AuraPrintsApi.exe") "AuraPrintsApi.exe"
+    Write-Host "  OK: $ApiOut\AuraPrintsApi.exe" -ForegroundColor Green
+}
+
+# ── Compile Installer ──────────────────────────────────────────────────────────
+
+if (-not $SkipInnoSetup) {
+    # Locate iscc.exe: check PATH first, then default install locations
+    $IsccPath = (Get-Command "iscc.exe" -ErrorAction SilentlyContinue)?.Source
+
+    if (-not $IsccPath) {
+        $Candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\iscc.exe",
+            "${env:ProgramFiles}\Inno Setup 6\iscc.exe"
+        )
+        $IsccPath = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+
+    if (-not $IsccPath) {
+        Write-Error "iscc.exe not found. Install Inno Setup 6 from https://jrsoftware.org/isinfo.php"
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Host "  iscc.exe: $IsccPath" -ForegroundColor DarkGray
+
+    New-Item -ItemType Directory -Path $InstallerOut -Force | Out-Null
+
+    Step "Compiling Inno Setup installer (v$Version)"
+    & $IsccPath "/DMyAppVersion=$Version" $IssFile
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $InstallerFile = Join-Path $InstallerOut "BizHub-Setup-$Version.exe"
+    if (Test-Path $InstallerFile) {
+        $SizeMB = [math]::Round((Get-Item $InstallerFile).Length / 1MB, 1)
+        Write-Host ""
+        Write-Host "Installer ready: $InstallerFile ($SizeMB MB)" -ForegroundColor Green
+    } else {
+        Write-Warning "Installer file not found at $InstallerFile — check iscc output above."
+    }
+}
+
 Write-Host ""
-
-# Clean build directory
-if (Test-Path $BuildDir) {
-    Write-Host "Cleaning build directory..." -ForegroundColor Yellow
-    Remove-Item -Recurse -Force $BuildDir
-}
-New-Item -ItemType Directory -Path $BuildDir | Out-Null
-
-# Publish AuraPrints API
-Write-Host "Publishing AuraPrintsApi..." -ForegroundColor Green
-$ApiProject = "$RepoRoot\AuraPrints.Api\AuraPrintsApi.csproj"
-dotnet publish $ApiProject -c Release -r win-x64 --self-contained true -o $BuildDir
-if ($LASTEXITCODE -ne 0) { throw "Failed to publish AuraPrintsApi" }
-
-# Publish BizHub Launcher
-Write-Host "Publishing BizHubLauncher..." -ForegroundColor Green
-$LauncherProject = "$RepoRoot\Launcher\BizHubLauncher\BizHubLauncher.csproj"
-dotnet publish $LauncherProject -c Release -r win-x64 --self-contained true -o $BuildDir
-if ($LASTEXITCODE -ne 0) { throw "Failed to publish BizHubLauncher" }
-
-Write-Host ""
-Write-Host "Build artifacts:" -ForegroundColor Cyan
-Get-ChildItem $BuildDir -Filter "*.exe" | ForEach-Object { Write-Host "  $_" }
-
-# Check for WebView2 bootstrapper
-$WebView2Bootstrapper = "$ScriptDir\MicrosoftEdgeWebview2Setup.exe"
-if (-not (Test-Path $WebView2Bootstrapper)) {
-    Write-Host ""
-    Write-Host "WARNING: MicrosoftEdgeWebview2Setup.exe not found in installer/" -ForegroundColor Yellow
-    Write-Host "The installer will be built without bundled WebView2 bootstrapper." -ForegroundColor Yellow
-    Write-Host "Download it from: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Yellow
-}
-
-# Build Inno Setup installer
-if (-not (Test-Path $InnoSetupPath)) {
-    Write-Host ""
-    Write-Host "ERROR: Inno Setup not found at: $InnoSetupPath" -ForegroundColor Red
-    Write-Host "Please install Inno Setup 6 from https://jrsoftware.org/isinfo.php" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host ""
-Write-Host "Compiling installer with Inno Setup..." -ForegroundColor Green
-$IssFile = "$ScriptDir\BizHub.iss"
-& $InnoSetupPath "/DAppVersion=$Version" $IssFile
-if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
-
-$InstallerFile = "$OutputDir\BizHub_Setup_$Version.exe"
-if (Test-Path $InstallerFile) {
-    Write-Host ""
-    Write-Host "=== SUCCESS ===" -ForegroundColor Green
-    Write-Host "Installer created: $InstallerFile" -ForegroundColor Green
-    $Size = (Get-Item $InstallerFile).Length / 1MB
-    Write-Host "Installer size: $([math]::Round($Size, 1)) MB" -ForegroundColor Green
-} else {
-    Write-Host ""
-    Write-Host "ERROR: Installer file not found at expected path: $InstallerFile" -ForegroundColor Red
-    exit 1
-}
+Write-Host "Done." -ForegroundColor Green
