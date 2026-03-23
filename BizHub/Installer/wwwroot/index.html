@@ -1,0 +1,850 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizHub — Projektmanagement</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen" style="display:none">
+        <div class="setup-wrap">
+            <div class="setup-logo">
+                <div class="setup-logo-icon" style="padding:0;overflow:hidden">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
+                <div class="setup-logo-name">BizHub</div>
+                <div class="setup-logo-sub">Projektmanagement</div>
+            </div>
+
+            <div class="setup-tabs">
+                <button class="setup-tab active" onclick="switchSetupTab('new')">Neues Projekt</button>
+                <button class="setup-tab" onclick="switchSetupTab('import')">Projekt importieren</button>
+            </div>
+
+            <!-- Neues Projekt -->
+            <div id="setup-tab-new" class="setup-panel">
+                <div class="form-group">
+                    <label>Projektname</label>
+                    <input type="text" id="setup-name" placeholder="z.B. MeinStartup, Webshop Launch...">
+                </div>
+                <div class="form-group">
+                    <label>Startdatum</label>
+                    <input type="date" id="setup-start">
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="setup-desc" rows="2" placeholder="Worum geht es bei diesem Projekt?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Währung</label>
+                    <select id="setup-currency">
+                        <option value="CHF">CHF — Schweizer Franken</option>
+                        <option value="EUR">EUR — Euro</option>
+                        <option value="USD">USD — US Dollar</option>
+                        <option value="GBP">GBP — Britisches Pfund</option>
+                    </select>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" onclick="createProject()">Projekt erstellen</button>
+            </div>
+
+            <!-- Import -->
+            <div id="setup-tab-import" class="setup-panel" style="display:none">
+                <div class="form-group">
+                    <label>Projekt-Datei (.json)</label>
+                    <input type="file" id="setup-import-file" accept=".json" style="display:none" onchange="handleImportPreview()">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('setup-import-file').click()">
+                        📂 JSON-Datei auswählen
+                    </button>
+                    <div id="setup-import-preview" style="margin-top:12px"></div>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" id="setup-import-btn" disabled onclick="importProject()">Projekt importieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app" style="display:none">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon" id="sidebar-logo-icon">BH</div>
+                <div class="logo-text">
+                    <div class="logo-name" id="sidebar-project-name">BizHub</div>
+                    <div class="logo-sub">Management</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section-label">Navigation</div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" onclick="showPage('overview')">
+                    <span class="nav-icon">⬛</span>
+                    <span>Übersicht</span>
+                </button>
+                <button class="nav-item" onclick="showPage('roadmap')">
+                    <span class="nav-icon">📋</span>
+                    <span>Roadmap</span>
+                </button>
+                <button class="nav-item" onclick="showPage('produkte')">
+                    <span class="nav-icon">📦</span>
+                    <span>Produkte</span>
+                </button>
+                <button class="nav-item" onclick="showPage('finanzen')">
+                    <span class="nav-icon">💰</span>
+                    <span>Finanzen</span>
+                </button>
+                <button class="nav-item" onclick="showPage('meilensteine')">
+                    <span class="nav-icon">🏁</span>
+                    <span>Meilensteine</span>
+                </button>
+                <button class="nav-item" onclick="showPage('admin')">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Planung</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-section-label">System</div>
+            <nav class="sidebar-nav">
+                <button class="nav-item" onclick="exportData()">
+                    <span class="nav-icon">💾</span>
+                    <span>Exportieren</span>
+                </button>
+                <button class="nav-item" onclick="openImportModal()">
+                    <span class="nav-icon">📂</span>
+                    <span>Importieren</span>
+                </button>
+                <button class="nav-item" onclick="showPage('einstellungen')">
+                    <span class="nav-icon">🔧</span>
+                    <span>Einstellungen</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-footer-date" id="sidebar-date"></div>
+                <div class="sidebar-footer-launch" id="sidebar-launch"></div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+
+            <!-- ÜBERSICHT -->
+            <div class="page active" id="page-overview">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title" id="overview-title">Dashboard</div>
+                        <div class="page-sub" id="overview-sub">Projektübersicht</div>
+                    </div>
+                    <div class="page-header-right" id="topbar-date"></div>
+                </div>
+                <div id="overview-project-image" style="margin-bottom:16px"></div>
+                <div class="kpi-strip" id="kpi-strip"></div>
+                <div class="overview-grid">
+                    <div class="overview-left">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Diese Woche</div>
+                                <div class="card-badge" id="cw-badge"></div>
+                            </div>
+                            <div class="cw-title" id="cw-title">Lädt...</div>
+                            <div class="cw-date" id="cw-date"></div>
+                            <div id="cw-tasks"></div>
+                        </div>
+                    </div>
+                    <div class="overview-right">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Gesamtfortschritt</div>
+                            </div>
+                            <div class="donut-wrap">
+                                <svg viewBox="0 0 120 120" class="donut-svg">
+                                    <circle class="donut-bg" cx="60" cy="60" r="50" />
+                                    <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
+                                            stroke-dasharray="0 314" stroke-dashoffset="78" />
+                                </svg>
+                                <div class="donut-center">
+                                    <div class="donut-pct" id="donut-pct">0%</div>
+                                    <div class="donut-label">Erledigt</div>
+                                </div>
+                            </div>
+                            <div class="donut-stats">
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-done">0</div>
+                                    <div class="donut-stat-label">Erledigt</div>
+                                </div>
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-open">0</div>
+                                    <div class="donut-stat-label">Offen</div>
+                                </div>
+                                <div class="donut-stat">
+                                    <div class="donut-stat-val" id="stat-weeks">0</div>
+                                    <div class="donut-stat-label">Wochen</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:20px">
+                    <div class="card-header">
+                        <div class="card-title">Alle Wochen</div>
+                    </div>
+                    <div class="weeks-grid" id="weeks-grid"></div>
+                </div>
+            </div>
+
+            <!-- ROADMAP -->
+            <div class="page" id="page-roadmap">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Roadmap</div>
+                        <div class="page-sub" id="roadmap-sub">Launch-Plan</div>
+                    </div>
+                </div>
+                <div id="roadmap-content"></div>
+            </div>
+
+            <!-- PRODUKTE -->
+            <div class="page" id="page-produkte">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Produkte</div>
+                        <div class="page-sub">Produktkatalog</div>
+                    </div>
+                    <button class="btn-primary" id="btn-add-product" style="display:none" onclick="openAddProductModal()">+ Produkt hinzufügen</button>
+                </div>
+                <div class="catalog-layout">
+                    <div class="catalog-sidebar" id="catalog-sidebar">
+                        <div class="empty-state">Lädt...</div>
+                    </div>
+                    <div class="catalog-main" id="catalog-main">
+                        <div class="empty-state" style="margin-top:40px">
+                            Wähle links eine Kategorie aus oder erstelle zuerst eine neue Kategorie.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FINANZEN -->
+            <div class="page" id="page-finanzen">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Finanzen</div>
+                        <div class="page-sub">Ausgaben erfassen & verwalten</div>
+                    </div>
+                    <button class="btn-primary" onclick="openExpenseModal()">+ Ausgabe erfassen</button>
+                </div>
+                <div class="fin-kpi-strip" id="fin-kpi-strip"></div>
+                <div class="fin-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Nach Kategorie</div>
+                            <button class="btn-secondary" onclick="openCategoryModal()">Kategorien verwalten</button>
+                        </div>
+                        <div id="category-summary"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Alle Ausgaben</div>
+                        </div>
+                        <div id="expenses-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MEILENSTEINE -->
+            <div class="page" id="page-meilensteine">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Meilensteine</div>
+                        <div class="page-sub">Snapshots & Verlauf</div>
+                    </div>
+                    <button class="btn-primary" onclick="openMilestoneModal()">+ Meilenstein setzen</button>
+                </div>
+                <div id="milestones-list"></div>
+            </div>
+
+            <!-- ADMIN / PLANUNG -->
+            <div class="page" id="page-admin">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Planung</div>
+                        <div class="page-sub">Wochen und Tasks verwalten</div>
+                    </div>
+                    <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                </div>
+                <div id="admin-content"></div>
+            </div>
+
+            <!-- EINSTELLUNGEN -->
+            <div class="page" id="page-einstellungen">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Einstellungen</div>
+                        <div class="page-sub">Projektkonfiguration</div>
+                    </div>
+                </div>
+                <div class="card" style="max-width:560px">
+                    <div class="card-header">
+                        <div class="card-title">Projekt</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Projektname</label>
+                        <input type="text" id="settings-name">
+                    </div>
+                    <div class="form-group">
+                        <label>Startdatum</label>
+                        <input type="date" id="settings-start">
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung</label>
+                        <textarea id="settings-desc" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Währung</label>
+                        <select id="settings-currency">
+                            <option value="CHF">CHF — Schweizer Franken</option>
+                            <option value="EUR">EUR — Euro</option>
+                            <option value="USD">USD — US Dollar</option>
+                            <option value="GBP">GBP — Britisches Pfund</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Projektbild (optional)</label>
+                        <div id="project-image-preview" style="margin-bottom:8px"></div>
+                        <input type="file" id="settings-image" accept="image/*" style="display:none" onchange="handleProjectImagePreview()">
+                        <div style="display:flex;gap:8px">
+                            <button type="button" class="btn-secondary" style="flex:1;justify-content:center"
+                                    onclick="document.getElementById('settings-image').click()">
+                                📷 Bild hochladen
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="removeProjectImage()"
+                                    id="btn-remove-image" style="display:none">
+                                🗑 Entfernen
+                            </button>
+                        </div>
+                    </div>
+                    <button class="btn-primary" style="margin-top:8px" onclick="saveSettings()">Speichern</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: Import -->
+    <div class="modal-backdrop" id="import-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Projekt importieren</div>
+                <button class="modal-close" onclick="closeImportModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>JSON-Datei auswählen</label>
+                    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImportFileChange()">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('import-file').click()">
+                        📂 Datei auswählen
+                    </button>
+                    <div id="import-preview" style="margin-top:12px"></div>
+                </div>
+                <div style="font-size:12px;color:var(--amber);background:var(--amber-dim);border-radius:8px;padding:10px 14px;margin-top:8px">
+                    ⚠ Der Import überschreibt alle bestehenden Wochen, Tasks und Einstellungen. Ausgaben und Meilensteine bleiben erhalten.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeImportModal()">Abbrechen</button>
+                <button class="btn-primary" id="import-confirm-btn" disabled onclick="confirmImport()">Importieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ausgabe erfassen -->
+    <div class="modal-backdrop" id="expense-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Ausgabe erfassen</div>
+                <button class="modal-close" onclick="closeExpenseModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Kategorie</label>
+                    <select id="exp-category"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Betrag</label>
+                        <input type="number" id="exp-amount" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="exp-date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg">
+                </div>
+                <div class="form-group">
+                    <label>Link (optional)</label>
+                    <input type="url" id="exp-link" placeholder="https://...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Woche (optional)</label>
+                        <select id="exp-week"><option value="">Keine Zuweisung</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Task (optional)</label>
+                        <select id="exp-task"><option value="">Keine Zuweisung</option></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beleg (optional)</label>
+                    <input type="file" id="exp-file" accept="image/*" onchange="handleFilePreview()" style="display:none">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('exp-file').click()">
+                        📎 Datei auswählen
+                    </button>
+                    <div id="exp-file-name" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center"></div>
+                    <div id="exp-attachment-preview"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeExpenseModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveExpense()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ausgabe bearbeiten -->
+    <div class="modal-backdrop" id="edit-expense-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Ausgabe bearbeiten</div>
+                <button class="modal-close" onclick="closeEditExpenseModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-exp-id">
+                <div class="form-group">
+                    <label>Kategorie</label>
+                    <select id="edit-exp-category"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Betrag</label>
+                        <input type="number" id="edit-exp-amount" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="edit-exp-date">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="edit-exp-description">
+                </div>
+                <div class="form-group">
+                    <label>Link (optional)</label>
+                    <input type="url" id="edit-exp-link" placeholder="https://...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Woche (optional)</label>
+                        <select id="edit-exp-week"><option value="">Keine Zuweisung</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Task (optional)</label>
+                        <select id="edit-exp-task"><option value="">Keine Zuweisung</option></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beleg hinzufügen (optional)</label>
+                    <input type="file" id="edit-exp-file" accept="image/*" onchange="handleEditFilePreview()" style="display:none">
+                    <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
+                            onclick="document.getElementById('edit-exp-file').click()">
+                        📎 Beleg hinzufügen
+                    </button>
+                    <div id="edit-exp-file-name" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center"></div>
+                    <div id="edit-exp-attachment-preview"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEditExpenseModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="updateExpense()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kategorien verwalten -->
+    <div class="modal-backdrop" id="category-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Kategorien verwalten</div>
+                <button class="modal-close" onclick="closeCategoryModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="category-list"></div>
+                <div class="form-row" style="margin-top:16px">
+                    <div class="form-group" style="flex:1">
+                        <label>Neue Kategorie</label>
+                        <input type="text" id="new-cat-name" placeholder="Name">
+                    </div>
+                    <div class="form-group" style="width:80px">
+                        <label>Farbe</label>
+                        <input type="color" id="new-cat-color" value="#4f8ef7">
+                    </div>
+                </div>
+                <button class="btn-primary" style="width:100%;margin-top:8px" onclick="addCategory()">Kategorie hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Woche erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="week-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="week-modal-title">Woche erstellen</div>
+                <button class="modal-close" onclick="closeWeekModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Titel</label>
+                    <input type="text" id="week-title" placeholder="z.B. Produktfotos — Shooting">
+                </div>
+                <div class="form-group">
+                    <label>Phase</label>
+                    <input type="text" id="week-phase" placeholder="z.B. Phase 1 — Fundament">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Badge PC</label>
+                        <input type="text" id="week-badge-pc" placeholder="z.B. 4h PC">
+                    </div>
+                    <div class="form-group">
+                        <label>Badge Physisch</label>
+                        <input type="text" id="week-badge-phys" placeholder="z.B. 2h Drucker">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notiz (optional)</label>
+                    <textarea id="week-note" rows="3" placeholder="Hinweis der unter den Tasks angezeigt wird..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeWeekModal()">Abbrechen</button>
+                <button class="btn-primary" id="week-modal-save" onclick="saveWeek()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Task erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="task-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="task-modal-title">Task erstellen</div>
+                <button class="modal-close" onclick="closeTaskModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Typ</label>
+                    <select id="task-type">
+                        <option value="pc">PC</option>
+                        <option value="phys">Physisch</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <textarea id="task-text" rows="4" placeholder="Was muss gemacht werden?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Zeitaufwand</label>
+                    <input type="text" id="task-hours" placeholder="z.B. 1h oder 1.5h">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTaskModal()">Abbrechen</button>
+                <button class="btn-primary" id="task-modal-save" onclick="saveTask()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Meilenstein erstellen -->
+    <div class="modal-backdrop" id="milestone-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Meilenstein setzen</div>
+                <button class="modal-close" onclick="closeMilestoneModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="ms-name" placeholder="z.B. Phase 1 abgeschlossen">
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="ms-description" rows="3" placeholder="Was wurde erreicht?"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeMilestoneModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveMilestone()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Meilenstein Detail -->
+    <div class="modal-backdrop" id="milestone-detail-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:640px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="ms-detail-title"></div>
+                <button class="modal-close" onclick="closeMilestoneDetailModal()">✕</button>
+            </div>
+            <div class="modal-body" id="ms-detail-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="exportMilestonePdf()">📄 PDF</button>
+                <button class="btn-secondary" onclick="exportMilestoneExcel()">📊 Excel</button>
+                <button class="btn-primary" onclick="closeMilestoneDetailModal()">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkttypen verwalten -->
+    <div class="modal-backdrop" id="manage-types-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Produkttypen verwalten</div>
+                <button class="modal-close" onclick="closeManageTypesModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="types-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neuer Produkttyp</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-type-name" placeholder="z.B. Physisches Produkt">
+                        </div>
+                        <div class="form-group" style="width:80px">
+                            <label>Farbe</label>
+                            <input type="color" id="new-type-color" value="#4f8ef7">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung (optional)</label>
+                        <input type="text" id="new-type-desc" placeholder="Kurze Beschreibung">
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addProductType()">Typ erstellen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageTypesModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Felder verwalten -->
+    <div class="modal-backdrop" id="manage-fields-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="manage-fields-title">Felder verwalten</div>
+                <button class="modal-close" onclick="closeManageFieldsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="fields-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neues Feld</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Feldname</label>
+                            <input type="text" id="new-field-name" placeholder="z.B. Preis, Farbe, Link...">
+                        </div>
+                        <div class="form-group" style="width:140px">
+                            <label>Typ</label>
+                            <select id="new-field-type" onchange="toggleFieldOptions()">
+                                <option value="text">Text</option>
+                                <option value="number">Zahl</option>
+                                <option value="url">URL / Link</option>
+                                <option value="select">Auswahl (Select)</option>
+                                <option value="textarea">Langer Text</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="field-options-wrap" style="display:none">
+                        <label>Optionen (kommagetrennt)</label>
+                        <input type="text" id="new-field-options" placeholder="z.B. S, M, L, XL">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="checkbox" id="new-field-required">
+                            Pflichtfeld
+                        </label>
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addField()">Feld hinzufügen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageFieldsModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkt hinzufügen/bearbeiten -->
+    <div class="modal-backdrop" id="product-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="product-modal-title">Produkt hinzufügen</div>
+                <button class="modal-close" onclick="closeProductModal()">✕</button>
+            </div>
+            <div class="modal-body" id="product-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeProductModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveProduct()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kategorien & Attribute verwalten -->
+    <div class="modal-backdrop" id="manage-catalog-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:580px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Kategorien verwalten</div>
+                <button class="modal-close" onclick="closeManageCatalogModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="catalog-categories-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neue Kategorie</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-cat-type-name" placeholder="z.B. Wandbuchstaben">
+                        </div>
+                        <div class="form-group" style="width:80px">
+                            <label>Farbe</label>
+                            <input type="color" id="new-cat-type-color" value="#4f8ef7">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung (optional)</label>
+                        <input type="text" id="new-cat-type-desc" placeholder="Kurze Beschreibung">
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addCatalogCategory()">Kategorie erstellen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageCatalogModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Attribute verwalten -->
+    <div class="modal-backdrop" id="manage-attributes-modal" onclick="closeModals(event)">
+        <div class="modal" style="width:560px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title" id="manage-attr-title">Attribute verwalten</div>
+                <button class="modal-close" onclick="closeManageAttributesModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+                    Attribute sind Eigenschaften die alle Produkte in dieser Kategorie haben — z.B. Material, Schriftart, Farbe.
+                </div>
+                <div id="attributes-list"></div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Neues Attribut</div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1">
+                            <label>Name</label>
+                            <input type="text" id="new-attr-name" placeholder="z.B. Material, Farbe...">
+                        </div>
+                        <div class="form-group" style="width:150px">
+                            <label>Typ</label>
+                            <select id="new-attr-type" onchange="toggleAttrOptions()">
+                                <option value="text">Text</option>
+                                <option value="number">Zahl</option>
+                                <option value="select">Auswahl</option>
+                                <option value="url">URL</option>
+                                <option value="textarea">Langer Text</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="attr-options-wrap" style="display:none">
+                        <label>Optionen (kommagetrennt)</label>
+                        <input type="text" id="new-attr-options" placeholder="z.B. PLA, PETG, ABS">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="checkbox" id="new-attr-required">
+                            Pflichtfeld
+                        </label>
+                    </div>
+                    <button class="btn-primary" style="width:100%" onclick="addCatalogAttribute()">Attribut hinzufügen</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeManageAttributesModal()">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produkt erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="catalog-product-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="catalog-product-modal-title">Produkt hinzufügen</div>
+                <button class="modal-close" onclick="closeCatalogProductModal()">✕</button>
+            </div>
+            <div class="modal-body" id="catalog-product-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCatalogProductModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveCatalogProduct()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Variation hinzufügen/bearbeiten -->
+    <div class="modal-backdrop" id="variation-modal" onclick="closeModals(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="variation-modal-title">Variation hinzufügen</div>
+                <button class="modal-close" onclick="closeVariationModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="var-product-id">
+                <input type="hidden" id="var-edit-id">
+                <div class="form-group">
+                    <label>Name der Variation</label>
+                    <input type="text" id="var-name" placeholder="z.B. S, M, L oder Schwarz, Weiss">
+                </div>
+                <div class="form-group">
+                    <label>Artikelnummer (SKU)</label>
+                    <div style="display:flex;gap:8px">
+                        <input type="text" id="var-sku" placeholder="Wird automatisch generiert" style="flex:1">
+                        <button type="button" class="btn-secondary" onclick="generateSku()" style="white-space:nowrap">🔄 Generieren</button>
+                    </div>
+                    <div id="sku-error" style="font-size:11px;color:var(--red);margin-top:4px;display:none"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preis (<span id="var-currency"></span>)</label>
+                        <input type="number" id="var-price" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Lagerbestand</label>
+                        <input type="number" id="var-stock" step="1" min="0" placeholder="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeVariationModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveVariation()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="/js/app.js"></script>
+</body>
+</html>
