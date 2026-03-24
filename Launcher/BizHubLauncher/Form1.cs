@@ -39,7 +39,7 @@ namespace BizHubLauncher
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = "AuraPrintsApi.exe",
+                        FileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AuraPrintsApi.exe"),
                         WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
                         UseShellExecute = false,
                         CreateNoWindow = true

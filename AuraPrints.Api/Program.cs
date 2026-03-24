@@ -5,7 +5,9 @@ using AuraPrintsApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbFile = Path.Combine(AppContext.BaseDirectory, "Data", "auraprints.db");
+var dbFile = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    "BizHub", "Data", "auraprints.db");
 var dbContext = new DatabaseContext(dbFile);
 
 builder.Services.AddSingleton(dbContext);
