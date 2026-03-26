@@ -349,6 +349,7 @@ async function saveTabVisibility() {
 
 // ── EXPORT / IMPORT ──
 function exportData() {
+    if (!confirm('Projektdaten jetzt exportieren?')) return;
     const a = document.createElement('a');
     a.href = '/api/export';
     a.download = '';
