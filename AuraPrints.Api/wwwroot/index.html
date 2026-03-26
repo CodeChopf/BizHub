@@ -110,6 +110,10 @@
                     <span class="nav-icon">🏭</span>
                     <span>Produktion</span>
                 </button>
+                <button class="nav-item" id="nav-kalender" onclick="showPage('kalender')">
+                    <span class="nav-icon">📅</span>
+                    <span>Kalender</span>
+                </button>
             </nav>
 
             <div class="sidebar-section-label">System</div>
@@ -318,6 +322,39 @@
                 <div id="prod-list"></div>
             </div>
 
+            <!-- KALENDER -->
+            <div class="page" id="page-kalender">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Kalender</div>
+                        <div class="page-sub" id="cal-month-label">Monat</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn-secondary" onclick="calPrevMonth()">‹</button>
+                        <button class="btn-secondary" onclick="calToday()">Heute</button>
+                        <button class="btn-secondary" onclick="calNextMonth()">›</button>
+                        <button class="btn-primary" onclick="openCalEventModal(null)">+ Ereignis</button>
+                    </div>
+                </div>
+                <div class="cal-weekdays">
+                    <div>Mo</div><div>Di</div><div>Mi</div>
+                    <div>Do</div><div>Fr</div><div>Sa</div><div>So</div>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+
+                <!-- Tages-Detail-Popup -->
+                <div id="cal-day-popup" class="cal-day-popup" style="display:none">
+                    <div class="cal-day-popup-header">
+                        <strong id="cal-popup-date"></strong>
+                        <div style="display:flex;gap:6px">
+                            <button class="overdue-btn" onclick="openCalEventModal(null, _calPopupDate)">+ Hinzufügen</button>
+                            <button class="overdue-btn overdue-btn-close" onclick="closeCalDayPopup()">✕</button>
+                        </div>
+                    </div>
+                    <div id="cal-popup-items"></div>
+                </div>
+            </div>
+
             <!-- EINSTELLUNGEN -->
             <div class="page" id="page-einstellungen">
                 <div class="page-header">
@@ -431,11 +468,80 @@
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>📅</span><span>Kalender</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-kalender" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
 
         </main>
+    </div>
+
+    <!-- MODAL: Kalender-Ereignis -->
+    <div class="modal-backdrop" id="cal-event-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="cal-modal-title">Ereignis erstellen</div>
+                <button class="modal-close" onclick="closeCalEventModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Titel</label>
+                    <input type="text" id="cal-ev-title" placeholder="z.B. Kundengespräch, Lieferung...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="cal-ev-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Enddatum (optional)</label>
+                        <input type="date" id="cal-ev-enddate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Uhrzeit (optional)</label>
+                        <input type="time" id="cal-ev-time">
+                    </div>
+                    <div class="form-group">
+                        <label>Typ</label>
+                        <select id="cal-ev-type">
+                            <option value="event">📌 Ereignis</option>
+                            <option value="deadline">⏰ Deadline</option>
+                            <option value="meeting">🤝 Meeting</option>
+                            <option value="delivery">📦 Lieferung</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="cal-ev-desc" rows="2" placeholder="Details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Farbe</label>
+                    <div class="color-picker" id="cal-ev-color-picker">
+                        <button class="color-dot active" style="background:#4f8ef7" data-color="#4f8ef7" onclick="selectCalColor('#4f8ef7', this)"></button>
+                        <button class="color-dot" style="background:#34c77b" data-color="#34c77b" onclick="selectCalColor('#34c77b', this)"></button>
+                        <button class="color-dot" style="background:#f25f5c" data-color="#f25f5c" onclick="selectCalColor('#f25f5c', this)"></button>
+                        <button class="color-dot" style="background:#f5a623" data-color="#f5a623" onclick="selectCalColor('#f5a623', this)"></button>
+                        <button class="color-dot" style="background:#a78bfa" data-color="#a78bfa" onclick="selectCalColor('#a78bfa', this)"></button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cal-ev-delete-btn" onclick="deleteCalEvent()" style="display:none;margin-right:auto">🗑 Löschen</button>
+                <button class="btn-secondary" onclick="closeCalEventModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveCalEvent()">Speichern</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL: Produktion hinzufügen -->

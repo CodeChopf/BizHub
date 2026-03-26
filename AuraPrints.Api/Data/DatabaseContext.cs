@@ -136,6 +136,17 @@ public class DatabaseContext
                 done         INTEGER NOT NULL DEFAULT 0,
                 note         TEXT,
                 added_at     TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS calendar_events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL,
+                date        TEXT NOT NULL,
+                end_date    TEXT,
+                time        TEXT,
+                description TEXT,
+                color       TEXT NOT NULL DEFAULT '#4f8ef7',
+                type        TEXT NOT NULL DEFAULT 'event',
+                created_at  TEXT NOT NULL
             );";
         cmd.ExecuteNonQuery();
     }
