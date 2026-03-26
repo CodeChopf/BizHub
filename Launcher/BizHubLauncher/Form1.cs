@@ -59,7 +59,7 @@ namespace BizHubLauncher
             {
                 try
                 {
-                    var response = await httpClient.GetAsync(ApiUrl);
+                    var response = await httpClient.GetAsync(ApiUrl + "/api/state");
                     if (response.IsSuccessStatusCode) return;
                 }
                 catch { }

@@ -55,6 +55,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "{#LauncherSrc}"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 Source: "{#ApiSrc}";      DestDir: "{app}"; DestName: "{#MyApiExeName}"; Flags: ignoreversion
 
+; Frontend static files (HTML/CSS/JS) served by the API
+Source: "..\publish\api\wwwroot\*"; DestDir: "{app}\wwwroot"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 ; App icon for shortcuts
 Source: "{#IconSrc}"; DestDir: "{app}"; DestName: "favicon.ico"; Flags: ignoreversion
 
