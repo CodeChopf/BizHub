@@ -127,6 +127,15 @@ public class DatabaseContext
                 stock      INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (product_id) REFERENCES products_v2(id)
+            );
+            CREATE TABLE IF NOT EXISTS production_queue (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id   INTEGER NOT NULL,
+                variation_id INTEGER,
+                quantity     INTEGER NOT NULL DEFAULT 1,
+                done         INTEGER NOT NULL DEFAULT 0,
+                note         TEXT,
+                added_at     TEXT NOT NULL
             );";
         cmd.ExecuteNonQuery();
     }

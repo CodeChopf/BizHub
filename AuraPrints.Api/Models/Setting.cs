@@ -14,4 +14,6 @@ public class ProjectSettings
     public string Currency { get; set; } = "CHF";
     public bool IsSetup { get; set; } = false;
     public string? ProjectImage { get; set; } = null;
+    // JSON-String: {"roadmap":true,"produkte":true,...} — null = alle sichtbar
+    public string? VisibleTabs { get; set; } = null;
 }

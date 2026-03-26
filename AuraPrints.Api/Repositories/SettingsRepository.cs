@@ -40,6 +40,7 @@ public class SettingsRepository : ISettingsRepository
             Description = dict.GetValueOrDefault("description", ""),
             Currency = dict.GetValueOrDefault("currency", "CHF"),
             ProjectImage = dict.ContainsKey("project_image") ? dict["project_image"] : null,
+            VisibleTabs = dict.ContainsKey("visible_tabs") ? dict["visible_tabs"] : null,
             IsSetup = dict.ContainsKey("project_name")
         };
     }
@@ -56,7 +57,8 @@ public class SettingsRepository : ISettingsRepository
             ["start_date"] = settings.StartDate,
             ["description"] = settings.Description,
             ["currency"] = settings.Currency,
-            ["project_image"] = settings.ProjectImage
+            ["project_image"] = settings.ProjectImage,
+            ["visible_tabs"] = settings.VisibleTabs
         };
 
         foreach (var (key, value) in values)

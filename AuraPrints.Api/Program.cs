@@ -21,6 +21,7 @@ builder.Services.AddSingleton<IAttachmentRepository, AttachmentRepository>();
 builder.Services.AddSingleton<IMilestoneRepository, MilestoneRepository>();
 builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IProductCatalogRepository, ProductCatalogRepository>();
+builder.Services.AddSingleton<IProductionRepository, ProductionRepository>();
 
 var app = builder.Build();
 
@@ -658,6 +659,56 @@ app.MapPut("/api/catalog/variations/{id}", async (int id, HttpRequest request, I
 app.MapDelete("/api/catalog/variations/{id}", (int id, IProductCatalogRepository repo) =>
 {
     repo.DeleteVariation(id);
+    return Results.Ok(new { deleted = true });
+});
+
+// ── PRODUKTION ──
+
+// GET /api/production
+app.MapGet("/api/production", (IProductionRepository repo) =>
+    Results.Ok(repo.GetAll()));
+
+// POST /api/production
+app.MapPost("/api/production", async (HttpRequest request, IProductionRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var productId   = body.GetProperty("productId").GetInt32();
+    var variationId = body.TryGetProperty("variationId", out var vid) && vid.ValueKind != JsonValueKind.Null ? vid.GetInt32() : (int?)null;
+    var quantity    = body.TryGetProperty("quantity", out var qty) ? qty.GetInt32() : 1;
+    var note        = body.TryGetProperty("note", out var n) && n.ValueKind != JsonValueKind.Null ? n.GetString() : null;
+    return Results.Ok(repo.Add(productId, variationId, quantity, note));
+});
+
+// PATCH /api/production/{id}/done
+app.MapMethods("/api/production/{id}/done", ["PATCH"], async (int id, HttpRequest request, IProductionRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var done = body.GetProperty("done").GetBoolean();
+    repo.SetDone(id, done);
+    return Results.Ok(new { updated = true });
+});
+
+// PUT /api/production/{id}
+app.MapPut("/api/production/{id}", async (int id, HttpRequest request, IProductionRepository repo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var quantity = body.GetProperty("quantity").GetInt32();
+    var note     = body.TryGetProperty("note", out var n) && n.ValueKind != JsonValueKind.Null ? n.GetString() : null;
+    repo.UpdateItem(id, quantity, note);
+    return Results.Ok(new { updated = true });
+});
+
+// DELETE /api/production/done  (muss vor /{id} stehen!)
+app.MapDelete("/api/production/done", (IProductionRepository repo) =>
+{
+    repo.DeleteAllDone();
+    return Results.Ok(new { deleted = true });
+});
+
+// DELETE /api/production/{id}
+app.MapDelete("/api/production/{id}", (int id, IProductionRepository repo) =>
+{
+    repo.Delete(id);
     return Results.Ok(new { deleted = true });
 });
 

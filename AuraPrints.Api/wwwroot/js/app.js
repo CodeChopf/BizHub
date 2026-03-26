@@ -55,6 +55,9 @@ function applySettings(settings) {
     renderSettingsImagePreview(settings.projectImage ?? null);
 
     document.title = settings.projectName + ' — BizHub';
+
+    // Tab-Sichtbarkeit
+    applyTabVisibility(settings.visibleTabs ?? null);
 }
 
 function renderSettingsImagePreview(base64) {
@@ -268,6 +271,7 @@ async function init() {
     renderRoadmap();
     renderFinanzen();
     updateAll();
+    updateOverdueBanner();
 
     const cwBody = document.getElementById('wb-' + currentWeek);
     const cwChev = document.getElementById('chev-' + currentWeek);
@@ -289,10 +293,58 @@ async function saveSettings() {
         startDate: start,
         description: desc,
         currency,
-        projectImage: projectSettings?.projectImage ?? null
+        projectImage: projectSettings?.projectImage ?? null,
+        visibleTabs: projectSettings?.visibleTabs ?? null
     });
     applySettings(settings);
     showToast('✓ Einstellungen gespeichert');
+}
+
+// ── TAB VISIBILITY ──
+const TOGGLEABLE_TABS = ['roadmap', 'produkte', 'finanzen', 'meilensteine', 'admin', 'produktion'];
+
+function applyTabVisibility(visibleTabsJson) {
+    const tabs = visibleTabsJson ? JSON.parse(visibleTabsJson) : {};
+    TOGGLEABLE_TABS.forEach(id => {
+        const visible = tabs[id] !== false;
+        const navEl = document.getElementById('nav-' + id);
+        if (navEl) navEl.style.display = visible ? '' : 'none';
+        // Update toggle checkbox in settings
+        const toggle = document.getElementById('tab-toggle-' + id);
+        if (toggle) toggle.checked = visible;
+    });
+}
+
+async function saveTabVisibility() {
+    const tabs = {};
+    TOGGLEABLE_TABS.forEach(id => {
+        const toggle = document.getElementById('tab-toggle-' + id);
+        tabs[id] = toggle ? toggle.checked : true;
+    });
+    const visibleTabs = JSON.stringify(tabs);
+    if (projectSettings) projectSettings.visibleTabs = visibleTabs;
+    applyTabVisibility(visibleTabs);
+
+    // Wenn aktive Page jetzt ausgeblendet ist → Übersicht
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+        const pageId = activePage.id.replace('page-', '');
+        if (TOGGLEABLE_TABS.includes(pageId) && tabs[pageId] === false) {
+            showPage('overview');
+        }
+    }
+
+    // Persist
+    const name = document.getElementById('settings-name')?.value.trim() || projectSettings?.projectName || '';
+    const start = document.getElementById('settings-start')?.value || projectSettings?.startDate || '';
+    const desc = document.getElementById('settings-desc')?.value.trim() || projectSettings?.description || '';
+    const currency = document.getElementById('settings-currency')?.value || projectSettings?.currency || 'CHF';
+    const updated = await api('/api/settings', 'POST', {
+        projectName: name, startDate: start, description: desc, currency,
+        projectImage: projectSettings?.projectImage ?? null,
+        visibleTabs
+    });
+    applySettings(updated);
 }
 
 // ── EXPORT / IMPORT ──
@@ -813,6 +865,7 @@ function toggleTask(row) {
     state[row.dataset.idx] = row.classList.contains('done');
     saveState();
     updateAll();
+    updateOverdueBanner();
 }
 
 // ── TOGGLE WEEK ──
@@ -827,13 +880,22 @@ function toggleWeek(n) {
 function showPage(id) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
-    document.getElementById('page-' + id).classList.add('active');
-    const idx = { overview: 0, roadmap: 1, produkte: 2, finanzen: 3, meilensteine: 4, admin: 5, einstellungen: 6 };
-    const navItems = document.querySelectorAll('.nav-item');
-    if (idx[id] !== undefined && navItems[idx[id]]) navItems[idx[id]].classList.add('active');
+    const page = document.getElementById('page-' + id);
+    if (!page) return;
+    page.classList.add('active');
+    // Highlight nav item by data-page or matching onclick
+    const navBtn = document.getElementById('nav-' + id);
+    if (navBtn) navBtn.classList.add('active');
+    else {
+        // fallback for overview / einstellungen which have no nav-id
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            if (btn.getAttribute('onclick') === `showPage('${id}')`) btn.classList.add('active');
+        });
+    }
     if (id === 'admin') renderAdmin();
     if (id === 'meilensteine') renderMilestones();
     if (id === 'produkte') renderProdukte();
+    if (id === 'produktion') renderProduktion();
 }
 
 // ── UPDATE ALL ──
@@ -2213,6 +2275,212 @@ async function deleteVariation(id) {
     catalogData = await api('/api/catalog');
     renderCatalogMain();
     showToast('✓ Variation gelöscht');
+}
+
+// ── PRODUKTION ──
+let prodFilter = 'all';
+let productionData = [];
+
+async function renderProduktion() {
+    productionData = await api('/api/production');
+    renderProdList();
+}
+
+function setProdFilter(f) {
+    prodFilter = f;
+    ['all', 'open', 'done'].forEach(k => {
+        document.getElementById('prod-filter-' + k)?.classList.toggle('active', k === f);
+    });
+    renderProdList();
+}
+
+function renderProdList() {
+    const list = document.getElementById('prod-list');
+    if (!list) return;
+
+    const items = productionData.filter(i => {
+        if (prodFilter === 'open') return !i.done;
+        if (prodFilter === 'done') return i.done;
+        return true;
+    });
+
+    const hasDone = productionData.some(i => i.done);
+    const deleteBtn = document.getElementById('btn-delete-done-prod');
+    if (deleteBtn) deleteBtn.style.display = hasDone ? '' : 'none';
+
+    if (items.length === 0) {
+        list.innerHTML = `<div class="prod-empty">
+            ${prodFilter === 'done' ? 'Keine erledigten Artikel.' : prodFilter === 'open' ? 'Keine offenen Artikel. 🎉' : 'Keine Artikel in der Warteschlange.<br><small>Füge Artikel aus dem Produktkatalog hinzu.</small>'}
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        const dot = `<span class="cat-dot" style="background:${item.categoryColor}"></span>`;
+        const variation = item.variationName
+            ? `<span class="prod-item-variation">${item.variationName}${item.variationSku ? ' · ' + item.variationSku : ''}</span>`
+            : '';
+        const note = item.note ? `<div class="prod-item-note">${escHtml(item.note)}</div>` : '';
+        return `
+        <div class="prod-item-row ${item.done ? 'done' : ''}" id="prod-row-${item.id}">
+            <label class="prod-item-check">
+                <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleProdDone(${item.id}, this.checked)">
+                <span class="check-box"></span>
+            </label>
+            <div class="prod-item-info">
+                <div class="prod-item-name">${dot}${escHtml(item.productName)}</div>
+                ${variation}
+                ${note}
+                <div class="prod-item-cat">${escHtml(item.categoryName)}</div>
+            </div>
+            <div class="prod-item-qty">
+                <button class="qty-btn" onclick="changeProdQty(${item.id}, ${item.quantity - 1})">−</button>
+                <span class="qty-val">${item.quantity}</span>
+                <button class="qty-btn" onclick="changeProdQty(${item.id}, ${item.quantity + 1})">+</button>
+            </div>
+            <button class="btn-icon" onclick="deleteProductionItem(${item.id})" title="Entfernen">🗑</button>
+        </div>`;
+    }).join('');
+}
+
+function escHtml(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function toggleProdDone(id, done) {
+    await api(`/api/production/${id}/done`, 'PATCH', { done });
+    const item = productionData.find(i => i.id === id);
+    if (item) item.done = done;
+    renderProdList();
+}
+
+async function changeProdQty(id, qty) {
+    if (qty < 1) return;
+    const item = productionData.find(i => i.id === id);
+    if (!item) return;
+    await api(`/api/production/${id}`, 'PUT', { quantity: qty, note: item.note ?? null });
+    item.quantity = qty;
+    renderProdList();
+}
+
+async function deleteProductionItem(id) {
+    if (!confirm('Artikel aus der Produktionswarteschlange entfernen?')) return;
+    await api(`/api/production/${id}`, 'DELETE');
+    productionData = productionData.filter(i => i.id !== id);
+    renderProdList();
+    showToast('✓ Artikel entfernt');
+}
+
+async function deleteAllDoneProduction() {
+    if (!confirm('Alle erledigten Artikel löschen?')) return;
+    await api('/api/production/done', 'DELETE');
+    productionData = productionData.filter(i => !i.done);
+    renderProdList();
+    showToast('✓ Erledigte Artikel gelöscht');
+}
+
+async function openProductionAddModal() {
+    // Katalog laden falls nötig
+    if (!catalogData) catalogData = await api('/api/catalog');
+    const sel = document.getElementById('prod-add-product');
+    sel.innerHTML = '<option value="">— Produkt wählen —</option>' +
+        catalogData.products.map(p =>
+            `<option value="${p.id}" data-variations='${JSON.stringify(p.variations)}'>${escHtml(p.name)}</option>`
+        ).join('');
+    document.getElementById('prod-add-qty').value = '1';
+    document.getElementById('prod-add-note').value = '';
+    document.getElementById('prod-add-variation-group').style.display = 'none';
+    document.getElementById('prod-add-variation').innerHTML = '<option value="">— Variante wählen (optional) —</option>';
+    document.getElementById('production-add-modal').classList.add('open');
+}
+
+function onProdProductChange() {
+    const sel = document.getElementById('prod-add-product');
+    const opt = sel.options[sel.selectedIndex];
+    const varGroup = document.getElementById('prod-add-variation-group');
+    const varSel = document.getElementById('prod-add-variation');
+    if (!opt || !opt.value) { varGroup.style.display = 'none'; return; }
+    const variations = JSON.parse(opt.dataset.variations || '[]');
+    if (variations.length === 0) { varGroup.style.display = 'none'; return; }
+    varSel.innerHTML = '<option value="">— Variante wählen (optional) —</option>' +
+        variations.map(v => `<option value="${v.id}">${escHtml(v.name)} · ${v.sku}</option>`).join('');
+    varGroup.style.display = '';
+}
+
+async function confirmAddProductionItem() {
+    const productId = parseInt(document.getElementById('prod-add-product').value);
+    if (!productId) { showToast('Bitte ein Produkt wählen.'); return; }
+    const variationIdRaw = document.getElementById('prod-add-variation').value;
+    const variationId = variationIdRaw ? parseInt(variationIdRaw) : null;
+    const quantity = parseInt(document.getElementById('prod-add-qty').value) || 1;
+    const note = document.getElementById('prod-add-note').value.trim() || null;
+    await api('/api/production', 'POST', { productId, variationId, quantity, note });
+    closeProductionAddModal();
+    productionData = await api('/api/production');
+    renderProdList();
+    showToast('✓ Zur Produktion hinzugefügt');
+}
+
+function closeProductionAddModal() {
+    document.getElementById('production-add-modal').classList.remove('open');
+}
+
+// ── ÜBERFÄLLIGE AUFGABEN ──
+let _overdueDismissed = false;
+
+function getOverdueTasks() {
+    if (!appData || !state) return [];
+    const cur = window._currentWeek ?? 1;
+    const result = [];
+    for (const week of appData.weeks) {
+        if (week.number >= cur) continue;
+        for (const task of week.tasks) {
+            if (!state[`task-${task.id}`]) {
+                result.push({ week, task });
+            }
+        }
+    }
+    return result;
+}
+
+function updateOverdueBanner() {
+    const overdue = getOverdueTasks();
+    const banner = document.getElementById('overdue-banner');
+    const badge = document.getElementById('overdue-badge');
+    const count = document.getElementById('overdue-count');
+    if (!banner) return;
+    if (overdue.length === 0) {
+        banner.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        return;
+    }
+    if (badge) { badge.textContent = overdue.length; badge.style.display = ''; }
+    if (_overdueDismissed) { banner.style.display = 'none'; return; }
+    if (count) count.textContent = overdue.length;
+    banner.style.display = '';
+}
+
+function dismissOverdueBanner() {
+    _overdueDismissed = true;
+    document.getElementById('overdue-banner').style.display = 'none';
+}
+
+function showOverdueTasks() {
+    const overdue = getOverdueTasks();
+    if (overdue.length === 0) return;
+    showPage('roadmap');
+    // Erste überfällige Woche aufklappen und scrollen
+    const firstWeekNr = overdue[0].week.number;
+    const body = document.getElementById('wb-' + firstWeekNr);
+    const chev = document.getElementById('chev-' + firstWeekNr);
+    if (body && !body.classList.contains('open')) {
+        body.classList.add('open');
+        if (chev) chev.classList.add('open');
+    }
+    setTimeout(() => {
+        const card = document.getElementById('week-' + firstWeekNr);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 }
 
 init();
