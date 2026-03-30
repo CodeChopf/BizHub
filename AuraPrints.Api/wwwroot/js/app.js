@@ -214,8 +214,63 @@ async function importProject() {
     }
 }
 
+// ── AUTH ──
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/me');
+        if (res.status === 401) {
+            showLoginScreen();
+            return false;
+        }
+        return true;
+    } catch {
+        showLoginScreen();
+        return false;
+    }
+}
+
+function showLoginScreen() {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+}
+
+async function doLogin() {
+    const pw = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw })
+        });
+        if (res.ok) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('login-password').value = '';
+            await init();
+        } else if (res.status === 429) {
+            errEl.textContent = 'Zu viele Versuche. Bitte warte eine Minute.';
+            errEl.style.display = 'block';
+        } else {
+            errEl.textContent = 'Falsches Passwort.';
+            errEl.style.display = 'block';
+        }
+    } catch {
+        errEl.textContent = 'Verbindungsfehler.';
+        errEl.style.display = 'block';
+    }
+}
+
+async function doLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    showLoginScreen();
+}
+
 // ── INIT ──
 async function init() {
+    if (!(await checkAuth())) return;
+
     // Settings laden
     const settings = await api('/api/settings');
 

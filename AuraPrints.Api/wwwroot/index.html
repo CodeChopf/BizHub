@@ -10,6 +10,24 @@
 </head>
 <body>
 
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" style="display:none">
+        <div class="login-wrap">
+            <div class="login-logo">
+                <div class="login-logo-icon">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
+                <div class="login-logo-name">BizHub</div>
+            </div>
+            <div class="form-group">
+                <label>Passwort</label>
+                <input type="password" id="login-password" placeholder="Passwort eingeben" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <div id="login-error" class="login-error" style="display:none"></div>
+            <button class="btn-primary" style="width:100%" onclick="doLogin()">Anmelden</button>
+        </div>
+    </div>
+
     <!-- SETUP SCREEN -->
     <div id="setup-screen" style="display:none">
         <div class="setup-wrap">
@@ -135,6 +153,7 @@
             <div class="sidebar-footer">
                 <div class="sidebar-footer-date" id="sidebar-date"></div>
                 <div class="sidebar-footer-launch" id="sidebar-launch"></div>
+                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
             </div>
         </aside>
 

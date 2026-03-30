@@ -1,13 +1,20 @@
-﻿using System.Text.Json;
+﻿using System.Security.Claims;
+using System.Text.Json;
 using AuraPrintsApi.Data;
 using AuraPrintsApi.Models;
 using AuraPrintsApi.Repositories;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using BC = BCrypt.Net.BCrypt;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbFile = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-    "BizHub", "Data", "auraprints.db");
+var dataDir = Environment.GetEnvironmentVariable("BIZHUB_DATA_DIR")
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BizHub", "Data");
+Directory.CreateDirectory(dataDir);
+var dbFile = Path.Combine(dataDir, "auraprints.db");
 var dbContext = new DatabaseContext(dbFile);
 
 builder.Services.AddSingleton(dbContext);
@@ -24,6 +31,32 @@ builder.Services.AddSingleton<IProductCatalogRepository, ProductCatalogRepositor
 builder.Services.AddSingleton<IProductionRepository, ProductionRepository>();
 builder.Services.AddSingleton<ICalendarRepository, CalendarRepository>();
 
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(o => {
+        o.Cookie.Name = "bizhub_session";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Strict;
+        o.ExpireTimeSpan = TimeSpan.FromHours(24);
+        o.SlidingExpiration = true;
+        o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
+        o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = 403; return Task.CompletedTask; };
+    });
+
+builder.Services.AddAuthorization(options => {
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+builder.Services.AddRateLimiter(opt => {
+    opt.AddFixedWindowLimiter("login", o => {
+        o.PermitLimit = 5;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueLimit = 0;
+    });
+    opt.RejectionStatusCode = 429;
+});
+
 var app = builder.Build();
 
 var jsonOptions = new JsonSerializerOptions
@@ -34,10 +67,55 @@ var jsonOptions = new JsonSerializerOptions
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
 
 var seeder = new DatabaseSeeder(dbContext);
 dbContext.Initialize();
 seeder.Seed();
+
+// Bootstrap password hash from env var on first run
+{
+    var settingsRepo = app.Services.GetRequiredService<ISettingsRepository>();
+    var envPw = Environment.GetEnvironmentVariable("BIZHUB_PASSWORD");
+    if (envPw != null && settingsRepo.GetPasswordHash() == null)
+        settingsRepo.SetPasswordHash(BC.HashPassword(envPw));
+}
+
+// ── AUTH ──
+
+// POST /api/auth/login
+app.MapPost("/api/auth/login", async (HttpRequest request, HttpContext ctx, ISettingsRepository settingsRepo) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var password = body.TryGetProperty("password", out var p) ? p.GetString() : null;
+    if (string.IsNullOrEmpty(password)) return Results.BadRequest(new { error = "Passwort fehlt." });
+
+    var hash = settingsRepo.GetPasswordHash();
+    if (hash == null) return Results.Problem("Kein Passwort konfiguriert.", statusCode: 500);
+
+    if (!BC.Verify(password, hash)) return Results.Json(new { error = "Falsches Passwort." }, statusCode: 401);
+
+    var claims = new[] { new Claim(ClaimTypes.Name, "admin") };
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+    return Results.Ok(new { ok = true });
+}).AllowAnonymous().RequireRateLimiting("login");
+
+// POST /api/auth/logout
+app.MapPost("/api/auth/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Ok(new { ok = true });
+});
+
+// GET /api/auth/me
+app.MapGet("/api/auth/me", (HttpContext ctx) =>
+    ctx.User.Identity?.IsAuthenticated == true
+        ? Results.Ok(new { ok = true })
+        : Results.Unauthorized()
+).AllowAnonymous();
 
 // GET /api/data
 app.MapGet("/api/data", (IRoadmapRepository repo) =>

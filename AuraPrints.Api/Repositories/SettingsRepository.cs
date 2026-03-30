@@ -45,6 +45,28 @@ public class SettingsRepository : ISettingsRepository
         };
     }
 
+    public string? GetPasswordHash()
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "SELECT value FROM settings WHERE key = 'admin_password_hash'";
+        var result = cmd.ExecuteScalar();
+        return result as string;
+    }
+
+    public void SetPasswordHash(string hash)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO settings (key, value) VALUES ('admin_password_hash', @hash)
+            ON CONFLICT(key) DO UPDATE SET value = @hash";
+        cmd.Parameters.AddWithValue("@hash", hash);
+        cmd.ExecuteNonQuery();
+    }
+
     public void SaveSettings(ProjectSettings settings)
     {
         using var con = _context.CreateConnection();
