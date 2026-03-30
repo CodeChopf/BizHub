@@ -3,6 +3,7 @@ using System.Text.Json;
 using AuraPrintsApi.Data;
 using AuraPrintsApi.Models;
 using AuraPrintsApi.Repositories;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
