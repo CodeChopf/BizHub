@@ -67,6 +67,15 @@ public class SettingsRepository : ISettingsRepository
         cmd.ExecuteNonQuery();
     }
 
+    public void DeletePasswordHash()
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "DELETE FROM settings WHERE key = 'admin_password_hash'";
+        cmd.ExecuteNonQuery();
+    }
+
     public void SaveSettings(ProjectSettings settings)
     {
         using var con = _context.CreateConnection();

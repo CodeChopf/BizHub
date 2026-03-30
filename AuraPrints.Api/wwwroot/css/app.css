@@ -2488,3 +2488,43 @@ textarea {
     transition: color .15s;
 }
 .logout-btn:hover { color: var(--text-primary); }
+.sidebar-username {
+    font-size: .78rem;
+    color: var(--text-muted);
+    padding: 2px 0;
+}
+
+/* ── USER MANAGEMENT ── */
+.user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+}
+.user-row:last-child { border-bottom: none; }
+.user-info { display: flex; align-items: center; gap: 8px; }
+.user-name { font-size: .9rem; color: var(--text-primary); }
+.user-badge {
+    font-size: .7rem;
+    background: var(--blue-dim, rgba(79,142,247,.15));
+    color: var(--blue, #4f8ef7);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.user-actions { display: flex; gap: 6px; }
+.btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: .78rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: background .15s;
+}
+.btn-ghost:hover { background: var(--surface-hover, rgba(255,255,255,.06)); }
+.btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
+.btn-ghost.btn-danger { color: var(--red); border-color: var(--red); }
+.btn-ghost.btn-danger:hover { background: rgba(239,68,68,.08); }

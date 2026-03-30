@@ -31,6 +31,7 @@ builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IProductCatalogRepository, ProductCatalogRepository>();
 builder.Services.AddSingleton<IProductionRepository, ProductionRepository>();
 builder.Services.AddSingleton<ICalendarRepository, CalendarRepository>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => {
@@ -76,32 +77,48 @@ var seeder = new DatabaseSeeder(dbContext);
 dbContext.Initialize();
 seeder.Seed();
 
-// Bootstrap password hash from env var on first run
+// Bootstrap: migrate single-password or create first admin user
 {
     var settingsRepo = app.Services.GetRequiredService<ISettingsRepository>();
-    var envPw = Environment.GetEnvironmentVariable("BIZHUB_PASSWORD");
-    if (envPw != null && settingsRepo.GetPasswordHash() == null)
-        settingsRepo.SetPasswordHash(BC.HashPassword(envPw));
+    var userRepo = app.Services.GetRequiredService<IUserRepository>();
+    if (!userRepo.HasAnyUser())
+    {
+        var oldHash = settingsRepo.GetPasswordHash();
+        if (oldHash != null)
+        {
+            // Migrate existing password hash to admin user
+            userRepo.CreateWithHash("admin", oldHash, isAdmin: true);
+            settingsRepo.DeletePasswordHash();
+        }
+        else
+        {
+            var envPw = Environment.GetEnvironmentVariable("BIZHUB_PASSWORD");
+            if (envPw != null)
+                userRepo.Create("admin", envPw, isAdmin: true);
+        }
+    }
 }
 
 // ── AUTH ──
 
 // POST /api/auth/login
-app.MapPost("/api/auth/login", async (HttpRequest request, HttpContext ctx, ISettingsRepository settingsRepo) =>
+app.MapPost("/api/auth/login", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo) =>
 {
     var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var username = body.TryGetProperty("username", out var u) ? u.GetString() : null;
     var password = body.TryGetProperty("password", out var p) ? p.GetString() : null;
-    if (string.IsNullOrEmpty(password)) return Results.BadRequest(new { error = "Passwort fehlt." });
+    if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "Benutzername und Passwort sind Pflicht." });
 
-    var hash = settingsRepo.GetPasswordHash();
-    if (hash == null) return Results.Problem("Kein Passwort konfiguriert.", statusCode: 500);
+    var user = userRepo.GetByUsername(username);
+    if (user == null || user.PasswordHash == null || !BC.Verify(password, user.PasswordHash))
+        return Results.Json(new { error = "Falscher Benutzername oder Passwort." }, statusCode: 401);
 
-    if (!BC.Verify(password, hash)) return Results.Json(new { error = "Falsches Passwort." }, statusCode: 401);
-
-    var claims = new[] { new Claim(ClaimTypes.Name, "admin") };
+    var claims = new List<Claim> { new Claim(ClaimTypes.Name, user.Username) };
+    if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "admin"));
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
     await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-    return Results.Ok(new { ok = true });
+    return Results.Ok(new { ok = true, username = user.Username, isAdmin = user.IsAdmin });
 }).AllowAnonymous().RequireRateLimiting("login");
 
 // POST /api/auth/logout
@@ -114,9 +131,59 @@ app.MapPost("/api/auth/logout", async (HttpContext ctx) =>
 // GET /api/auth/me
 app.MapGet("/api/auth/me", (HttpContext ctx) =>
     ctx.User.Identity?.IsAuthenticated == true
-        ? Results.Ok(new { ok = true })
+        ? Results.Ok(new {
+            ok = true,
+            username = ctx.User.Identity.Name,
+            isAdmin = ctx.User.IsInRole("admin")
+          })
         : Results.Unauthorized()
 ).AllowAnonymous();
+
+// ── BENUTZERVERWALTUNG (nur Admin) ──
+
+// GET /api/users
+app.MapGet("/api/users", (HttpContext ctx, IUserRepository userRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    return Results.Ok(userRepo.GetAll());
+});
+
+// POST /api/users
+app.MapPost("/api/users", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var username = body.TryGetProperty("username", out var u) ? u.GetString() : null;
+    var password = body.TryGetProperty("password", out var p) ? p.GetString() : null;
+    var isAdmin  = body.TryGetProperty("isAdmin", out var a) && a.GetBoolean();
+    if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "Benutzername und Passwort sind Pflicht." });
+    if (userRepo.GetByUsername(username) != null)
+        return Results.BadRequest(new { error = "Benutzername bereits vergeben." });
+    return Results.Ok(userRepo.Create(username, password, isAdmin));
+});
+
+// DELETE /api/users/{username}
+app.MapDelete("/api/users/{username}", (string username, HttpContext ctx, IUserRepository userRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    if (ctx.User.Identity?.Name == username)
+        return Results.BadRequest(new { error = "Du kannst dich nicht selbst löschen." });
+    userRepo.Delete(username);
+    return Results.Ok(new { deleted = true });
+});
+
+// PUT /api/users/{username}/password
+app.MapPut("/api/users/{username}/password", async (string username, HttpRequest request, HttpContext ctx, IUserRepository userRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
+    var password = body.TryGetProperty("password", out var p) ? p.GetString() : null;
+    if (string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "Passwort darf nicht leer sein." });
+    userRepo.ChangePassword(username, password);
+    return Results.Ok(new { updated = true });
+});
 
 // GET /api/data
 app.MapGet("/api/data", (IRoadmapRepository repo) =>

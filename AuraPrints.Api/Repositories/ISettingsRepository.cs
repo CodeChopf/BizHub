@@ -9,4 +9,5 @@ public interface ISettingsRepository
     bool IsSetup();
     string? GetPasswordHash();
     void SetPasswordHash(string hash);
+    void DeletePasswordHash();
 }

@@ -147,6 +147,13 @@ public class DatabaseContext
                 color       TEXT NOT NULL DEFAULT '#4f8ef7',
                 type        TEXT NOT NULL DEFAULT 'event',
                 created_at  TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                is_admin      INTEGER NOT NULL DEFAULT 0,
+                created_at    TEXT NOT NULL
             );";
         cmd.ExecuteNonQuery();
     }
