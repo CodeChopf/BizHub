@@ -7,7 +7,7 @@ namespace BizHubLauncher
     public partial class Form1 : Form
     {
         private Process? apiProcess;
-        private readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        private readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
         private const string ApiUrl = "http://localhost:5000";
 
         public Form1()
@@ -23,9 +23,23 @@ namespace BizHubLauncher
             var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
             await webView.EnsureCoreWebView2Async(env);
             webView.NavigateToString(LoadingHtml());
-
             StartApi();
-            await WaitForApiAsync();
+
+            bool apiReady = await WaitForApiAsync();
+
+            if (!apiReady)
+            {
+                this.Invoke(() =>
+                {
+                    MessageBox.Show(
+                        "BizHub konnte nicht gestartet werden.\nBitte sicherstellen dass die Installation korrekt ist.",
+                        "BizHub Fehler",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    Application.Exit();
+                });
+                return;
+            }
 
             webView.Source = new Uri(ApiUrl);
             Text = "BizHub";
@@ -35,6 +49,8 @@ namespace BizHubLauncher
         {
             try
             {
+                var apiPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AuraPrintsApi.exe");
+
                 apiProcess = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -47,15 +63,15 @@ namespace BizHubLauncher
                 };
                 apiProcess.Start();
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show("Fehler beim Start: " + ex.Message);
+                // Still ignorieren — WaitForApiAsync() zeigt die Fehlermeldung nach Timeout
             }
         }
 
-        private async Task WaitForApiAsync()
+        private async Task<bool> WaitForApiAsync()
         {
-            for (int i = 0; i < 60; i++)
+            for (int i = 0; i < 20; i++)
             {
                 try
                 {
@@ -63,8 +79,9 @@ namespace BizHubLauncher
                     if (response.IsSuccessStatusCode) return;
                 }
                 catch { }
-                await Task.Delay(500);
+                await Task.Delay(1000);
             }
+            return false;
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
