@@ -357,28 +357,40 @@ async function changeUserPassword(username) {
 
 // ── INIT ──
 async function init() {
-    if (!(await checkAuth())) return;
+    try {
+        if (!(await checkAuth())) return;
 
-    _projects = await api('/api/projects');
+        let raw;
+        try {
+            raw = await api('/api/projects');
+        } catch {
+            raw = [];
+        }
+        _projects = Array.isArray(raw) ? raw : [];
 
-    if (_projects.length === 0) {
-        // Noch kein Projekt → Setup-Screen
-        document.getElementById('setup-screen').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-        document.getElementById('setup-start').value = today.toISOString().split('T')[0];
-        return;
-    }
+        if (_projects.length === 0) {
+            // Noch kein Projekt → Setup-Screen
+            document.getElementById('setup-screen').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('setup-start').value = today.toISOString().split('T')[0];
+            return;
+        }
 
-    if (_projects.length === 1) {
-        _currentProjectId = _projects[0].id;
-        _currentProject = _projects[0];
-        await loadProject();
-    } else {
-        showProjectScreen();
+        if (_projects.length === 1) {
+            _currentProjectId = _projects[0].id;
+            _currentProject = _projects[0];
+            await loadProject();
+        } else {
+            showProjectScreen();
+        }
+    } catch (e) {
+        console.error('init() Fehler:', e);
+        showLoginScreen();
     }
 }
 
 async function loadProject() {
+    try {
     document.getElementById('project-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -436,6 +448,11 @@ async function loadProject() {
     const cwChev = document.getElementById('chev-' + currentWeek);
     if (cwBody) cwBody.classList.add('open');
     if (cwChev) cwChev.classList.add('open');
+    } catch (e) {
+        console.error('loadProject() Fehler:', e);
+        document.getElementById('roadmap-content').innerHTML =
+            '<p style="color:var(--red);padding:20px">Fehler beim Laden des Projekts. Bitte Seite neu laden.</p>';
+    }
 }
 
 // ── PROJEKTVERWALTUNG ──
