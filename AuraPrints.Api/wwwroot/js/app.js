@@ -368,21 +368,9 @@ async function init() {
         }
         _projects = Array.isArray(raw) ? raw : [];
 
-        if (_projects.length === 0) {
-            // Noch kein Projekt → Setup-Screen
-            document.getElementById('setup-screen').style.display = 'flex';
-            document.getElementById('app').style.display = 'none';
-            document.getElementById('setup-start').value = today.toISOString().split('T')[0];
-            return;
-        }
-
-        if (_projects.length === 1) {
-            _currentProjectId = _projects[0].id;
-            _currentProject = _projects[0];
-            await loadProject();
-        } else {
-            showProjectScreen();
-        }
+        // Immer Projekt-Selektor zeigen (auch bei einem Projekt)
+        // Setup-Screen nur noch intern für Erst-Erstellung via Platform-Admin
+        showProjectScreen();
     } catch (e) {
         console.error('init() Fehler:', e);
         showLoginScreen();
