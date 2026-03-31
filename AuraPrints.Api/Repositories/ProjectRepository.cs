@@ -19,10 +19,12 @@ public class ProjectRepository : IProjectRepository
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             SELECT p.id, p.name, p.description, p.start_date, p.currency,
-                   p.project_image, p.visible_tabs, p.created_at, pm.role
+                   p.project_image, p.visible_tabs, p.created_at,
+                   COALESCE(pm.role, 'admin') as role
             FROM projects p
-            JOIN project_members pm ON pm.project_id = p.id
+            LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = @uid
             WHERE pm.user_id = @uid
+               OR EXISTS (SELECT 1 FROM users WHERE id = @uid AND is_admin = 1)
             ORDER BY p.id";
         cmd.Parameters.AddWithValue("@uid", userId);
         var result = new List<Project>();

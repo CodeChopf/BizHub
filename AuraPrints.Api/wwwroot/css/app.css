@@ -2530,11 +2530,14 @@ textarea {
 
 /* ── PROJECT SELECTOR ── */
 .project-select-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 16px 20px;
-    cursor: pointer;
+    cursor: default;
     transition: border-color .15s, background .15s;
 }
 .project-select-card:hover {

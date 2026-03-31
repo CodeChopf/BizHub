@@ -29,6 +29,22 @@
             </div>
             <div id="login-error" class="login-error" style="display:none"></div>
             <button class="btn-primary" style="width:100%" onclick="doLogin()">Anmelden</button>
+
+            <!-- Registrierung via Einladungslink -->
+            <div id="register-section" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px">
+                <div style="font-size:13px; color:var(--text3); margin-bottom:14px">Du wurdest eingeladen. Erstelle deinen Account:</div>
+                <input type="hidden" id="_reg_token">
+                <div class="form-group">
+                    <label>Benutzername</label>
+                    <input type="text" id="reg-username" placeholder="Benutzername" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Passwort</label>
+                    <input type="password" id="reg-password" placeholder="Passwort" autocomplete="new-password">
+                </div>
+                <div id="reg-error" style="display:none; color:var(--red); font-size:13px; margin-bottom:8px"></div>
+                <button class="btn-primary" style="width:100%" onclick="doRegister()">Account erstellen</button>
+            </div>
         </div>
     </div>
 
@@ -93,10 +109,16 @@
     <!-- PROJECT SELECTOR SCREEN -->
     <div id="project-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; padding:40px 20px">
         <div style="max-width:640px; margin:0 auto">
-            <div style="font-size:1.5rem; font-weight:700; margin-bottom:8px; font-family:'Space Grotesk',sans-serif">BizHub</div>
-            <div style="color:var(--text3); margin-bottom:32px">Wähle ein Projekt oder erstelle ein neues.</div>
-            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px"></div>
-            <button class="btn-secondary" id="btn-create-project" style="margin-top:20px; display:none" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+                <div style="font-size:1.5rem; font-weight:700; font-family:'Space Grotesk',sans-serif">BizHub</div>
+                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+            </div>
+            <div style="color:var(--text3); margin-bottom:8px" id="project-screen-welcome"></div>
+            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:24px">
+                <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+            </div>
+            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px"></div>
+            <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
         </div>
     </div>
 
@@ -1255,6 +1277,36 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeInviteModal()">Schliessen</button>
                 <button class="btn-primary" onclick="generateInvite()">Link generieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BizHub-Nutzer einladen (Platform-Admin) -->
+    <div class="modal-backdrop" id="platform-invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">BizHub-Nutzer einladen</div>
+                <button class="modal-close" onclick="closePlatformInviteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                    Der Empfänger kann über diesen Link einen Account erstellen.
+                </p>
+                <div class="form-group">
+                    <label>Gültig für (Stunden)</label>
+                    <input type="number" id="platform-invite-hours" value="48" min="1" max="720">
+                </div>
+                <div id="platform-invite-link-wrap" style="display:none">
+                    <label style="font-size:13px;color:var(--text3)">Registrierungslink (einmalig):</label>
+                    <div class="invite-link-wrap">
+                        <input type="text" id="platform-invite-link-input" readonly>
+                        <button class="btn-secondary" onclick="copyPlatformInviteLink()">Kopieren</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePlatformInviteModal()">Schliessen</button>
+                <button class="btn-primary" onclick="generatePlatformInvite()">Link generieren</button>
             </div>
         </div>
     </div>

@@ -927,10 +927,9 @@ app.MapGet("/api/projects", (HttpContext ctx, IUserRepository userRepo, IProject
     return Results.Ok(projectRepo.GetForUser(user.Id));
 });
 
-// POST /api/projects — neues Projekt erstellen (nur Platform-Admin oder Admin)
+// POST /api/projects — neues Projekt erstellen (alle authentifizierten User)
 app.MapPost("/api/projects", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
 {
-    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
     var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
     if (user == null) return Results.Unauthorized();
     var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
@@ -1039,5 +1038,50 @@ app.MapPost("/api/invites/{token}/accept", async (string token, HttpRequest requ
     inviteRepo.MarkUsed(token);
     return Results.Ok(new { accepted = true, projectId = invite.ProjectId });
 });
+
+// POST /api/projects/{id}/leave — Projekt selbst verlassen
+app.MapPost("/api/projects/{id}/leave", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    if (!projectRepo.IsMember(id, user.Id)) return Results.BadRequest(new { error = "Nicht Mitglied." });
+    projectRepo.RemoveMember(id, user.Id);
+    return Results.Ok(new { left = true });
+});
+
+// POST /api/platform/invites — BizHub-Einladungslink generieren (nur Platform-Admin)
+app.MapPost("/api/platform/invites", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IInviteRepository inviteRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var hours = body.TryGetProperty("hoursValid", out var h) && h.TryGetInt32(out var hv) ? hv : 48;
+    var invite = inviteRepo.Create("platform", null, "user", user.Id, hours);
+    return Results.Ok(invite);
+});
+
+// POST /api/auth/register — Account erstellen via Platform-Invite-Token
+app.MapPost("/api/auth/register", async (HttpRequest request, IUserRepository userRepo, IInviteRepository inviteRepo) =>
+{
+    var body     = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var token    = body.TryGetProperty("token",    out var t) ? t.GetString() : null;
+    var username = body.TryGetProperty("username", out var u) ? u.GetString() : null;
+    var password = body.TryGetProperty("password", out var p) ? p.GetString() : null;
+    if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "Token, Benutzername und Passwort sind Pflicht." });
+    var invite = inviteRepo.GetByToken(token);
+    if (invite == null || invite.Type != "platform")
+        return Results.BadRequest(new { error = "Ungültiger Einladungslink." });
+    if (invite.UsedAt != null)
+        return Results.BadRequest(new { error = "Einladungslink wurde bereits verwendet." });
+    if (DateTime.TryParse(invite.ExpiresAt, out var exp) && exp < DateTime.UtcNow)
+        return Results.BadRequest(new { error = "Einladungslink ist abgelaufen." });
+    if (userRepo.GetByUsername(username) != null)
+        return Results.BadRequest(new { error = "Benutzername bereits vergeben." });
+    userRepo.CreateWithHash(username, BC.HashPassword(password), isAdmin: false);
+    inviteRepo.MarkUsed(token);
+    return Results.Ok(new { ok = true });
+}).AllowAnonymous();
 
 app.Run();
