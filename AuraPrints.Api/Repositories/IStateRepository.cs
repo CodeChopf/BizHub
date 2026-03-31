@@ -2,6 +2,6 @@
 
 public interface IStateRepository
 {
-    Dictionary<string, bool> GetState();
-    void SaveState(Dictionary<string, bool> state);
+    Dictionary<string, bool> GetState(int projectId);
+    void SaveState(int projectId, Dictionary<string, bool> state);
 }

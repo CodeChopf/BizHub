@@ -4,10 +4,10 @@ namespace AuraPrintsApi.Repositories;
 
 public interface IProductCatalogRepository
 {
-    ProductCatalogData GetAll();
+    ProductCatalogData GetAll(int projectId);
 
     // Kategorien
-    ProductCategory CreateCategory(string name, string? description, string color);
+    ProductCategory CreateCategory(int projectId, string name, string? description, string color);
     ProductCategory UpdateCategory(int id, string name, string? description, string color);
     void DeleteCategory(int id);
 

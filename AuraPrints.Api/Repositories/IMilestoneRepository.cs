@@ -4,8 +4,8 @@ namespace AuraPrintsApi.Repositories;
 
 public interface IMilestoneRepository
 {
-    List<MilestoneListItem> GetAll();
+    List<MilestoneListItem> GetAll(int projectId);
     Milestone GetById(int id);
-    Milestone Create(string name, string? description, string snapshot);
+    Milestone Create(int projectId, string name, string? description, string snapshot);
     void Delete(int id);
 }

@@ -11,12 +11,13 @@ public class StateRepository : IStateRepository
         _context = context;
     }
 
-    public Dictionary<string, bool> GetState()
+    public Dictionary<string, bool> GetState(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT key, value FROM state";
+        cmd.CommandText = "SELECT key, value FROM state_v2 WHERE project_id = @pid";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var result = new Dictionary<string, bool>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -24,7 +25,7 @@ public class StateRepository : IStateRepository
         return result;
     }
 
-    public void SaveState(Dictionary<string, bool> state)
+    public void SaveState(int projectId, Dictionary<string, bool> state)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -33,10 +34,11 @@ public class StateRepository : IStateRepository
         {
             using var cmd = con.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO state (key, value) VALUES (@k, @v)
-                ON CONFLICT(key) DO UPDATE SET value = @v";
-            cmd.Parameters.AddWithValue("@k", key);
-            cmd.Parameters.AddWithValue("@v", value ? 1 : 0);
+                INSERT INTO state_v2 (project_id, key, value) VALUES (@pid, @k, @v)
+                ON CONFLICT(project_id, key) DO UPDATE SET value = @v";
+            cmd.Parameters.AddWithValue("@pid", projectId);
+            cmd.Parameters.AddWithValue("@k",   key);
+            cmd.Parameters.AddWithValue("@v",   value ? 1 : 0);
             cmd.ExecuteNonQuery();
         }
         tx.Commit();

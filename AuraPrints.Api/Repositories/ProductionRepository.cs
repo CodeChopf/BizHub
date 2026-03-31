@@ -12,7 +12,7 @@ public class ProductionRepository : IProductionRepository
         _context = context;
     }
 
-    public List<ProductionItem> GetAll()
+    public List<ProductionItem> GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -29,7 +29,9 @@ public class ProductionRepository : IProductionRepository
             JOIN products_v2 p ON p.id = pq.product_id
             JOIN product_categories pc ON pc.id = p.category_id
             LEFT JOIN product_variations pv ON pv.id = pq.variation_id
+            WHERE pq.project_id = @pid
             ORDER BY pq.done ASC, pq.added_at DESC";
+        cmd.Parameters.AddWithValue("@pid", projectId);
 
         var items = new List<ProductionItem>();
         using var reader = cmd.ExecuteReader();
@@ -54,24 +56,25 @@ public class ProductionRepository : IProductionRepository
         return items;
     }
 
-    public ProductionItem Add(int productId, int? variationId, int quantity, string? note)
+    public ProductionItem Add(int projectId, int productId, int? variationId, int quantity, string? note)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         cmd.CommandText = @"
-            INSERT INTO production_queue (product_id, variation_id, quantity, done, note, added_at)
-            VALUES (@pid, @vid, @qty, 0, @note, @now);
+            INSERT INTO production_queue (project_id, product_id, variation_id, quantity, done, note, added_at)
+            VALUES (@projId, @pid, @vid, @qty, 0, @note, @now);
             SELECT last_insert_rowid();";
-        cmd.Parameters.AddWithValue("@pid",  productId);
-        cmd.Parameters.AddWithValue("@vid",  (object?)variationId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@qty",  quantity);
-        cmd.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@now",  now);
+        cmd.Parameters.AddWithValue("@projId", projectId);
+        cmd.Parameters.AddWithValue("@pid",    productId);
+        cmd.Parameters.AddWithValue("@vid",    (object?)variationId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@qty",    quantity);
+        cmd.Parameters.AddWithValue("@note",   (object?)note ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@now",    now);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
 
-        return GetAll().First(i => i.Id == (int)id);
+        return GetAll(projectId).First(i => i.Id == (int)id);
     }
 
     public void SetDone(int id, bool done)

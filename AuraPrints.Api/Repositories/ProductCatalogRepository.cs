@@ -12,7 +12,7 @@ public class ProductCatalogRepository : IProductCatalogRepository
         _context = context;
     }
 
-    public ProductCatalogData GetAll()
+    public ProductCatalogData GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -20,7 +20,8 @@ public class ProductCatalogRepository : IProductCatalogRepository
         // Kategorien
         var categories = new List<ProductCategory>();
         using var cCmd = con.CreateCommand();
-        cCmd.CommandText = "SELECT id, name, description, color FROM product_categories ORDER BY id";
+        cCmd.CommandText = "SELECT id, name, description, color FROM product_categories WHERE project_id = @pid ORDER BY id";
+        cCmd.Parameters.AddWithValue("@pid", projectId);
         using var cReader = cCmd.ExecuteReader();
         while (cReader.Read())
         {
@@ -61,7 +62,9 @@ public class ProductCatalogRepository : IProductCatalogRepository
             SELECT p.id, p.category_id, pc.name, pc.color, p.name, p.description, p.attribute_values, p.created_at
             FROM products_v2 p
             JOIN product_categories pc ON pc.id = p.category_id
+            WHERE pc.project_id = @pid
             ORDER BY p.category_id, p.id";
+        pCmd.Parameters.AddWithValue("@pid", projectId);
         using var pReader = pCmd.ExecuteReader();
         while (pReader.Read())
         {
@@ -103,14 +106,15 @@ public class ProductCatalogRepository : IProductCatalogRepository
     }
 
     // ── KATEGORIEN ──
-    public ProductCategory CreateCategory(string name, string? description, string color)
+    public ProductCategory CreateCategory(int projectId, string name, string? description, string color)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO product_categories (name, description, color) VALUES (@n, @d, @c);
+            INSERT INTO product_categories (project_id, name, description, color) VALUES (@pid, @n, @d, @c);
             SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@d", (object?)description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@c", color);

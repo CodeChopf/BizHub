@@ -4,8 +4,8 @@ namespace AuraPrintsApi.Repositories;
 
 public interface ICategoryRepository
 {
-    List<Category> GetAll();
-    Category Add(string name, string color);
+    List<Category> GetAll(int projectId);
+    Category Add(int projectId, string name, string color);
     Category Update(int id, string name, string color);
     void Delete(int id);
 }

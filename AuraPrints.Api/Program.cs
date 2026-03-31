@@ -32,6 +32,8 @@ builder.Services.AddSingleton<IProductCatalogRepository, ProductCatalogRepositor
 builder.Services.AddSingleton<IProductionRepository, ProductionRepository>();
 builder.Services.AddSingleton<ICalendarRepository, CalendarRepository>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
+builder.Services.AddSingleton<IInviteRepository, InviteRepository>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => {
@@ -66,6 +68,10 @@ var jsonOptions = new JsonSerializerOptions
     PropertyNameCaseInsensitive = true,
     WriteIndented = true
 };
+
+// Helper: project ID aus Query-Parameter (Standard: 1)
+int GetProjectId(HttpRequest req) =>
+    req.Query.TryGetValue("projectId", out var p) && int.TryParse(p, out var pid) ? pid : 1;
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -186,29 +192,29 @@ app.MapPut("/api/users/{username}/password", async (string username, HttpRequest
 });
 
 // GET /api/data
-app.MapGet("/api/data", (IRoadmapRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/data", (HttpRequest req, IRoadmapRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // GET /api/products
 app.MapGet("/api/products", (IProductRepository repo) =>
     Results.Ok(repo.GetAll()));
 
 // GET /api/state
-app.MapGet("/api/state", (IStateRepository repo) =>
-    Results.Ok(repo.GetState()));
+app.MapGet("/api/state", (HttpRequest req, IStateRepository repo) =>
+    Results.Ok(repo.GetState(GetProjectId(req))));
 
 // POST /api/state
 app.MapPost("/api/state", async (HttpRequest request, IStateRepository repo) =>
 {
     var state = await JsonSerializer.DeserializeAsync<Dictionary<string, bool>>(request.Body);
     if (state == null) return Results.BadRequest();
-    repo.SaveState(state);
+    repo.SaveState(GetProjectId(request), state);
     return Results.Ok(new { saved = true });
 });
 
 // GET /api/finance
-app.MapGet("/api/finance", (IExpenseRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/finance", (HttpRequest req, IExpenseRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // POST /api/expenses
 app.MapPost("/api/expenses", async (HttpRequest request, IExpenseRepository repo) =>
@@ -221,7 +227,7 @@ app.MapPost("/api/expenses", async (HttpRequest request, IExpenseRepository repo
     var date = body.GetProperty("date").GetString() ?? DateTime.Today.ToString("yyyy-MM-dd");
     var weekNumber = body.TryGetProperty("weekNumber", out var w) && w.ValueKind != JsonValueKind.Null ? w.GetInt32() : (int?)null;
     var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
-    var expense = repo.Add(categoryId, amount, description, link, date, weekNumber, taskId);
+    var expense = repo.Add(GetProjectId(request), categoryId, amount, description, link, date, weekNumber, taskId);
     return Results.Ok(expense);
 });
 
@@ -233,8 +239,8 @@ app.MapDelete("/api/expenses/{id}", (int id, IExpenseRepository repo) =>
 });
 
 // GET /api/categories
-app.MapGet("/api/categories", (ICategoryRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/categories", (HttpRequest req, ICategoryRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // POST /api/categories
 app.MapPost("/api/categories", async (HttpRequest request, ICategoryRepository repo) =>
@@ -242,7 +248,7 @@ app.MapPost("/api/categories", async (HttpRequest request, ICategoryRepository r
     var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
     var name = body.GetProperty("name").GetString() ?? "";
     var color = body.GetProperty("color").GetString() ?? "#9699a8";
-    var cat = repo.Add(name, color);
+    var cat = repo.Add(GetProjectId(request), name, color);
     return Results.Ok(cat);
 });
 
@@ -269,19 +275,19 @@ app.MapPost("/api/admin/weeks", async (HttpRequest request, IAdminRepository rep
 {
     var req = await JsonSerializer.DeserializeAsync<CreateWeekRequest>(request.Body, jsonOptions);
     if (req == null) return Results.BadRequest();
-    return Results.Ok(repo.CreateWeek(req));
+    return Results.Ok(repo.CreateWeek(GetProjectId(request), req));
 });
 
 app.MapPut("/api/admin/weeks/{number}", async (int number, HttpRequest request, IAdminRepository repo) =>
 {
     var req = await JsonSerializer.DeserializeAsync<UpdateWeekRequest>(request.Body, jsonOptions);
     if (req == null) return Results.BadRequest();
-    return Results.Ok(repo.UpdateWeek(number, req));
+    return Results.Ok(repo.UpdateWeek(GetProjectId(request), number, req));
 });
 
-app.MapDelete("/api/admin/weeks/{number}", (int number, IAdminRepository repo) =>
+app.MapDelete("/api/admin/weeks/{number}", (int number, HttpRequest request, IAdminRepository repo) =>
 {
-    repo.DeleteWeek(number);
+    repo.DeleteWeek(GetProjectId(request), number);
     return Results.Ok(new { deleted = true });
 });
 
@@ -290,7 +296,7 @@ app.MapPost("/api/admin/tasks", async (HttpRequest request, IAdminRepository rep
 {
     var req = await JsonSerializer.DeserializeAsync<CreateTaskRequest>(request.Body, jsonOptions);
     if (req == null) return Results.BadRequest();
-    return Results.Ok(repo.CreateTask(req));
+    return Results.Ok(repo.CreateTask(GetProjectId(request), req));
 });
 
 app.MapPut("/api/admin/tasks/{id}", async (int id, HttpRequest request, IAdminRepository repo) =>
@@ -310,17 +316,22 @@ app.MapPut("/api/admin/weeks/{number}/reorder", async (int number, HttpRequest r
 {
     var req = await JsonSerializer.DeserializeAsync<ReorderTasksRequest>(request.Body, jsonOptions);
     if (req == null) return Results.BadRequest();
-    repo.ReorderTasks(number, req);
+    repo.ReorderTasks(GetProjectId(request), number, req);
     return Results.Ok(new { reordered = true });
 });
 
 // GET /api/admin/tasks/ids
-app.MapGet("/api/admin/tasks/ids", (int weekNumber, IRoadmapRepository roadmapRepo) =>
+app.MapGet("/api/admin/tasks/ids", (int weekNumber, HttpRequest request) =>
 {
+    var projectId = GetProjectId(request);
     using var con = dbContext.CreateConnection();
     con.Open();
     using var cmd = con.CreateCommand();
-    cmd.CommandText = "SELECT id FROM tasks WHERE week_number = @w ORDER BY sort_order";
+    cmd.CommandText = @"
+        SELECT t.id FROM tasks t
+        JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
+        WHERE t.week_number = @w ORDER BY t.sort_order";
+    cmd.Parameters.AddWithValue("@pid", projectId);
     cmd.Parameters.AddWithValue("@w", weekNumber);
     var ids = new List<int>();
     using var reader = cmd.ExecuteReader();
@@ -367,8 +378,8 @@ app.MapPut("/api/expenses/{id}", async (int id, HttpRequest request, IExpenseRep
 });
 
 // GET /api/milestones
-app.MapGet("/api/milestones", (IMilestoneRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/milestones", (HttpRequest req, IMilestoneRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // GET /api/milestones/{id}
 app.MapGet("/api/milestones/{id}", (int id, IMilestoneRepository repo) =>
@@ -384,7 +395,7 @@ app.MapPost("/api/milestones", async (HttpRequest request, IMilestoneRepository 
     var name = body.GetProperty("name").GetString() ?? "";
     var description = body.TryGetProperty("description", out var d) ? d.GetString() : null;
     var snapshot = body.GetProperty("snapshot").GetString() ?? "{}";
-    var milestone = repo.Create(name, description, snapshot);
+    var milestone = repo.Create(GetProjectId(request), name, description, snapshot);
     return Results.Ok(milestone);
 });
 
@@ -409,13 +420,14 @@ app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository rep
 });
 
 // GET /api/export
-app.MapGet("/api/export", (ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo) =>
+app.MapGet("/api/export", (HttpRequest request, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo) =>
 {
+    var projectId = GetProjectId(request);
     var settings = settingsRepo.GetSettings();
-    var roadmap = roadmapRepo.GetAll();
-    var finance = expenseRepo.GetAll();
-    var state = stateRepo.GetState();
-    var catalog = catalogRepo.GetAll();
+    var roadmap = roadmapRepo.GetAll(projectId);
+    var finance = expenseRepo.GetAll(projectId);
+    var state = stateRepo.GetState(projectId);
+    var catalog = catalogRepo.GetAll(projectId);
 
     // Katalog manuell aufbauen damit attributeValues als echtes JSON-Objekt exportiert wird
     var catalogJson = new
@@ -501,6 +513,7 @@ app.MapPost("/api/import", async (HttpRequest request,
 {
     try
     {
+        var projectId = GetProjectId(request);
         var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
 
         // Settings importieren
@@ -514,7 +527,7 @@ app.MapPost("/api/import", async (HttpRequest request,
         if (body.TryGetProperty("state", out var stateEl))
         {
             var state = JsonSerializer.Deserialize<Dictionary<string, bool>>(stateEl.GetRawText(), jsonOptions);
-            if (state != null) stateRepo.SaveState(state);
+            if (state != null) stateRepo.SaveState(projectId, state);
         }
 
         // Wochen & Tasks importieren
@@ -525,11 +538,13 @@ app.MapPost("/api/import", async (HttpRequest request,
             using var tx1 = con1.BeginTransaction();
 
             using var delTasks = con1.CreateCommand();
-            delTasks.CommandText = "DELETE FROM tasks";
+            delTasks.CommandText = "DELETE FROM tasks WHERE week_number IN (SELECT number FROM weeks WHERE project_id = @pid)";
+            delTasks.Parameters.AddWithValue("@pid", projectId);
             delTasks.ExecuteNonQuery();
 
             using var delWeeks = con1.CreateCommand();
-            delWeeks.CommandText = "DELETE FROM weeks";
+            delWeeks.CommandText = "DELETE FROM weeks WHERE project_id = @pid";
+            delWeeks.Parameters.AddWithValue("@pid", projectId);
             delWeeks.ExecuteNonQuery();
 
             var weeks = JsonSerializer.Deserialize<List<JsonElement>>(weeksEl.GetRawText(), jsonOptions);
@@ -539,8 +554,9 @@ app.MapPost("/api/import", async (HttpRequest request,
                 {
                     using var wCmd = con1.CreateCommand();
                     wCmd.CommandText = @"
-                        INSERT INTO weeks (number, title, phase, badge_pc, badge_phys, note)
-                        VALUES (@n, @t, @p, @bp, @bph, @no)";
+                        INSERT INTO weeks (number, title, phase, badge_pc, badge_phys, note, project_id)
+                        VALUES (@n, @t, @p, @bp, @bph, @no, @pid)";
+                    wCmd.Parameters.AddWithValue("@pid", projectId);
                     wCmd.Parameters.AddWithValue("@n", week.GetProperty("number").GetInt32());
                     wCmd.Parameters.AddWithValue("@t", week.GetProperty("title").GetString() ?? "");
                     wCmd.Parameters.AddWithValue("@p", week.GetProperty("phase").GetString() ?? "");
@@ -693,8 +709,8 @@ app.MapPost("/api/import", async (HttpRequest request,
 });
 
 // GET /api/catalog
-app.MapGet("/api/catalog", (IProductCatalogRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/catalog", (HttpRequest req, IProductCatalogRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // ── KATEGORIEN ──
 app.MapPost("/api/catalog/categories", async (HttpRequest request, IProductCatalogRepository repo) =>
@@ -703,7 +719,7 @@ app.MapPost("/api/catalog/categories", async (HttpRequest request, IProductCatal
     var name = body.GetProperty("name").GetString() ?? "";
     var desc = body.TryGetProperty("description", out var d) ? d.GetString() : null;
     var color = body.TryGetProperty("color", out var c) ? c.GetString() ?? "#4f8ef7" : "#4f8ef7";
-    return Results.Ok(repo.CreateCategory(name, desc, color));
+    return Results.Ok(repo.CreateCategory(GetProjectId(request), name, desc, color));
 });
 
 app.MapPut("/api/catalog/categories/{id}", async (int id, HttpRequest request, IProductCatalogRepository repo) =>
@@ -766,9 +782,9 @@ app.MapDelete("/api/catalog/products/{id}", (int id, IProductCatalogRepository r
 });
 
 // ── VARIATIONEN ──
-app.MapGet("/api/catalog/products/{id}/sku", (int id, string variationName, IProductCatalogRepository repo) =>
+app.MapGet("/api/catalog/products/{id}/sku", (int id, string variationName, HttpRequest request, IProductCatalogRepository repo) =>
 {
-    var product = repo.GetAll().Products.FirstOrDefault(p => p.Id == id);
+    var product = repo.GetAll(GetProjectId(request)).Products.FirstOrDefault(p => p.Id == id);
     if (product == null) return Results.NotFound();
     var sku = repo.GenerateSku(product.CategoryId, id, variationName);
     return Results.Ok(new { sku });
@@ -812,8 +828,8 @@ app.MapDelete("/api/catalog/variations/{id}", (int id, IProductCatalogRepository
 // ── PRODUKTION ──
 
 // GET /api/production
-app.MapGet("/api/production", (IProductionRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/production", (HttpRequest req, IProductionRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // POST /api/production
 app.MapPost("/api/production", async (HttpRequest request, IProductionRepository repo) =>
@@ -823,7 +839,7 @@ app.MapPost("/api/production", async (HttpRequest request, IProductionRepository
     var variationId = body.TryGetProperty("variationId", out var vid) && vid.ValueKind != JsonValueKind.Null ? vid.GetInt32() : (int?)null;
     var quantity    = body.TryGetProperty("quantity", out var qty) ? qty.GetInt32() : 1;
     var note        = body.TryGetProperty("note", out var n) && n.ValueKind != JsonValueKind.Null ? n.GetString() : null;
-    return Results.Ok(repo.Add(productId, variationId, quantity, note));
+    return Results.Ok(repo.Add(GetProjectId(request), productId, variationId, quantity, note));
 });
 
 // PATCH /api/production/{id}/done
@@ -862,8 +878,8 @@ app.MapDelete("/api/production/{id}", (int id, IProductionRepository repo) =>
 // ── KALENDER ──
 
 // GET /api/calendar
-app.MapGet("/api/calendar", (ICalendarRepository repo) =>
-    Results.Ok(repo.GetAll()));
+app.MapGet("/api/calendar", (HttpRequest req, ICalendarRepository repo) =>
+    Results.Ok(repo.GetAll(GetProjectId(req))));
 
 // POST /api/calendar
 app.MapPost("/api/calendar", async (HttpRequest request, ICalendarRepository repo) =>
@@ -876,7 +892,7 @@ app.MapPost("/api/calendar", async (HttpRequest request, ICalendarRepository rep
     var description = body.TryGetProperty("description", out var d) && d.ValueKind != JsonValueKind.Null ? d.GetString() : null;
     var color       = body.TryGetProperty("color", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? "#4f8ef7" : "#4f8ef7";
     var type        = body.TryGetProperty("type", out var ty) && ty.ValueKind != JsonValueKind.Null ? ty.GetString() ?? "event" : "event";
-    return Results.Ok(repo.Add(title, date, endDate, time, description, color, type));
+    return Results.Ok(repo.Add(GetProjectId(request), title, date, endDate, time, description, color, type));
 });
 
 // PUT /api/calendar/{id}
@@ -899,6 +915,129 @@ app.MapDelete("/api/calendar/{id}", (int id, ICalendarRepository repo) =>
 {
     repo.Delete(id);
     return Results.Ok(new { deleted = true });
+});
+
+// ── PROJEKTE ──
+
+// GET /api/projects — Projekte des eingeloggten Users
+app.MapGet("/api/projects", (HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    return Results.Ok(projectRepo.GetForUser(user.Id));
+});
+
+// POST /api/projects — neues Projekt erstellen (nur Platform-Admin oder Admin)
+app.MapPost("/api/projects", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    if (!ctx.User.IsInRole("admin")) return Results.Forbid();
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var name        = body.GetProperty("name").GetString() ?? "";
+    var description = body.TryGetProperty("description", out var d) ? d.GetString() : null;
+    var startDate   = body.TryGetProperty("startDate", out var sd) && sd.ValueKind != JsonValueKind.Null ? sd.GetString() : null;
+    var currency    = body.TryGetProperty("currency", out var cur) ? cur.GetString() ?? "CHF" : "CHF";
+    return Results.Ok(projectRepo.Create(name, description, startDate, currency, user.Id));
+});
+
+// GET /api/projects/{id}
+app.MapGet("/api/projects/{id}", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    if (!projectRepo.IsMember(id, user.Id)) return Results.Forbid();
+    var project = projectRepo.GetById(id);
+    return project == null ? Results.NotFound() : Results.Ok(project);
+});
+
+// PUT /api/projects/{id}
+app.MapPut("/api/projects/{id}", async (int id, HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    var role = projectRepo.GetRole(id, user.Id);
+    if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+    var body         = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var name         = body.GetProperty("name").GetString() ?? "";
+    var description  = body.TryGetProperty("description", out var d) ? d.GetString() : null;
+    var startDate    = body.TryGetProperty("startDate", out var sd) && sd.ValueKind != JsonValueKind.Null ? sd.GetString() : null;
+    var currency     = body.TryGetProperty("currency", out var cur) ? cur.GetString() ?? "CHF" : "CHF";
+    var projectImage = body.TryGetProperty("projectImage", out var pi) && pi.ValueKind != JsonValueKind.Null ? pi.GetString() : null;
+    var visibleTabs  = body.TryGetProperty("visibleTabs", out var vt) && vt.ValueKind != JsonValueKind.Null ? vt.GetString() : null;
+    projectRepo.Update(id, name, description, startDate, currency, projectImage, visibleTabs);
+    return Results.Ok(projectRepo.GetById(id));
+});
+
+// GET /api/projects/{id}/members
+app.MapGet("/api/projects/{id}/members", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (user == null) return Results.Unauthorized();
+    if (!projectRepo.IsMember(id, user.Id)) return Results.Forbid();
+    return Results.Ok(projectRepo.GetMembers(id));
+});
+
+// POST /api/projects/{id}/members
+app.MapPost("/api/projects/{id}/members", async (int id, HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (currentUser == null) return Results.Unauthorized();
+    var role = projectRepo.GetRole(id, currentUser.Id);
+    if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+    var body     = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var username = body.GetProperty("username").GetString() ?? "";
+    var newRole  = body.TryGetProperty("role", out var r) ? r.GetString() ?? "member" : "member";
+    var target   = userRepo.GetByUsername(username);
+    if (target == null) return Results.BadRequest(new { error = "Benutzer nicht gefunden." });
+    projectRepo.AddMember(id, target.Id, newRole);
+    return Results.Ok(new { added = true });
+});
+
+// DELETE /api/projects/{id}/members/{userId}
+app.MapDelete("/api/projects/{id}/members/{userId}", (int id, int userId, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+{
+    var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (currentUser == null) return Results.Unauthorized();
+    var role = projectRepo.GetRole(id, currentUser.Id);
+    if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+    if (userId == currentUser.Id) return Results.BadRequest(new { error = "Du kannst dich nicht selbst entfernen." });
+    projectRepo.RemoveMember(id, userId);
+    return Results.Ok(new { removed = true });
+});
+
+// POST /api/projects/{id}/invites — Einladungslink erstellen
+app.MapPost("/api/projects/{id}/invites", async (int id, HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo, IInviteRepository inviteRepo) =>
+{
+    var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (currentUser == null) return Results.Unauthorized();
+    var role = projectRepo.GetRole(id, currentUser.Id);
+    if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+    var body       = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, jsonOptions);
+    var inviteRole = body.TryGetProperty("role", out var r) ? r.GetString() ?? "member" : "member";
+    var hours      = body.TryGetProperty("hoursValid", out var h) ? h.GetInt32() : 48;
+    var invite     = inviteRepo.Create("project", id, inviteRole, currentUser.Id, hours);
+    return Results.Ok(invite);
+});
+
+// POST /api/invites/{token}/accept — Einladung annehmen
+app.MapPost("/api/invites/{token}/accept", async (string token, HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo, IInviteRepository inviteRepo) =>
+{
+    var invite = inviteRepo.GetByToken(token);
+    if (invite == null) return Results.NotFound(new { error = "Einladung nicht gefunden." });
+    if (invite.UsedAt != null) return Results.BadRequest(new { error = "Einladung wurde bereits verwendet." });
+    if (DateTime.TryParse(invite.ExpiresAt, out var expires) && expires < DateTime.UtcNow)
+        return Results.BadRequest(new { error = "Einladung ist abgelaufen." });
+
+    // Eingeloggten User dem Projekt hinzufügen
+    var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+    if (currentUser == null) return Results.Unauthorized();
+
+    if (invite.ProjectId.HasValue)
+        projectRepo.AddMember(invite.ProjectId.Value, currentUser.Id, invite.Role);
+
+    inviteRepo.MarkUsed(token);
+    return Results.Ok(new { accepted = true, projectId = invite.ProjectId });
 });
 
 app.Run();

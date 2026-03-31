@@ -12,7 +12,7 @@ public class ExpenseRepository : IExpenseRepository
         _context = context;
     }
 
-    public FinanceData GetAll()
+    public FinanceData GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -20,7 +20,8 @@ public class ExpenseRepository : IExpenseRepository
         // Kategorien laden
         var categories = new List<Category>();
         using var cCmd = con.CreateCommand();
-        cCmd.CommandText = "SELECT id, name, color FROM categories ORDER BY name";
+        cCmd.CommandText = "SELECT id, name, color FROM categories WHERE project_id = @pid ORDER BY name";
+        cCmd.Parameters.AddWithValue("@pid", projectId);
         using var cReader = cCmd.ExecuteReader();
         while (cReader.Read())
         {
@@ -40,7 +41,9 @@ public class ExpenseRepository : IExpenseRepository
                    e.description, e.link, e.date, e.week_number, e.task_id
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
+            WHERE e.project_id = @pid
             ORDER BY e.date DESC";
+        eCmd.Parameters.AddWithValue("@pid", projectId);
         using var eReader = eCmd.ExecuteReader();
         while (eReader.Read())
         {
@@ -81,15 +84,16 @@ public class ExpenseRepository : IExpenseRepository
         };
     }
 
-    public Expense Add(int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId)
+    public Expense Add(int projectId, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO expenses (category_id, amount, description, link, date, week_number, task_id)
-            VALUES (@c, @a, @d, @l, @dt, @w, @t);
+            INSERT INTO expenses (project_id, category_id, amount, description, link, date, week_number, task_id)
+            VALUES (@pid, @c, @a, @d, @l, @dt, @w, @t);
             SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@c", categoryId);
         cmd.Parameters.AddWithValue("@a", amount);
         cmd.Parameters.AddWithValue("@d", description);

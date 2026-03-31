@@ -12,12 +12,13 @@ public class CalendarRepository : ICalendarRepository
         _context = context;
     }
 
-    public List<CalendarEvent> GetAll()
+    public List<CalendarEvent> GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT id, title, date, end_date, time, description, color, type, created_at FROM calendar_events ORDER BY date ASC, time ASC";
+        cmd.CommandText = "SELECT id, title, date, end_date, time, description, color, type, created_at FROM calendar_events WHERE project_id = @pid ORDER BY date ASC, time ASC";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var items = new List<CalendarEvent>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -38,16 +39,17 @@ public class CalendarRepository : ICalendarRepository
         return items;
     }
 
-    public CalendarEvent Add(string title, string date, string? endDate, string? time, string? description, string color, string type)
+    public CalendarEvent Add(int projectId, string title, string date, string? endDate, string? time, string? description, string color, string type)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         cmd.CommandText = @"
-            INSERT INTO calendar_events (title, date, end_date, time, description, color, type, created_at)
-            VALUES (@title, @date, @end, @time, @desc, @color, @type, @now);
+            INSERT INTO calendar_events (project_id, title, date, end_date, time, description, color, type, created_at)
+            VALUES (@pid, @title, @date, @end, @time, @desc, @color, @type, @now);
             SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@pid",   projectId);
         cmd.Parameters.AddWithValue("@title", title);
         cmd.Parameters.AddWithValue("@date",  date);
         cmd.Parameters.AddWithValue("@end",   (object?)endDate ?? DBNull.Value);
@@ -57,7 +59,7 @@ public class CalendarRepository : ICalendarRepository
         cmd.Parameters.AddWithValue("@type",  type);
         cmd.Parameters.AddWithValue("@now",   now);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
-        return GetAll().First(e => e.Id == (int)id);
+        return GetAll(projectId).First(e => e.Id == (int)id);
     }
 
     public void Update(int id, string title, string date, string? endDate, string? time, string? description, string color, string type)

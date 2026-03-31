@@ -14,80 +14,87 @@ public class AdminRepository : IAdminRepository
 
     // ── WOCHEN ──
 
-    public Week CreateWeek(CreateWeekRequest req)
+    public Week CreateWeek(int projectId, CreateWeekRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
 
-        // Nächste Wochennummer ermitteln
+        // Nächste Wochennummer ermitteln (pro Projekt)
         using var numCmd = con.CreateCommand();
-        numCmd.CommandText = "SELECT COALESCE(MAX(number), 0) + 1 FROM weeks";
+        numCmd.CommandText = "SELECT COALESCE(MAX(number), 0) + 1 FROM weeks WHERE project_id = @pid";
+        numCmd.Parameters.AddWithValue("@pid", projectId);
         var nextNumber = (long)(numCmd.ExecuteScalar() ?? 1L);
 
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO weeks (number, title, phase, badge_pc, badge_phys, note)
-            VALUES (@n, @t, @p, @bp, @bph, @no)";
-        cmd.Parameters.AddWithValue("@n", nextNumber);
-        cmd.Parameters.AddWithValue("@t", req.Title);
-        cmd.Parameters.AddWithValue("@p", req.Phase);
-        cmd.Parameters.AddWithValue("@bp", req.BadgePc);
+            INSERT INTO weeks (number, title, phase, badge_pc, badge_phys, note, project_id)
+            VALUES (@n, @t, @p, @bp, @bph, @no, @pid)";
+        cmd.Parameters.AddWithValue("@n",   nextNumber);
+        cmd.Parameters.AddWithValue("@t",   req.Title);
+        cmd.Parameters.AddWithValue("@p",   req.Phase);
+        cmd.Parameters.AddWithValue("@bp",  req.BadgePc);
         cmd.Parameters.AddWithValue("@bph", req.BadgePhys);
-        cmd.Parameters.AddWithValue("@no", (object?)req.Note ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@no",  (object?)req.Note ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         return new Week
         {
-            Number = (int)nextNumber,
-            Title = req.Title,
-            Phase = req.Phase,
-            BadgePc = req.BadgePc,
+            Number    = (int)nextNumber,
+            Title     = req.Title,
+            Phase     = req.Phase,
+            BadgePc   = req.BadgePc,
             BadgePhys = req.BadgePhys,
-            Note = req.Note
+            Note      = req.Note
         };
     }
 
-    public Week UpdateWeek(int number, UpdateWeekRequest req)
+    public Week UpdateWeek(int projectId, int number, UpdateWeekRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             UPDATE weeks SET title = @t, phase = @p, badge_pc = @bp, badge_phys = @bph, note = @no
-            WHERE number = @n";
-        cmd.Parameters.AddWithValue("@t", req.Title);
-        cmd.Parameters.AddWithValue("@p", req.Phase);
-        cmd.Parameters.AddWithValue("@bp", req.BadgePc);
+            WHERE number = @n AND project_id = @pid";
+        cmd.Parameters.AddWithValue("@t",   req.Title);
+        cmd.Parameters.AddWithValue("@p",   req.Phase);
+        cmd.Parameters.AddWithValue("@bp",  req.BadgePc);
         cmd.Parameters.AddWithValue("@bph", req.BadgePhys);
-        cmd.Parameters.AddWithValue("@no", (object?)req.Note ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@n", number);
+        cmd.Parameters.AddWithValue("@no",  (object?)req.Note ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@n",   number);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         return new Week
         {
-            Number = number,
-            Title = req.Title,
-            Phase = req.Phase,
-            BadgePc = req.BadgePc,
+            Number    = number,
+            Title     = req.Title,
+            Phase     = req.Phase,
+            BadgePc   = req.BadgePc,
             BadgePhys = req.BadgePhys,
-            Note = req.Note
+            Note      = req.Note
         };
     }
 
-    public void DeleteWeek(int number)
+    public void DeleteWeek(int projectId, int number)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var tx = con.BeginTransaction();
 
         using var delTasks = con.CreateCommand();
-        delTasks.CommandText = "DELETE FROM tasks WHERE week_number = @n";
-        delTasks.Parameters.AddWithValue("@n", number);
+        delTasks.CommandText = @"
+            DELETE FROM tasks WHERE week_number = @n
+            AND EXISTS (SELECT 1 FROM weeks WHERE number = @n AND project_id = @pid)";
+        delTasks.Parameters.AddWithValue("@n",   number);
+        delTasks.Parameters.AddWithValue("@pid", projectId);
         delTasks.ExecuteNonQuery();
 
         using var delWeek = con.CreateCommand();
-        delWeek.CommandText = "DELETE FROM weeks WHERE number = @n";
-        delWeek.Parameters.AddWithValue("@n", number);
+        delWeek.CommandText = "DELETE FROM weeks WHERE number = @n AND project_id = @pid";
+        delWeek.Parameters.AddWithValue("@n",   number);
+        delWeek.Parameters.AddWithValue("@pid", projectId);
         delWeek.ExecuteNonQuery();
 
         tx.Commit();
@@ -95,13 +102,18 @@ public class AdminRepository : IAdminRepository
 
     // ── TASKS ──
 
-    public AppTask CreateTask(CreateTaskRequest req)
+    public AppTask CreateTask(int projectId, CreateTaskRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
 
         using var sortCmd = con.CreateCommand();
-        sortCmd.CommandText = "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tasks WHERE week_number = @w";
+        sortCmd.CommandText = @"
+            SELECT COALESCE(MAX(t.sort_order), 0) + 1
+            FROM tasks t
+            JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
+            WHERE t.week_number = @w";
+        sortCmd.Parameters.AddWithValue("@pid", projectId);
         sortCmd.Parameters.AddWithValue("@w", req.WeekNumber);
         var nextSort = (long)(sortCmd.ExecuteScalar() ?? 1L);
 
@@ -155,7 +167,7 @@ public class AdminRepository : IAdminRepository
         cmd.ExecuteNonQuery();
     }
 
-    public void ReorderTasks(int weekNumber, ReorderTasksRequest req)
+    public void ReorderTasks(int projectId, int weekNumber, ReorderTasksRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -164,10 +176,14 @@ public class AdminRepository : IAdminRepository
         for (int i = 0; i < req.TaskIds.Count; i++)
         {
             using var cmd = con.CreateCommand();
-            cmd.CommandText = "UPDATE tasks SET sort_order = @s WHERE id = @id AND week_number = @w";
-            cmd.Parameters.AddWithValue("@s", i + 1);
-            cmd.Parameters.AddWithValue("@id", req.TaskIds[i]);
-            cmd.Parameters.AddWithValue("@w", weekNumber);
+            cmd.CommandText = @"
+                UPDATE tasks SET sort_order = @s
+                WHERE id = @id AND week_number = @w
+                AND EXISTS (SELECT 1 FROM weeks WHERE number = @w AND project_id = @pid)";
+            cmd.Parameters.AddWithValue("@s",   i + 1);
+            cmd.Parameters.AddWithValue("@id",  req.TaskIds[i]);
+            cmd.Parameters.AddWithValue("@w",   weekNumber);
+            cmd.Parameters.AddWithValue("@pid", projectId);
             cmd.ExecuteNonQuery();
         }
 

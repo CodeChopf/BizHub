@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 
 namespace AuraPrintsApi.Data;
 
@@ -22,7 +22,7 @@ public class DatabaseContext
         using var con = CreateConnection();
         con.Open();
 
-        // Schritt 1: Alte Produkte-Tabellen droppen (Foreign Keys kurz deaktivieren)
+        // Schritt 1: Alte Produkte-Tabellen droppen
         using var dropCmd = con.CreateCommand();
         dropCmd.CommandText = @"
             PRAGMA foreign_keys = OFF;
@@ -32,7 +32,7 @@ public class DatabaseContext
             PRAGMA foreign_keys = ON;";
         dropCmd.ExecuteNonQuery();
 
-        // Schritt 2: Alle Tabellen erstellen
+        // Schritt 2: Alle Tabellen erstellen (bestehende + neue)
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS weeks (
@@ -56,6 +56,12 @@ public class DatabaseContext
             CREATE TABLE IF NOT EXISTS state (
                 key   TEXT PRIMARY KEY,
                 value INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS state_v2 (
+                project_id INTEGER NOT NULL,
+                key        TEXT NOT NULL,
+                value      INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (project_id, key)
             );
             CREATE TABLE IF NOT EXISTS categories (
                 id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,12 +155,138 @@ public class DatabaseContext
                 created_at  TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS users (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                username          TEXT NOT NULL UNIQUE,
+                password_hash     TEXT NOT NULL,
+                is_admin          INTEGER NOT NULL DEFAULT 0,
+                is_platform_admin INTEGER NOT NULL DEFAULT 0,
+                created_at        TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS projects (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                username      TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                is_admin      INTEGER NOT NULL DEFAULT 0,
+                name          TEXT NOT NULL,
+                description   TEXT,
+                start_date    TEXT,
+                currency      TEXT NOT NULL DEFAULT 'CHF',
+                project_image TEXT,
+                visible_tabs  TEXT,
                 created_at    TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS project_members (
+                project_id INTEGER NOT NULL,
+                user_id    INTEGER NOT NULL,
+                role       TEXT NOT NULL DEFAULT 'member',
+                PRIMARY KEY (project_id, user_id),
+                FOREIGN KEY (project_id) REFERENCES projects(id),
+                FOREIGN KEY (user_id)    REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS invites (
+                token      TEXT PRIMARY KEY,
+                type       TEXT NOT NULL DEFAULT 'project',
+                project_id INTEGER,
+                role       TEXT NOT NULL DEFAULT 'member',
+                created_by INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at    TEXT,
+                FOREIGN KEY (project_id) REFERENCES projects(id)
             );";
         cmd.ExecuteNonQuery();
+
+        // Schritt 3: ALTER TABLE — project_id zu bestehenden Tabellen hinzufügen (idempotent)
+        var alterStatements = new[]
+        {
+            "ALTER TABLE weeks              ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE state              ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE categories         ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE expenses           ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE milestones         ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE settings           ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE product_categories ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE production_queue   ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE calendar_events    ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE users              ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0",
+        };
+
+        foreach (var sql in alterStatements)
+        {
+            try
+            {
+                using var alterCmd = con.CreateCommand();
+                alterCmd.CommandText = sql;
+                alterCmd.ExecuteNonQuery();
+            }
+            catch (Exception ex) when (ex.Message.Contains("duplicate column"))
+            {
+                // Spalte existiert bereits — ignorieren
+            }
+        }
+
+        // Schritt 4: Migration — falls projects leer ist, Projekt 1 aus settings erstellen
+        RunMigration(con);
+    }
+
+    private static void RunMigration(SqliteConnection con)
+    {
+        // Prüfen ob projects leer ist
+        using var countCmd = con.CreateCommand();
+        countCmd.CommandText = "SELECT COUNT(*) FROM projects";
+        var projectCount = (long)(countCmd.ExecuteScalar() ?? 0L);
+        if (projectCount > 0) return;
+
+        // settings lesen
+        using var sCmd = con.CreateCommand();
+        sCmd.CommandText = "SELECT key, value FROM settings";
+        var settingsDict = new Dictionary<string, string>();
+        using var sReader = sCmd.ExecuteReader();
+        while (sReader.Read())
+            settingsDict[sReader.GetString(0)] = sReader.GetString(1);
+
+        var projectName = settingsDict.GetValueOrDefault("project_name", "Mein Projekt");
+        var startDate = settingsDict.GetValueOrDefault("start_date", "");
+        var description = settingsDict.GetValueOrDefault("description", "");
+        var currency = settingsDict.GetValueOrDefault("currency", "CHF");
+        var projectImage = settingsDict.GetValueOrDefault("project_image", "");
+        var visibleTabs = settingsDict.GetValueOrDefault("visible_tabs", "");
+        var createdAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+        // Projekt 1 erstellen
+        using var pCmd = con.CreateCommand();
+        pCmd.CommandText = @"
+            INSERT INTO projects (id, name, description, start_date, currency, project_image, visible_tabs, created_at)
+            VALUES (1, @name, @desc, @sd, @cur, @img, @tabs, @ca)";
+        pCmd.Parameters.AddWithValue("@name", projectName);
+        pCmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(description) ? DBNull.Value : (object)description);
+        pCmd.Parameters.AddWithValue("@sd", string.IsNullOrEmpty(startDate) ? DBNull.Value : (object)startDate);
+        pCmd.Parameters.AddWithValue("@cur", currency);
+        pCmd.Parameters.AddWithValue("@img", string.IsNullOrEmpty(projectImage) ? DBNull.Value : (object)projectImage);
+        pCmd.Parameters.AddWithValue("@tabs", string.IsNullOrEmpty(visibleTabs) ? DBNull.Value : (object)visibleTabs);
+        pCmd.Parameters.AddWithValue("@ca", createdAt);
+        pCmd.ExecuteNonQuery();
+
+        // state → state_v2 migrieren
+        using var stateCmd = con.CreateCommand();
+        stateCmd.CommandText = "INSERT OR IGNORE INTO state_v2 (project_id, key, value) SELECT 1, key, value FROM state";
+        stateCmd.ExecuteNonQuery();
+
+        // Admin-User zu project_members hinzufügen
+        using var uCmd = con.CreateCommand();
+        uCmd.CommandText = "SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1";
+        var adminId = uCmd.ExecuteScalar();
+        if (adminId != null)
+        {
+            using var mCmd = con.CreateCommand();
+            mCmd.CommandText = @"
+                INSERT OR IGNORE INTO project_members (project_id, user_id, role)
+                VALUES (1, @uid, 'admin')";
+            mCmd.Parameters.AddWithValue("@uid", adminId);
+            mCmd.ExecuteNonQuery();
+
+            // ersten Admin auch als platform_admin markieren
+            using var paCmd = con.CreateCommand();
+            paCmd.CommandText = "UPDATE users SET is_platform_admin = 1 WHERE id = @uid";
+            paCmd.Parameters.AddWithValue("@uid", adminId);
+            paCmd.ExecuteNonQuery();
+        }
     }
 }

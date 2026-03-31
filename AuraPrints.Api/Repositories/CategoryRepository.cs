@@ -12,12 +12,13 @@ public class CategoryRepository : ICategoryRepository
         _context = context;
     }
 
-    public List<Category> GetAll()
+    public List<Category> GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT id, name, color FROM categories ORDER BY name";
+        cmd.CommandText = "SELECT id, name, color FROM categories WHERE project_id = @pid ORDER BY name";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var result = new List<Category>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -32,12 +33,13 @@ public class CategoryRepository : ICategoryRepository
         return result;
     }
 
-    public Category Add(string name, string color)
+    public Category Add(int projectId, string name, string color)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "INSERT INTO categories (name, color) VALUES (@n, @c); SELECT last_insert_rowid();";
+        cmd.CommandText = "INSERT INTO categories (project_id, name, color) VALUES (@pid, @n, @c); SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@c", color);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
