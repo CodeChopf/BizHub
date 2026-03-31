@@ -40,8 +40,40 @@ public class SettingsRepository : ISettingsRepository
             Description = dict.GetValueOrDefault("description", ""),
             Currency = dict.GetValueOrDefault("currency", "CHF"),
             ProjectImage = dict.ContainsKey("project_image") ? dict["project_image"] : null,
+            VisibleTabs = dict.ContainsKey("visible_tabs") ? dict["visible_tabs"] : null,
             IsSetup = dict.ContainsKey("project_name")
         };
+    }
+
+    public string? GetPasswordHash()
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "SELECT value FROM settings WHERE key = 'admin_password_hash'";
+        var result = cmd.ExecuteScalar();
+        return result as string;
+    }
+
+    public void SetPasswordHash(string hash)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO settings (key, value) VALUES ('admin_password_hash', @hash)
+            ON CONFLICT(key) DO UPDATE SET value = @hash";
+        cmd.Parameters.AddWithValue("@hash", hash);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void DeletePasswordHash()
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "DELETE FROM settings WHERE key = 'admin_password_hash'";
+        cmd.ExecuteNonQuery();
     }
 
     public void SaveSettings(ProjectSettings settings)
@@ -56,7 +88,8 @@ public class SettingsRepository : ISettingsRepository
             ["start_date"] = settings.StartDate,
             ["description"] = settings.Description,
             ["currency"] = settings.Currency,
-            ["project_image"] = settings.ProjectImage
+            ["project_image"] = settings.ProjectImage,
+            ["visible_tabs"] = settings.VisibleTabs
         };
 
         foreach (var (key, value) in values)

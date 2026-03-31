@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    volumes:
+      - bizhub-data:/data
+    networks:
+      - internal
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+
+volumes:
+  bizhub-data:
+  caddy-data:
+  caddy-config:

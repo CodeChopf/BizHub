@@ -12,12 +12,13 @@ public class MilestoneRepository : IMilestoneRepository
         _context = context;
     }
 
-    public List<MilestoneListItem> GetAll()
+    public List<MilestoneListItem> GetAll(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT id, name, description, created_at FROM milestones ORDER BY id DESC";
+        cmd.CommandText = "SELECT id, name, description, created_at FROM milestones WHERE project_id = @pid ORDER BY id DESC";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var result = new List<MilestoneListItem>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -52,16 +53,17 @@ public class MilestoneRepository : IMilestoneRepository
         };
     }
 
-    public Milestone Create(string name, string? description, string snapshot)
+    public Milestone Create(int projectId, string name, string? description, string snapshot)
     {
         using var con = _context.CreateConnection();
         con.Open();
         var createdAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO milestones (name, description, created_at, snapshot)
-            VALUES (@n, @d, @ca, @s);
+            INSERT INTO milestones (project_id, name, description, created_at, snapshot)
+            VALUES (@pid, @n, @d, @ca, @s);
             SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@d", (object?)description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@ca", createdAt);

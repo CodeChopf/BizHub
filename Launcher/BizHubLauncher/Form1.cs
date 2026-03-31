@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using Microsoft.Web.WebView2.Core;
 
 namespace BizHubLauncher
 {
@@ -16,7 +17,11 @@ namespace BizHubLauncher
 
         private async void Form1_Load(object sender, EventArgs e)
         {
-            await webView.EnsureCoreWebView2Async();
+            var userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "BizHub");
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            await webView.EnsureCoreWebView2Async(env);
             webView.NavigateToString(LoadingHtml());
             StartApi();
 
@@ -50,7 +55,7 @@ namespace BizHubLauncher
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = apiPath,
+                        FileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AuraPrintsApi.exe"),
                         WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
                         UseShellExecute = false,
                         CreateNoWindow = true
@@ -70,8 +75,8 @@ namespace BizHubLauncher
             {
                 try
                 {
-                    var response = await httpClient.GetAsync(ApiUrl);
-                    if (response.IsSuccessStatusCode) return true;
+                    var response = await httpClient.GetAsync(ApiUrl + "/api/state");
+                    if (response.IsSuccessStatusCode) return;
                 }
                 catch { }
                 await Task.Delay(1000);

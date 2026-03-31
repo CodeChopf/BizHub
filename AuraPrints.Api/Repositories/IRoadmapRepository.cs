@@ -4,5 +4,5 @@ namespace AuraPrintsApi.Repositories;
 
 public interface IRoadmapRepository
 {
-    AppData GetAll();
+    AppData GetAll(int projectId);
 }

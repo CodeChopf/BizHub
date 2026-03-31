@@ -1,0 +1,14 @@
+# Replace "deine-domain.com" with your actual domain.
+# Caddy will automatically obtain and renew a TLS certificate via Let's Encrypt.
+
+deine-domain.com {
+    reverse_proxy api:5000
+
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+}

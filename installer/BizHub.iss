@@ -55,6 +55,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "{#LauncherSrc}"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 Source: "{#ApiSrc}";      DestDir: "{app}"; DestName: "{#MyApiExeName}"; Flags: ignoreversion
 
+; Frontend static files (HTML/CSS/JS) served by the API
+Source: "..\publish\api\wwwroot\*"; DestDir: "{app}\wwwroot"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 ; App icon for shortcuts
 Source: "{#IconSrc}"; DestDir: "{app}"; DestName: "favicon.ico"; Flags: ignoreversion
 
@@ -128,11 +131,9 @@ begin
 
   // Inform the user and ask for consent before downloading
   if MsgBox(
-    'BizHub benötigt die Microsoft WebView2 Runtime, die aktuell nicht installiert ist.' + #13#10 +
-    #13#10 +
+    'BizHub benötigt die Microsoft WebView2 Runtime, die aktuell nicht installiert ist.' + #13#10#13#10 +
     'Der Installer lädt jetzt den WebView2-Bootstrapper von Microsoft herunter' + #13#10 +
-    'und installiert ihn automatisch. Eine Internetverbindung ist erforderlich.' + #13#10 +
-    #13#10 +
+    'und installiert ihn automatisch. Eine Internetverbindung ist erforderlich.' + #13#10#13#10 +
     'Auf OK klicken, um fortzufahren, oder Abbrechen zum Beenden.',
     mbConfirmation, MB_OKCANCEL) = IDCANCEL then
   begin
@@ -150,8 +151,7 @@ begin
     MsgBox(
       'Der Download des WebView2-Bootstrappers ist fehlgeschlagen.' + #13#10 +
       'Bitte installieren Sie WebView2 manuell von:' + #13#10 +
-      'https://developer.microsoft.com/en-us/microsoft-edge/webview2/' + #13#10 +
-      #13#10 +
+      'https://developer.microsoft.com/en-us/microsoft-edge/webview2/' + #13#10#13#10 +
       'Die Installation wird fortgesetzt, aber BizHub startet möglicherweise' + #13#10 +
       'erst nach der manuellen WebView2-Installation.',
       mbError, MB_OK);

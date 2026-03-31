@@ -1,0 +1,9 @@
+Launcher/
+installer/
+publish/
+.git/
+**/*.user
+**/*.suo
+**/bin/
+**/obj/
+**/.vs/

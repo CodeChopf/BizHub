@@ -1,6 +1,9 @@
 ﻿// ── PROJEKT SETTINGS ──
 let projectSettings = null;
 let START = new Date();
+let _currentProjectId = 1;
+let _projects = [];
+let _currentProject = null;
 
 function getStart() { return START; }
 
@@ -55,6 +58,9 @@ function applySettings(settings) {
     renderSettingsImagePreview(settings.projectImage ?? null);
 
     document.title = settings.projectName + ' — BizHub';
+
+    // Tab-Sichtbarkeit
+    applyTabVisibility(settings.visibleTabs ?? null);
 }
 
 function renderSettingsImagePreview(base64) {
@@ -143,12 +149,17 @@ async function api(url, method = 'GET', body = null) {
     return res.json();
 }
 
+function withProject(url) {
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'projectId=' + _currentProjectId;
+}
+
 async function loadState() {
-    try { state = await api('/api/state'); } catch { state = {}; }
+    try { state = await api(withProject('/api/state')); } catch { state = {}; }
 }
 
 async function saveState() {
-    try { await api('/api/state', 'POST', state); } catch { console.error('Speichern fehlgeschlagen'); }
+    try { await api(withProject('/api/state'), 'POST', state); } catch { console.error('Speichern fehlgeschlagen'); }
 }
 
 // ── SETUP SCREEN ──
@@ -168,8 +179,12 @@ async function createProject() {
     if (!name) { alert('Bitte einen Projektnamen eingeben.'); return; }
     if (!start) { alert('Bitte ein Startdatum wählen.'); return; }
 
-    await api('/api/settings', 'POST', { projectName: name, startDate: start, description: desc, currency });
-    location.reload();
+    const proj = await api('/api/projects', 'POST', { name, description: desc, startDate: start, currency });
+    _currentProjectId = proj.id;
+    _currentProject = proj;
+    _projects = [proj];
+    document.getElementById('setup-screen').style.display = 'none';
+    await loadProject();
 }
 
 let _importData = null;
@@ -211,31 +226,174 @@ async function importProject() {
     }
 }
 
+// ── AUTH ──
+let _currentUser = null;
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/me');
+        if (res.status === 401) { showLoginScreen(); return false; }
+        _currentUser = await res.json();
+        return true;
+    } catch {
+        showLoginScreen();
+        return false;
+    }
+}
+
+function showLoginScreen() {
+    _currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('project-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-username').focus();
+}
+
+async function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const pw = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password: pw })
+        });
+        if (res.ok) {
+            _currentUser = await res.json();
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('login-password').value = '';
+            await init();
+        } else if (res.status === 429) {
+            errEl.textContent = 'Zu viele Versuche. Bitte warte eine Minute.';
+            errEl.style.display = 'block';
+        } else {
+            errEl.textContent = 'Falscher Benutzername oder Passwort.';
+            errEl.style.display = 'block';
+        }
+    } catch {
+        errEl.textContent = 'Verbindungsfehler.';
+        errEl.style.display = 'block';
+    }
+}
+
+async function doLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    showLoginScreen();
+}
+
+// ── BENUTZERVERWALTUNG ──
+async function renderUserList() {
+    if (!_currentUser?.isAdmin) return;
+    document.getElementById('users-card').style.display = '';
+    const users = await api('/api/users');
+    const list = document.getElementById('users-list');
+    list.innerHTML = users.map(u => `
+        <div class="user-row">
+            <div class="user-info">
+                <span class="user-name">${escHtml(u.username)}</span>
+                ${u.isAdmin ? '<span class="user-badge">Admin</span>' : ''}
+            </div>
+            <div class="user-actions">
+                <button class="btn-ghost btn-sm" onclick="changeUserPassword('${escHtml(u.username)}')">Passwort</button>
+                <button class="btn-ghost btn-sm btn-danger" onclick="deleteUser('${escHtml(u.username)}')"
+                    ${u.username === _currentUser.username ? 'disabled title="Eigenen Account nicht löschbar"' : ''}>Löschen</button>
+            </div>
+        </div>`).join('');
+}
+
+function openAddUserModal() {
+    document.getElementById('new-user-username').value = '';
+    document.getElementById('new-user-password').value = '';
+    document.getElementById('new-user-admin').checked = false;
+    document.getElementById('add-user-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('new-user-username').focus(), 50);
+}
+
+function closeAddUserModal() {
+    document.getElementById('add-user-modal').style.display = 'none';
+}
+
+async function confirmAddUser() {
+    const username = document.getElementById('new-user-username').value.trim();
+    const password = document.getElementById('new-user-password').value;
+    const isAdmin  = document.getElementById('new-user-admin').checked;
+    if (!username || !password) { showToast('Benutzername und Passwort sind Pflicht.'); return; }
+    const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, isAdmin })
+    });
+    if (res.ok) {
+        closeAddUserModal();
+        renderUserList();
+        showToast('Benutzer erstellt.');
+    } else {
+        const err = await res.json();
+        showToast(err.error ?? 'Fehler beim Erstellen.');
+    }
+}
+
+async function deleteUser(username) {
+    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+    const res = await fetch(`/api/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
+    if (res.ok) { renderUserList(); showToast('Benutzer gelöscht.'); }
+    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+
+async function changeUserPassword(username) {
+    const pw = prompt(`Neues Passwort für "${username}":`);
+    if (!pw) return;
+    const res = await fetch(`/api/users/${encodeURIComponent(username)}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+    });
+    if (res.ok) showToast('Passwort geändert.');
+    else showToast('Fehler beim Ändern.');
+}
+
 // ── INIT ──
 async function init() {
-    // Settings laden
-    const settings = await api('/api/settings');
+    try {
+        if (!(await checkAuth())) return;
 
-    if (!settings.isSetup) {
-        // Setup-Screen anzeigen
-        document.getElementById('setup-screen').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-        // Datum auf heute vorbelegen
-        document.getElementById('setup-start').value = today.toISOString().split('T')[0];
-        return;
+        let raw;
+        try {
+            raw = await api('/api/projects');
+        } catch {
+            raw = [];
+        }
+        _projects = Array.isArray(raw) ? raw : [];
+
+        // Immer Projekt-Selektor zeigen (auch bei einem Projekt)
+        // Setup-Screen nur noch intern für Erst-Erstellung via Platform-Admin
+        showProjectScreen();
+    } catch (e) {
+        console.error('init() Fehler:', e);
+        showLoginScreen();
     }
+}
 
-    // App anzeigen
+async function loadProject() {
+    try {
+    document.getElementById('project-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
 
+    const switchBtn = document.getElementById('switch-project-btn');
+    if (switchBtn) switchBtn.style.display = _projects.length > 1 ? '' : 'none';
+
+    const settings = await api(withProject('/api/settings'));
     applySettings(settings);
 
     await loadState();
     try {
         const [dataRes, finRes] = await Promise.all([
-            fetch('/api/data'),
-            fetch('/api/finance')
+            fetch(withProject('/api/data')),
+            fetch(withProject('/api/finance'))
         ]);
         appData = await dataRes.json();
         financeData = await finRes.json();
@@ -261,6 +419,10 @@ async function init() {
     document.getElementById('sidebar-date').textContent = 'Heute: ' + fmt(today);
     document.getElementById('sidebar-launch').textContent =
         daysToLaunch > 0 ? '🚀 in ' + daysToLaunch + ' Tagen' : '🚀 Gestartet!';
+    if (_currentUser) {
+        const el = document.getElementById('sidebar-username');
+        if (el) el.textContent = '👤 ' + _currentUser.username;
+    }
     document.getElementById('topbar-date').innerHTML =
         'Heute: ' + fmt(today) + '<br>Start: ' + fmt(START);
 
@@ -268,11 +430,249 @@ async function init() {
     renderRoadmap();
     renderFinanzen();
     updateAll();
+    updateOverdueBanner();
 
     const cwBody = document.getElementById('wb-' + currentWeek);
     const cwChev = document.getElementById('chev-' + currentWeek);
     if (cwBody) cwBody.classList.add('open');
     if (cwChev) cwChev.classList.add('open');
+    } catch (e) {
+        console.error('loadProject() Fehler:', e);
+        document.getElementById('roadmap-content').innerHTML =
+            '<p style="color:var(--red);padding:20px">Fehler beim Laden des Projekts. Bitte Seite neu laden.</p>';
+    }
+}
+
+// ── PROJEKTVERWALTUNG ──
+function showProjectScreen() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('project-screen').style.display = 'block';
+    renderProjectScreen();
+}
+
+function renderProjectScreen() {
+    // Begrüssung
+    const welcome = document.getElementById('project-screen-welcome');
+    if (welcome) welcome.textContent = _currentUser ? `Hallo ${_currentUser.username} — wähle ein Projekt oder erstelle ein neues.` : '';
+
+    // Platform-Admin Button
+    const adminWrap = document.getElementById('platform-invite-btn-wrap');
+    if (adminWrap) adminWrap.style.display = _currentUser?.isAdmin ? '' : 'none';
+
+    const container = document.getElementById('project-list-screen');
+    if (!container) return;
+    if (_projects.length === 0) {
+        container.innerHTML = '<p style="color:var(--text3);font-size:13px;margin:0">Du bist noch in keinem Projekt.</p>';
+        return;
+    }
+    container.innerHTML = _projects.map(p => `
+        <div class="project-select-card">
+            <div style="flex:1;cursor:pointer;min-width:0" onclick="selectProject(${p.id})">
+                <div class="project-select-name">${escHtml(p.name)}</div>
+                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--blue);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
+            </div>
+            <button class="btn-ghost btn-sm" onclick="selectProject(${p.id})">Öffnen</button>
+            <button class="btn-ghost btn-sm btn-danger" onclick="leaveProject(${p.id}, '${escHtml(p.name).replace(/'/g, "\\'")}')">Austreten</button>
+        </div>`).join('');
+}
+
+async function leaveProject(id, name) {
+    if (!confirm(`Aus Projekt "${name}" austreten?`)) return;
+    const res = await fetch(`/api/projects/${id}/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+        _projects = _projects.filter(p => p.id !== id);
+        renderProjectScreen();
+        showToast('Aus Projekt ausgetreten.');
+    } else {
+        try { const err = await res.json(); showToast(err.error ?? 'Fehler.'); } catch { showToast('Fehler.'); }
+    }
+}
+
+function openPlatformInviteModal() {
+    const hoursInput = document.getElementById('platform-invite-hours');
+    if (hoursInput) hoursInput.value = '48';
+    const linkWrap = document.getElementById('platform-invite-link-wrap');
+    if (linkWrap) linkWrap.style.display = 'none';
+    const modal = document.getElementById('platform-invite-modal');
+    if (modal) modal.style.display = 'flex';
+}
+function closePlatformInviteModal() {
+    const modal = document.getElementById('platform-invite-modal');
+    if (modal) modal.style.display = 'none';
+}
+async function generatePlatformInvite() {
+    const hoursInput = document.getElementById('platform-invite-hours');
+    const hours = parseInt(hoursInput?.value) || 48;
+    try {
+        const invite = await api('/api/platform/invites', 'POST', { hoursValid: hours });
+        const link = `${location.origin}/?invite=${invite.token}`;
+        const linkInput = document.getElementById('platform-invite-link-input');
+        if (linkInput) linkInput.value = link;
+        const linkWrap = document.getElementById('platform-invite-link-wrap');
+        if (linkWrap) linkWrap.style.display = '';
+    } catch (e) {
+        showToast('Fehler beim Generieren des Links.');
+    }
+}
+function copyPlatformInviteLink() {
+    const input = document.getElementById('platform-invite-link-input');
+    if (!input) return;
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => showToast('Link kopiert!')).catch(() => {
+        document.execCommand('copy');
+        showToast('Link kopiert!');
+    });
+}
+
+function checkInviteParam() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite');
+    if (token) {
+        const regSection = document.getElementById('register-section');
+        if (regSection) regSection.style.display = 'block';
+        const regToken = document.getElementById('_reg_token');
+        if (regToken) regToken.value = token;
+    }
+}
+
+async function doRegister() {
+    const token    = document.getElementById('_reg_token')?.value ?? '';
+    const username = document.getElementById('reg-username')?.value.trim() ?? '';
+    const password = document.getElementById('reg-password')?.value ?? '';
+    const errEl    = document.getElementById('reg-error');
+    if (errEl) errEl.style.display = 'none';
+    if (!username || !password) {
+        if (errEl) { errEl.textContent = 'Benutzername und Passwort sind Pflicht.'; errEl.style.display = 'block'; }
+        return;
+    }
+    const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, username, password })
+    });
+    if (res.ok) {
+        const regSection = document.getElementById('register-section');
+        if (regSection) regSection.style.display = 'none';
+        const loginUser = document.getElementById('login-username');
+        if (loginUser) loginUser.value = username;
+        showToast('Account erstellt! Bitte einloggen.');
+        window.history.replaceState({}, '', window.location.pathname);
+    } else {
+        try {
+            const err = await res.json();
+            if (errEl) { errEl.textContent = err.error ?? 'Fehler beim Erstellen.'; errEl.style.display = 'block'; }
+        } catch {
+            if (errEl) { errEl.textContent = 'Fehler beim Erstellen.'; errEl.style.display = 'block'; }
+        }
+    }
+}
+
+async function selectProject(id) {
+    _currentProjectId = id;
+    _currentProject = _projects.find(p => p.id === id) ?? null;
+    await loadProject();
+}
+
+function openCreateProjectModal() {
+    document.getElementById('cp-name').value = '';
+    document.getElementById('cp-start').value = today.toISOString().split('T')[0];
+    document.getElementById('cp-desc').value = '';
+    document.getElementById('cp-currency').value = 'CHF';
+    document.getElementById('create-project-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('cp-name').focus(), 50);
+}
+function closeCreateProjectModal() {
+    document.getElementById('create-project-modal').style.display = 'none';
+}
+async function confirmCreateProject() {
+    const name = document.getElementById('cp-name').value.trim();
+    const start = document.getElementById('cp-start').value;
+    const desc = document.getElementById('cp-desc').value.trim();
+    const currency = document.getElementById('cp-currency').value;
+    if (!name || !start) { showToast('Name und Datum sind Pflicht.'); return; }
+    const proj = await api('/api/projects', 'POST', { name, description: desc, startDate: start, currency });
+    closeCreateProjectModal();
+    _projects = await api('/api/projects');
+    _currentProjectId = proj.id;
+    _currentProject = _projects.find(p => p.id === proj.id) ?? proj;
+    await loadProject();
+}
+
+// ── MITGLIEDERVERWALTUNG ──
+async function renderMemberList() {
+    const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
+    const card = document.getElementById('members-card');
+    if (!card) return;
+    if (!isProjectAdmin) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const members = await api(`/api/projects/${_currentProjectId}/members`);
+    const list = document.getElementById('members-list');
+    list.innerHTML = members.map(m => `
+        <div class="user-row">
+            <div class="user-info">
+                <span class="user-name">${escHtml(m.username)}</span>
+                ${m.role === 'admin' ? '<span class="user-badge">Admin</span>' : ''}
+            </div>
+            <div class="user-actions">
+                <button class="btn-ghost btn-sm btn-danger" onclick="removeMember(${m.userId})"
+                    ${m.username === _currentUser?.username ? 'disabled title="Eigenen Account nicht entfernbar"' : ''}>Entfernen</button>
+            </div>
+        </div>`).join('');
+}
+function openAddMemberModal() {
+    document.getElementById('new-member-username').value = '';
+    document.getElementById('new-member-role').value = 'member';
+    document.getElementById('add-member-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('new-member-username').focus(), 50);
+}
+function closeAddMemberModal() {
+    document.getElementById('add-member-modal').style.display = 'none';
+}
+async function confirmAddMember() {
+    const username = document.getElementById('new-member-username').value.trim();
+    const role = document.getElementById('new-member-role').value;
+    if (!username) { showToast('Benutzername ist Pflicht.'); return; }
+    const res = await fetch(`/api/projects/${_currentProjectId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, role })
+    });
+    if (res.ok) { closeAddMemberModal(); renderMemberList(); showToast('Mitglied hinzugefügt.'); }
+    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+async function removeMember(userId) {
+    if (!confirm('Mitglied wirklich entfernen?')) return;
+    const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
+    if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
+    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+
+// ── EINLADUNGSLINKS ──
+function openInviteModal() {
+    document.getElementById('invite-role').value = 'member';
+    document.getElementById('invite-hours').value = '48';
+    document.getElementById('invite-link-wrap').style.display = 'none';
+    document.getElementById('invite-modal').style.display = 'flex';
+}
+function closeInviteModal() {
+    document.getElementById('invite-modal').style.display = 'none';
+}
+async function generateInvite() {
+    const role = document.getElementById('invite-role').value;
+    const hoursValid = parseInt(document.getElementById('invite-hours').value) || 48;
+    const invite = await api(`/api/projects/${_currentProjectId}/invites`, 'POST', { role, hoursValid });
+    const link = `${location.origin}/api/invites/${invite.token}/accept`;
+    document.getElementById('invite-link-input').value = link;
+    document.getElementById('invite-link-wrap').style.display = '';
+}
+function copyInviteLink() {
+    const input = document.getElementById('invite-link-input');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => showToast('Link kopiert!'));
 }
 
 // ── EINSTELLUNGEN ──
@@ -284,19 +684,68 @@ async function saveSettings() {
 
     if (!name || !start) { showToast('Name und Startdatum sind Pflicht.'); return; }
 
-    const settings = await api('/api/settings', 'POST', {
+    const settings = await api(withProject('/api/settings'), 'POST', {
         projectName: name,
         startDate: start,
         description: desc,
         currency,
-        projectImage: projectSettings?.projectImage ?? null
+        projectImage: projectSettings?.projectImage ?? null,
+        visibleTabs: projectSettings?.visibleTabs ?? null
     });
     applySettings(settings);
     showToast('✓ Einstellungen gespeichert');
 }
 
+// ── TAB VISIBILITY ──
+const TOGGLEABLE_TABS = ['roadmap', 'produkte', 'finanzen', 'meilensteine', 'admin', 'produktion', 'kalender'];
+
+function applyTabVisibility(visibleTabsJson) {
+    const tabs = visibleTabsJson ? JSON.parse(visibleTabsJson) : {};
+    TOGGLEABLE_TABS.forEach(id => {
+        const visible = tabs[id] !== false;
+        const navEl = document.getElementById('nav-' + id);
+        if (navEl) navEl.style.display = visible ? '' : 'none';
+        // Update toggle checkbox in settings
+        const toggle = document.getElementById('tab-toggle-' + id);
+        if (toggle) toggle.checked = visible;
+    });
+}
+
+async function saveTabVisibility() {
+    const tabs = {};
+    TOGGLEABLE_TABS.forEach(id => {
+        const toggle = document.getElementById('tab-toggle-' + id);
+        tabs[id] = toggle ? toggle.checked : true;
+    });
+    const visibleTabs = JSON.stringify(tabs);
+    if (projectSettings) projectSettings.visibleTabs = visibleTabs;
+    applyTabVisibility(visibleTabs);
+
+    // Wenn aktive Page jetzt ausgeblendet ist → Übersicht
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+        const pageId = activePage.id.replace('page-', '');
+        if (TOGGLEABLE_TABS.includes(pageId) && tabs[pageId] === false) {
+            showPage('overview');
+        }
+    }
+
+    // Persist
+    const name = document.getElementById('settings-name')?.value.trim() || projectSettings?.projectName || '';
+    const start = document.getElementById('settings-start')?.value || projectSettings?.startDate || '';
+    const desc = document.getElementById('settings-desc')?.value.trim() || projectSettings?.description || '';
+    const currency = document.getElementById('settings-currency')?.value || projectSettings?.currency || 'CHF';
+    const updated = await api(withProject('/api/settings'), 'POST', {
+        projectName: name, startDate: start, description: desc, currency,
+        projectImage: projectSettings?.projectImage ?? null,
+        visibleTabs
+    });
+    applySettings(updated);
+}
+
 // ── EXPORT / IMPORT ──
 function exportData() {
+    if (!confirm('Projektdaten jetzt exportieren?')) return;
     const a = document.createElement('a');
     a.href = '/api/export';
     a.download = '';
@@ -345,7 +794,7 @@ function handleImportFileChange() {
 async function confirmImport() {
     if (!_importData) return;
     try {
-        const res = await fetch('/api/import', {
+        const res = await fetch(withProject('/api/import'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(_importData)
@@ -513,7 +962,7 @@ function renderFinanzen() {
         }).join('');
 
         financeData.expenses.forEach(async e => {
-            const res = await fetch('/api/expenses/' + e.id + '/attachments');
+            const res = await fetch(withProject('/api/expenses/' + e.id + '/attachments'));
             const attachments = await res.json();
             const container = document.getElementById('attachments-' + e.id);
             if (container) renderAttachments(e.id, attachments, container);
@@ -547,7 +996,7 @@ async function deleteAttachment(id, expenseId) {
     if (!confirm('Beleg löschen?')) return;
     try {
         await api('/api/attachments/' + id, 'DELETE');
-        const res = await fetch('/api/expenses/' + expenseId + '/attachments');
+        const res = await fetch(withProject('/api/expenses/' + expenseId + '/attachments'));
         const attachments = await res.json();
         const container = document.getElementById('attachments-' + expenseId);
         if (container) renderAttachments(expenseId, attachments, container);
@@ -634,16 +1083,16 @@ async function saveExpense() {
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        const expense = await api('/api/expenses', 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
+        const expense = await api(withProject('/api/expenses'), 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
 
         const fileInput = document.getElementById('exp-file');
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${expense.id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
+            await api(withProject(`/api/expenses/${expense.id}/attachments`), 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
-        financeData = await api('/api/finance');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         closeExpenseModal();
         showToast('✓ Ausgabe gespeichert');
@@ -656,8 +1105,8 @@ async function saveExpense() {
 async function deleteExpense(id) {
     if (!confirm('Ausgabe löschen?')) return;
     try {
-        await api('/api/expenses/' + id, 'DELETE');
-        financeData = await api('/api/finance');
+        await api(withProject('/api/expenses/' + id), 'DELETE');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         showToast('✓ Ausgabe gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
@@ -726,16 +1175,16 @@ async function updateExpense() {
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
+        await api(withProject('/api/expenses/' + id), 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
 
         const fileInput = document.getElementById('edit-exp-file');
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
+            await api(withProject(`/api/expenses/${id}/attachments`), 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
-        financeData = await api('/api/finance');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         closeEditExpenseModal();
         showToast('✓ Ausgabe aktualisiert');
@@ -767,16 +1216,16 @@ function renderCategoryList() {
 
 async function updateCategoryName(id, name, color) {
     if (!name.trim()) return;
-    await api('/api/categories/' + id, 'PUT', { name: name.trim(), color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'PUT', { name: name.trim(), color });
+    financeData = await api(withProject('/api/finance'));
     renderFinanzen();
 }
 
 async function updateCategoryColor(id, color) {
     const cat = financeData.categories.find(c => c.id === id);
     if (!cat) return;
-    await api('/api/categories/' + id, 'PUT', { name: cat.name, color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'PUT', { name: cat.name, color });
+    financeData = await api(withProject('/api/finance'));
     renderFinanzen();
 }
 
@@ -784,8 +1233,8 @@ async function addCategory() {
     const name = document.getElementById('new-cat-name').value.trim();
     const color = document.getElementById('new-cat-color').value;
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
-    await api('/api/categories', 'POST', { name, color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories'), 'POST', { name, color });
+    financeData = await api(withProject('/api/finance'));
     renderCategoryList();
     renderFinanzen();
     document.getElementById('new-cat-name').value = '';
@@ -794,8 +1243,8 @@ async function addCategory() {
 
 async function deleteCategory(id) {
     if (!confirm('Kategorie löschen?')) return;
-    await api('/api/categories/' + id, 'DELETE');
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'DELETE');
+    financeData = await api(withProject('/api/finance'));
     renderCategoryList();
     renderFinanzen();
     showToast('✓ Kategorie gelöscht');
@@ -813,6 +1262,7 @@ function toggleTask(row) {
     state[row.dataset.idx] = row.classList.contains('done');
     saveState();
     updateAll();
+    updateOverdueBanner();
 }
 
 // ── TOGGLE WEEK ──
@@ -827,13 +1277,24 @@ function toggleWeek(n) {
 function showPage(id) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
-    document.getElementById('page-' + id).classList.add('active');
-    const idx = { overview: 0, roadmap: 1, produkte: 2, finanzen: 3, meilensteine: 4, admin: 5, einstellungen: 6 };
-    const navItems = document.querySelectorAll('.nav-item');
-    if (idx[id] !== undefined && navItems[idx[id]]) navItems[idx[id]].classList.add('active');
+    const page = document.getElementById('page-' + id);
+    if (!page) return;
+    page.classList.add('active');
+    // Highlight nav item by data-page or matching onclick
+    const navBtn = document.getElementById('nav-' + id);
+    if (navBtn) navBtn.classList.add('active');
+    else {
+        // fallback for overview / einstellungen which have no nav-id
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            if (btn.getAttribute('onclick') === `showPage('${id}')`) btn.classList.add('active');
+        });
+    }
     if (id === 'admin') renderAdmin();
     if (id === 'meilensteine') renderMilestones();
     if (id === 'produkte') renderProdukte();
+    if (id === 'produktion') renderProduktion();
+    if (id === 'kalender') renderKalender();
+    if (id === 'einstellungen') { renderUserList(); renderMemberList(); }
 }
 
 // ── UPDATE ALL ──
@@ -1033,7 +1494,7 @@ function initDragDrop() {
                 const [moved] = reordered.splice(fromIdx, 1);
                 reordered.splice(toIdx, 0, moved);
                 await api('/api/admin/weeks/' + weekNumber + '/reorder', 'PUT', { taskIds: reordered });
-                appData = await api('/api/data');
+                appData = await api(withProject('/api/data'));
                 renderRoadmap();
                 renderAdmin();
                 updateAll();
@@ -1090,7 +1551,7 @@ async function saveWeek() {
             await api('/api/admin/weeks', 'POST', { title, phase, badgePc, badgePhys, note });
             showToast('✓ Woche erstellt');
         }
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1102,7 +1563,7 @@ async function deleteWeek(number) {
     if (!confirm(`Woche ${number} und alle Tasks löschen?`)) return;
     try {
         await api('/api/admin/weeks/' + number, 'DELETE');
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1155,7 +1616,7 @@ async function saveTask() {
             await api('/api/admin/tasks', 'POST', { weekNumber: editingTaskWeekNumber, type, text, hours });
             showToast('✓ Task erstellt');
         }
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1167,7 +1628,7 @@ async function deleteTask(taskDbId, weekNumber) {
     if (!confirm('Task löschen?')) return;
     try {
         await api('/api/admin/tasks/' + taskDbId, 'DELETE');
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1179,7 +1640,7 @@ async function deleteTask(taskDbId, weekNumber) {
 let milestoneData = [];
 
 async function renderMilestones() {
-    milestoneData = await api('/api/milestones');
+    milestoneData = await api(withProject('/api/milestones'));
     const container = document.getElementById('milestones-list');
 
     if (milestoneData.length === 0) {
@@ -1238,7 +1699,7 @@ async function saveMilestone() {
     };
 
     try {
-        await api('/api/milestones', 'POST', { name, description, snapshot: JSON.stringify(snapshot) });
+        await api(withProject('/api/milestones'), 'POST', { name, description, snapshot: JSON.stringify(snapshot) });
         closeMilestoneModal();
         renderMilestones();
         showToast('✓ Meilenstein gespeichert');
@@ -1248,14 +1709,14 @@ async function saveMilestone() {
 async function deleteMilestone(id) {
     if (!confirm('Meilenstein löschen?')) return;
     try {
-        await api('/api/milestones/' + id, 'DELETE');
+        await api(withProject('/api/milestones/' + id), 'DELETE');
         renderMilestones();
         showToast('✓ Meilenstein gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
 }
 
 async function openMilestoneDetail(id) {
-    const milestone = await api('/api/milestones/' + id);
+    const milestone = await api(withProject('/api/milestones/' + id));
     const snap = JSON.parse(milestone.snapshot);
     const currency = getCurrency();
 
@@ -1739,7 +2200,7 @@ let managingAttributesCategoryId = null;
 let editingVariationId = null;
 
 async function loadCatalog() {
-    catalogData = await api('/api/catalog');
+    catalogData = await api(withProject('/api/catalog'));
 }
 
 async function renderProdukte() {
@@ -1932,8 +2393,8 @@ async function addCatalogCategory() {
     const color = document.getElementById('new-cat-type-color').value;
     const desc = document.getElementById('new-cat-type-desc').value.trim() || null;
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
-    await api('/api/catalog/categories', 'POST', { name, color, description: desc });
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/categories'), 'POST', { name, color, description: desc });
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogCategoriesList();
     document.getElementById('new-cat-type-name').value = '';
     document.getElementById('new-cat-type-desc').value = '';
@@ -1944,8 +2405,8 @@ async function deleteCatalogCategory(id) {
     const cat = catalogData.categories.find(c => c.id === id);
     const count = catalogData.products.filter(p => p.categoryId === id).length;
     if (!confirm(`Kategorie "${cat?.name}" löschen? ${count > 0 ? `${count} Produkte werden ebenfalls gelöscht.` : ''}`)) return;
-    await api('/api/catalog/categories/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/categories/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     if (activeCategoryId === id) activeCategoryId = null;
     renderCatalogCategoriesList();
     showToast('✓ Kategorie gelöscht');
@@ -1994,8 +2455,8 @@ async function addCatalogAttribute() {
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
     const cat = catalogData.categories.find(c => c.id === managingAttributesCategoryId);
     const sortOrder = (cat?.attributes?.length ?? 0) + 1;
-    await api(`/api/catalog/categories/${managingAttributesCategoryId}/attributes`, 'POST', { name, fieldType, options, required, sortOrder });
-    catalogData = await api('/api/catalog');
+    await api(withProject(`/api/catalog/categories/${managingAttributesCategoryId}/attributes`), 'POST', { name, fieldType, options, required, sortOrder });
+    catalogData = await api(withProject('/api/catalog'));
     renderAttributesList();
     document.getElementById('new-attr-name').value = '';
     document.getElementById('new-attr-options').value = '';
@@ -2005,8 +2466,8 @@ async function addCatalogAttribute() {
 
 async function deleteCatalogAttribute(id) {
     if (!confirm('Attribut löschen?')) return;
-    await api('/api/catalog/attributes/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/attributes/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderAttributesList();
     showToast('✓ Attribut gelöscht');
 }
@@ -2099,13 +2560,13 @@ async function saveCatalogProduct() {
 
     try {
         if (editingCatalogProductId) {
-            await api('/api/catalog/products/' + editingCatalogProductId, 'PUT', { name, description: desc, attributeValues: JSON.stringify(attributeValues) });
+            await api(withProject('/api/catalog/products/' + editingCatalogProductId), 'PUT', { name, description: desc, attributeValues: JSON.stringify(attributeValues) });
             showToast('✓ Produkt aktualisiert');
         } else {
-            await api('/api/catalog/products', 'POST', { categoryId, name, description: desc, attributeValues: JSON.stringify(attributeValues) });
+            await api(withProject('/api/catalog/products'), 'POST', { categoryId, name, description: desc, attributeValues: JSON.stringify(attributeValues) });
             showToast('✓ Produkt hinzugefügt');
         }
-        catalogData = await api('/api/catalog');
+        catalogData = await api(withProject('/api/catalog'));
         closeCatalogProductModal();
         renderCatalogMain();
     } catch { showToast('Fehler beim Speichern.'); }
@@ -2114,8 +2575,8 @@ async function saveCatalogProduct() {
 async function deleteCatalogProduct(id) {
     const product = catalogData.products.find(p => p.id === id);
     if (!confirm(`Produkt "${product?.name}" löschen? Alle Variationen werden ebenfalls gelöscht.`)) return;
-    await api('/api/catalog/products/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/products/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogMain();
     showToast('✓ Produkt gelöscht');
 }
@@ -2162,7 +2623,7 @@ async function generateSku() {
     const varName = document.getElementById('var-name').value.trim();
     if (!varName) { showToast('Bitte zuerst den Variationsnamen eingeben.'); return; }
     try {
-        const res = await fetch(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`);
+        const res = await fetch(withProject(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`));
         const data = await res.json();
         document.getElementById('var-sku').value = data.sku;
     } catch { showToast('Fehler beim Generieren der SKU.'); }
@@ -2183,7 +2644,7 @@ async function saveVariation() {
 
     try {
         if (editingVariationId) {
-            const res = await fetch('/api/catalog/variations/' + editingVariationId, {
+            const res = await fetch(withProject('/api/catalog/variations/' + editingVariationId), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, sku, price, stock })
@@ -2192,7 +2653,7 @@ async function saveVariation() {
             if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
             showToast('✓ Variation aktualisiert');
         } else {
-            const res = await fetch('/api/catalog/variations', {
+            const res = await fetch(withProject('/api/catalog/variations'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ productId, name, sku, price, stock })
@@ -2201,7 +2662,7 @@ async function saveVariation() {
             if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
             showToast('✓ Variation hinzugefügt');
         }
-        catalogData = await api('/api/catalog');
+        catalogData = await api(withProject('/api/catalog'));
         closeVariationModal();
         renderCatalogMain();
     } catch { showToast('Fehler beim Speichern.'); }
@@ -2209,10 +2670,479 @@ async function saveVariation() {
 
 async function deleteVariation(id) {
     if (!confirm('Variation löschen?')) return;
-    await api('/api/catalog/variations/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/variations/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogMain();
     showToast('✓ Variation gelöscht');
 }
 
+// ── KALENDER ──
+let calEvents = [];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-based
+let _calEditId = null;
+let _calColor = '#4f8ef7';
+let _calPopupDate = null;
+
+async function renderKalender() {
+    calEvents = await api(withProject('/api/calendar'));
+    drawCalendar();
+}
+
+function calToday() { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); drawCalendar(); }
+function calPrevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } drawCalendar(); }
+function calNextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } drawCalendar(); }
+
+const CAL_MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const EVENT_TYPE_ICONS = { event:'📌', deadline:'⏰', meeting:'🤝', delivery:'📦' };
+
+function drawCalendar() {
+    const label = document.getElementById('cal-month-label');
+    if (label) label.textContent = CAL_MONTHS[calMonth] + ' ' + calYear;
+
+    const grid = document.getElementById('cal-grid');
+    if (!grid) return;
+
+    // First day of month (Mon=0)
+    const firstDay = new Date(calYear, calMonth, 1);
+    let startOffset = firstDay.getDay() - 1; // Mon-based
+    if (startOffset < 0) startOffset = 6;
+
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Compute active week ranges from appData
+    const weekRanges = appData ? getWeekRanges() : [];
+
+    // Milestones and expenses indexed by date
+    const milestonesByDate = {};
+    const expensesByDate = {};
+    if (appData) {
+        // milestones loaded from API separately — skip for now (already in calEvents overlay below)
+    }
+    if (financeData) {
+        for (const exp of (financeData.expenses ?? [])) {
+            if (!expensesByDate[exp.date]) expensesByDate[exp.date] = [];
+            expensesByDate[exp.date].push(exp);
+        }
+    }
+
+    // Total cells = 6 rows × 7 cols
+    const totalCells = 42;
+    let html = '';
+
+    for (let i = 0; i < totalCells; i++) {
+        const dayNum = i - startOffset + 1;
+        let dateStr, isOtherMonth = false;
+
+        if (dayNum < 1) {
+            const d = daysInPrevMonth + dayNum;
+            const m = calMonth === 0 ? 12 : calMonth;
+            const y = calMonth === 0 ? calYear - 1 : calYear;
+            dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            isOtherMonth = true;
+        } else if (dayNum > daysInMonth) {
+            const d = dayNum - daysInMonth;
+            const m = calMonth === 11 ? 1 : calMonth + 2;
+            const y = calMonth === 11 ? calYear + 1 : calYear;
+            dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            isOtherMonth = true;
+        } else {
+            dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+        }
+
+        const isToday = dateStr === todayStr;
+        const isActiveWeek = weekRanges.some(r => dateStr >= fmtISO(r.start) && dateStr <= fmtISO(r.end) && weekRanges.indexOf(r) + 1 === window._currentWeek);
+
+        let classes = 'cal-day';
+        if (isOtherMonth) classes += ' other-month';
+        if (isToday) classes += ' today';
+        if (isActiveWeek) classes += ' week-active';
+
+        // Chips
+        let chips = '';
+        // Own calendar events
+        for (const ev of calEvents) {
+            const evStart = ev.date;
+            const evEnd = ev.endDate ?? ev.date;
+            if (dateStr >= evStart && dateStr <= evEnd) {
+                const icon = EVENT_TYPE_ICONS[ev.type] ?? '📌';
+                chips += `<div class="cal-chip" style="background:${ev.color}20;border-left:3px solid ${ev.color}"
+                    onclick="openCalEventModal(${ev.id});event.stopPropagation()">
+                    ${icon} ${escHtml(ev.title)}${ev.time ? ' · ' + ev.time : ''}
+                </div>`;
+            }
+        }
+        // Expenses
+        const dayExpenses = expensesByDate[dateStr] ?? [];
+        if (dayExpenses.length > 0) {
+            const total = dayExpenses.reduce((s, e) => s + e.amount, 0);
+            chips += `<div class="cal-chip cal-chip-expense">💰 ${formatCurrency(total)}</div>`;
+        }
+
+        const displayDay = isOtherMonth ? '' : dayNum;
+        html += `<div class="${classes}" onclick="openCalDayPopup('${dateStr}', event)">
+            <div class="cal-day-num">${displayDay}</div>
+            <div class="cal-chips">${chips}</div>
+        </div>`;
+    }
+
+    grid.innerHTML = html;
+    closeCalDayPopup();
+}
+
+function fmtISO(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return dt.toISOString().split('T')[0];
+}
+
+function formatCurrency(amount) {
+    const cur = getCurrency();
+    return amount.toFixed(2) + ' ' + cur;
+}
+
+// ── Tages-Detail-Popup ──
+function openCalDayPopup(dateStr, e) {
+    _calPopupDate = dateStr;
+    const popup = document.getElementById('cal-day-popup');
+    const dateLabel = document.getElementById('cal-popup-date');
+    const items = document.getElementById('cal-popup-items');
+    if (!popup) return;
+
+    const [y, m, d] = dateStr.split('-');
+    dateLabel.textContent = `${d}. ${CAL_MONTHS[parseInt(m)-1]} ${y}`;
+
+    let html = '';
+    // Own events
+    for (const ev of calEvents) {
+        if (dateStr >= ev.date && dateStr <= (ev.endDate ?? ev.date)) {
+            const icon = EVENT_TYPE_ICONS[ev.type] ?? '📌';
+            html += `<div class="cal-popup-item" onclick="openCalEventModal(${ev.id})">
+                <span class="cal-popup-dot" style="background:${ev.color}"></span>
+                <div>
+                    <div class="cal-popup-title">${icon} ${escHtml(ev.title)}</div>
+                    ${ev.time ? `<div class="cal-popup-meta">${ev.time}</div>` : ''}
+                    ${ev.description ? `<div class="cal-popup-meta">${escHtml(ev.description)}</div>` : ''}
+                </div>
+            </div>`;
+        }
+    }
+    // Expenses for day
+    if (financeData) {
+        for (const exp of (financeData.expenses ?? [])) {
+            if (exp.date === dateStr) {
+                html += `<div class="cal-popup-item">
+                    <span class="cal-popup-dot" style="background:var(--green)"></span>
+                    <div>
+                        <div class="cal-popup-title">💰 ${escHtml(exp.description)}</div>
+                        <div class="cal-popup-meta">${formatCurrency(exp.amount)}</div>
+                    </div>
+                </div>`;
+            }
+        }
+    }
+    if (!html) html = '<div style="color:var(--text3);font-size:13px;padding:8px 0">Keine Einträge</div>';
+    items.innerHTML = html;
+
+    // Position popup near clicked cell
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mainRect = document.querySelector('.main-content').getBoundingClientRect();
+    popup.style.display = 'block';
+    popup.style.top = (rect.bottom - mainRect.top + document.querySelector('.main-content').scrollTop + 4) + 'px';
+    const left = Math.min(rect.left - mainRect.left, mainRect.width - 280);
+    popup.style.left = Math.max(0, left) + 'px';
+}
+
+function closeCalDayPopup() {
+    const popup = document.getElementById('cal-day-popup');
+    if (popup) popup.style.display = 'none';
+    _calPopupDate = null;
+}
+
+// ── Event Modal ──
+function openCalEventModal(id, prefillDate) {
+    _calEditId = id;
+    _calColor = '#4f8ef7';
+    document.getElementById('cal-modal-title').textContent = id ? 'Ereignis bearbeiten' : 'Ereignis erstellen';
+    document.getElementById('cal-ev-delete-btn').style.display = id ? '' : 'none';
+    document.getElementById('cal-ev-title').value = '';
+    document.getElementById('cal-ev-date').value = prefillDate ?? _calPopupDate ?? new Date().toISOString().split('T')[0];
+    document.getElementById('cal-ev-enddate').value = '';
+    document.getElementById('cal-ev-time').value = '';
+    document.getElementById('cal-ev-type').value = 'event';
+    document.getElementById('cal-ev-desc').value = '';
+    // Reset color picker
+    document.querySelectorAll('#cal-ev-color-picker .color-dot').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.color === '#4f8ef7');
+    });
+
+    if (id) {
+        const ev = calEvents.find(e => e.id === id);
+        if (ev) {
+            _calColor = ev.color;
+            document.getElementById('cal-ev-title').value = ev.title;
+            document.getElementById('cal-ev-date').value = ev.date;
+            document.getElementById('cal-ev-enddate').value = ev.endDate ?? '';
+            document.getElementById('cal-ev-time').value = ev.time ?? '';
+            document.getElementById('cal-ev-type').value = ev.type;
+            document.getElementById('cal-ev-desc').value = ev.description ?? '';
+            document.querySelectorAll('#cal-ev-color-picker .color-dot').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.color === ev.color);
+            });
+        }
+    }
+    document.getElementById('cal-event-modal').classList.add('open');
+}
+
+function closeCalEventModal() {
+    document.getElementById('cal-event-modal').classList.remove('open');
+}
+
+function selectCalColor(color, btn) {
+    _calColor = color;
+    document.querySelectorAll('#cal-ev-color-picker .color-dot').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+async function saveCalEvent() {
+    const title = document.getElementById('cal-ev-title').value.trim();
+    const date  = document.getElementById('cal-ev-date').value;
+    if (!title || !date) { showToast('Titel und Datum sind Pflicht.'); return; }
+    const endDate     = document.getElementById('cal-ev-enddate').value || null;
+    const time        = document.getElementById('cal-ev-time').value || null;
+    const description = document.getElementById('cal-ev-desc').value.trim() || null;
+    const type        = document.getElementById('cal-ev-type').value;
+    const payload = { title, date, endDate, time, description, color: _calColor, type };
+
+    if (_calEditId) {
+        await api(withProject(`/api/calendar/${_calEditId}`), 'PUT', payload);
+        showToast('✓ Ereignis aktualisiert');
+    } else {
+        await api(withProject('/api/calendar'), 'POST', payload);
+        showToast('✓ Ereignis erstellt');
+    }
+    closeCalEventModal();
+    calEvents = await api(withProject('/api/calendar'));
+    drawCalendar();
+}
+
+async function deleteCalEvent() {
+    if (!_calEditId || !confirm('Ereignis löschen?')) return;
+    await api(withProject(`/api/calendar/${_calEditId}`), 'DELETE');
+    showToast('✓ Ereignis gelöscht');
+    closeCalEventModal();
+    calEvents = await api(withProject('/api/calendar'));
+    drawCalendar();
+}
+
+// ── PRODUKTION ──
+let prodFilter = 'all';
+let productionData = [];
+
+async function renderProduktion() {
+    productionData = await api(withProject('/api/production'));
+    renderProdList();
+}
+
+function setProdFilter(f) {
+    prodFilter = f;
+    ['all', 'open', 'done'].forEach(k => {
+        document.getElementById('prod-filter-' + k)?.classList.toggle('active', k === f);
+    });
+    renderProdList();
+}
+
+function renderProdList() {
+    const list = document.getElementById('prod-list');
+    if (!list) return;
+
+    const items = productionData.filter(i => {
+        if (prodFilter === 'open') return !i.done;
+        if (prodFilter === 'done') return i.done;
+        return true;
+    });
+
+    const hasDone = productionData.some(i => i.done);
+    const deleteBtn = document.getElementById('btn-delete-done-prod');
+    if (deleteBtn) deleteBtn.style.display = hasDone ? '' : 'none';
+
+    if (items.length === 0) {
+        list.innerHTML = `<div class="prod-empty">
+            ${prodFilter === 'done' ? 'Keine erledigten Artikel.' : prodFilter === 'open' ? 'Keine offenen Artikel. 🎉' : 'Keine Artikel in der Warteschlange.<br><small>Füge Artikel aus dem Produktkatalog hinzu.</small>'}
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        const dot = `<span class="cat-dot" style="background:${item.categoryColor}"></span>`;
+        const variation = item.variationName
+            ? `<span class="prod-item-variation">${item.variationName}${item.variationSku ? ' · ' + item.variationSku : ''}</span>`
+            : '';
+        const note = item.note ? `<div class="prod-item-note">${escHtml(item.note)}</div>` : '';
+        return `
+        <div class="prod-item-row ${item.done ? 'done' : ''}" id="prod-row-${item.id}">
+            <label class="prod-item-check">
+                <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleProdDone(${item.id}, this.checked)">
+                <span class="check-box"></span>
+            </label>
+            <div class="prod-item-info">
+                <div class="prod-item-name">${dot}${escHtml(item.productName)}</div>
+                ${variation}
+                ${note}
+                <div class="prod-item-cat">${escHtml(item.categoryName)}</div>
+            </div>
+            <div class="prod-item-qty">
+                <button class="qty-btn" onclick="changeProdQty(${item.id}, ${item.quantity - 1})">−</button>
+                <span class="qty-val">${item.quantity}</span>
+                <button class="qty-btn" onclick="changeProdQty(${item.id}, ${item.quantity + 1})">+</button>
+            </div>
+            <button class="btn-icon" onclick="deleteProductionItem(${item.id})" title="Entfernen">🗑</button>
+        </div>`;
+    }).join('');
+}
+
+function escHtml(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function toggleProdDone(id, done) {
+    await api(withProject(`/api/production/${id}/done`), 'PATCH', { done });
+    const item = productionData.find(i => i.id === id);
+    if (item) item.done = done;
+    renderProdList();
+}
+
+async function changeProdQty(id, qty) {
+    if (qty < 1) return;
+    const item = productionData.find(i => i.id === id);
+    if (!item) return;
+    await api(withProject(`/api/production/${id}`), 'PUT', { quantity: qty, note: item.note ?? null });
+    item.quantity = qty;
+    renderProdList();
+}
+
+async function deleteProductionItem(id) {
+    if (!confirm('Artikel aus der Produktionswarteschlange entfernen?')) return;
+    await api(withProject(`/api/production/${id}`), 'DELETE');
+    productionData = productionData.filter(i => i.id !== id);
+    renderProdList();
+    showToast('✓ Artikel entfernt');
+}
+
+async function deleteAllDoneProduction() {
+    if (!confirm('Alle erledigten Artikel löschen?')) return;
+    await api(withProject('/api/production/done'), 'DELETE');
+    productionData = productionData.filter(i => !i.done);
+    renderProdList();
+    showToast('✓ Erledigte Artikel gelöscht');
+}
+
+async function openProductionAddModal() {
+    // Katalog laden falls nötig
+    if (!catalogData) catalogData = await api(withProject('/api/catalog'));
+    const sel = document.getElementById('prod-add-product');
+    sel.innerHTML = '<option value="">— Produkt wählen —</option>' +
+        catalogData.products.map(p =>
+            `<option value="${p.id}" data-variations='${JSON.stringify(p.variations)}'>${escHtml(p.name)}</option>`
+        ).join('');
+    document.getElementById('prod-add-qty').value = '1';
+    document.getElementById('prod-add-note').value = '';
+    document.getElementById('prod-add-variation-group').style.display = 'none';
+    document.getElementById('prod-add-variation').innerHTML = '<option value="">— Variante wählen (optional) —</option>';
+    document.getElementById('production-add-modal').classList.add('open');
+}
+
+function onProdProductChange() {
+    const sel = document.getElementById('prod-add-product');
+    const opt = sel.options[sel.selectedIndex];
+    const varGroup = document.getElementById('prod-add-variation-group');
+    const varSel = document.getElementById('prod-add-variation');
+    if (!opt || !opt.value) { varGroup.style.display = 'none'; return; }
+    const variations = JSON.parse(opt.dataset.variations || '[]');
+    if (variations.length === 0) { varGroup.style.display = 'none'; return; }
+    varSel.innerHTML = '<option value="">— Variante wählen (optional) —</option>' +
+        variations.map(v => `<option value="${v.id}">${escHtml(v.name)} · ${v.sku}</option>`).join('');
+    varGroup.style.display = '';
+}
+
+async function confirmAddProductionItem() {
+    const productId = parseInt(document.getElementById('prod-add-product').value);
+    if (!productId) { showToast('Bitte ein Produkt wählen.'); return; }
+    const variationIdRaw = document.getElementById('prod-add-variation').value;
+    const variationId = variationIdRaw ? parseInt(variationIdRaw) : null;
+    const quantity = parseInt(document.getElementById('prod-add-qty').value) || 1;
+    const note = document.getElementById('prod-add-note').value.trim() || null;
+    await api(withProject('/api/production'), 'POST', { productId, variationId, quantity, note });
+    closeProductionAddModal();
+    productionData = await api(withProject('/api/production'));
+    renderProdList();
+    showToast('✓ Zur Produktion hinzugefügt');
+}
+
+function closeProductionAddModal() {
+    document.getElementById('production-add-modal').classList.remove('open');
+}
+
+// ── ÜBERFÄLLIGE AUFGABEN ──
+let _overdueDismissed = false;
+
+function getOverdueTasks() {
+    if (!appData || !state) return [];
+    const cur = window._currentWeek ?? 1;
+    const result = [];
+    for (const week of appData.weeks) {
+        if (week.number >= cur) continue;
+        for (const task of week.tasks) {
+            if (!state[`task-${task.id}`]) {
+                result.push({ week, task });
+            }
+        }
+    }
+    return result;
+}
+
+function updateOverdueBanner() {
+    const overdue = getOverdueTasks();
+    const banner = document.getElementById('overdue-banner');
+    const badge = document.getElementById('overdue-badge');
+    const count = document.getElementById('overdue-count');
+    if (!banner) return;
+    if (overdue.length === 0) {
+        banner.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        return;
+    }
+    if (badge) { badge.textContent = overdue.length; badge.style.display = ''; }
+    if (_overdueDismissed) { banner.style.display = 'none'; return; }
+    if (count) count.textContent = overdue.length;
+    banner.style.display = '';
+}
+
+function dismissOverdueBanner() {
+    _overdueDismissed = true;
+    document.getElementById('overdue-banner').style.display = 'none';
+}
+
+function showOverdueTasks() {
+    const overdue = getOverdueTasks();
+    if (overdue.length === 0) return;
+    showPage('roadmap');
+    // Erste überfällige Woche aufklappen und scrollen
+    const firstWeekNr = overdue[0].week.number;
+    const body = document.getElementById('wb-' + firstWeekNr);
+    const chev = document.getElementById('chev-' + firstWeekNr);
+    if (body && !body.classList.contains('open')) {
+        body.classList.add('open');
+        if (chev) chev.classList.add('open');
+    }
+    setTimeout(() => {
+        const card = document.getElementById('week-' + firstWeekNr);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+}
+
+checkInviteParam();
 init();

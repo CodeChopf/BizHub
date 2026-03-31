@@ -10,6 +10,44 @@
 </head>
 <body>
 
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" style="display:none">
+        <div class="login-wrap">
+            <div class="login-logo">
+                <div class="login-logo-icon">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
+                <div class="login-logo-name">BizHub</div>
+            </div>
+            <div class="form-group">
+                <label>Benutzername</label>
+                <input type="text" id="login-username" placeholder="Benutzername" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+            </div>
+            <div class="form-group">
+                <label>Passwort</label>
+                <input type="password" id="login-password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <div id="login-error" class="login-error" style="display:none"></div>
+            <button class="btn-primary" style="width:100%" onclick="doLogin()">Anmelden</button>
+
+            <!-- Registrierung via Einladungslink -->
+            <div id="register-section" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px">
+                <div style="font-size:13px; color:var(--text3); margin-bottom:14px">Du wurdest eingeladen. Erstelle deinen Account:</div>
+                <input type="hidden" id="_reg_token">
+                <div class="form-group">
+                    <label>Benutzername</label>
+                    <input type="text" id="reg-username" placeholder="Benutzername" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Passwort</label>
+                    <input type="password" id="reg-password" placeholder="Passwort" autocomplete="new-password">
+                </div>
+                <div id="reg-error" style="display:none; color:var(--red); font-size:13px; margin-bottom:8px"></div>
+                <button class="btn-primary" style="width:100%" onclick="doRegister()">Account erstellen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SETUP SCREEN -->
     <div id="setup-screen" style="display:none">
         <div class="setup-wrap">
@@ -68,6 +106,22 @@
         </div>
     </div>
 
+    <!-- PROJECT SELECTOR SCREEN -->
+    <div id="project-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; padding:40px 20px">
+        <div style="max-width:640px; margin:0 auto">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+                <div style="font-size:1.5rem; font-weight:700; font-family:'Space Grotesk',sans-serif">BizHub</div>
+                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+            </div>
+            <div style="color:var(--text3); margin-bottom:8px" id="project-screen-welcome"></div>
+            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:24px">
+                <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+            </div>
+            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px"></div>
+            <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+        </div>
+    </div>
+
     <!-- MAIN APP -->
     <div id="app" style="display:none">
         <aside class="sidebar">
@@ -85,25 +139,34 @@
                     <span class="nav-icon">⬛</span>
                     <span>Übersicht</span>
                 </button>
-                <button class="nav-item" onclick="showPage('roadmap')">
+                <button class="nav-item" id="nav-roadmap" onclick="showPage('roadmap')">
                     <span class="nav-icon">📋</span>
                     <span>Roadmap</span>
+                    <span class="nav-badge" id="overdue-badge" style="display:none"></span>
                 </button>
-                <button class="nav-item" onclick="showPage('produkte')">
+                <button class="nav-item" id="nav-produkte" onclick="showPage('produkte')">
                     <span class="nav-icon">📦</span>
                     <span>Produkte</span>
                 </button>
-                <button class="nav-item" onclick="showPage('finanzen')">
+                <button class="nav-item" id="nav-finanzen" onclick="showPage('finanzen')">
                     <span class="nav-icon">💰</span>
                     <span>Finanzen</span>
                 </button>
-                <button class="nav-item" onclick="showPage('meilensteine')">
+                <button class="nav-item" id="nav-meilensteine" onclick="showPage('meilensteine')">
                     <span class="nav-icon">🏁</span>
                     <span>Meilensteine</span>
                 </button>
-                <button class="nav-item" onclick="showPage('admin')">
+                <button class="nav-item" id="nav-admin" onclick="showPage('admin')">
                     <span class="nav-icon">⚙️</span>
                     <span>Planung</span>
+                </button>
+                <button class="nav-item" id="nav-produktion" onclick="showPage('produktion')">
+                    <span class="nav-icon">🏭</span>
+                    <span>Produktion</span>
+                </button>
+                <button class="nav-item" id="nav-kalender" onclick="showPage('kalender')">
+                    <span class="nav-icon">📅</span>
+                    <span>Kalender</span>
                 </button>
             </nav>
 
@@ -126,10 +189,24 @@
             <div class="sidebar-footer">
                 <div class="sidebar-footer-date" id="sidebar-date"></div>
                 <div class="sidebar-footer-launch" id="sidebar-launch"></div>
+                <div class="sidebar-username" id="sidebar-username"></div>
+                <button class="logout-btn" id="switch-project-btn" onclick="showProjectScreen()" style="display:none" title="Projekt wechseln">&#x21C6; Projekt wechseln</button>
+                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
             </div>
         </aside>
 
         <main class="main-content">
+
+            <!-- OVERDUE BANNER -->
+            <div id="overdue-banner" class="overdue-banner" style="display:none">
+                <span class="overdue-banner-text">
+                    ⚠ <strong id="overdue-count">0</strong> überfällige Aufgaben aus vergangenen Wochen
+                </span>
+                <div class="overdue-banner-actions">
+                    <button class="overdue-btn" onclick="showOverdueTasks()">Anzeigen</button>
+                    <button class="overdue-btn overdue-btn-close" onclick="dismissOverdueBanner()">✕</button>
+                </div>
+            </div>
 
             <!-- ÜBERSICHT -->
             <div class="page active" id="page-overview">
@@ -278,6 +355,63 @@
                 <div id="admin-content"></div>
             </div>
 
+            <!-- PRODUKTION -->
+            <div class="page" id="page-produktion">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Produktion</div>
+                        <div class="page-sub">Produktionswarteschlange</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn-secondary" id="btn-delete-done-prod" onclick="deleteAllDoneProduction()" style="display:none">
+                            🗑 Erledigte löschen
+                        </button>
+                        <button class="btn-primary" onclick="openProductionAddModal()">+ Artikel hinzufügen</button>
+                    </div>
+                </div>
+
+                <div class="prod-filter-bar">
+                    <button class="prod-filter-btn active" id="prod-filter-all" onclick="setProdFilter('all')">Alle</button>
+                    <button class="prod-filter-btn" id="prod-filter-open" onclick="setProdFilter('open')">Offen</button>
+                    <button class="prod-filter-btn" id="prod-filter-done" onclick="setProdFilter('done')">Erledigt</button>
+                </div>
+
+                <div id="prod-list"></div>
+            </div>
+
+            <!-- KALENDER -->
+            <div class="page" id="page-kalender">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">Kalender</div>
+                        <div class="page-sub" id="cal-month-label">Monat</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn-secondary" onclick="calPrevMonth()">‹</button>
+                        <button class="btn-secondary" onclick="calToday()">Heute</button>
+                        <button class="btn-secondary" onclick="calNextMonth()">›</button>
+                        <button class="btn-primary" onclick="openCalEventModal(null)">+ Ereignis</button>
+                    </div>
+                </div>
+                <div class="cal-weekdays">
+                    <div>Mo</div><div>Di</div><div>Mi</div>
+                    <div>Do</div><div>Fr</div><div>Sa</div><div>So</div>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+
+                <!-- Tages-Detail-Popup -->
+                <div id="cal-day-popup" class="cal-day-popup" style="display:none">
+                    <div class="cal-day-popup-header">
+                        <strong id="cal-popup-date"></strong>
+                        <div style="display:flex;gap:6px">
+                            <button class="overdue-btn" onclick="openCalEventModal(null, _calPopupDate)">+ Hinzufügen</button>
+                            <button class="overdue-btn overdue-btn-close" onclick="closeCalDayPopup()">✕</button>
+                        </div>
+                    </div>
+                    <div id="cal-popup-items"></div>
+                </div>
+            </div>
+
             <!-- EINSTELLUNGEN -->
             <div class="page" id="page-einstellungen">
                 <div class="page-header">
@@ -328,13 +462,235 @@
                     </div>
                     <button class="btn-primary" style="margin-top:8px" onclick="saveSettings()">Speichern</button>
                 </div>
+
+                <div class="card" style="max-width:560px;margin-top:20px">
+                    <div class="card-header">
+                        <div class="card-title">Sichtbare Tabs</div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Blende nicht benötigte Tabs aus. Übersicht und Einstellungen sind immer sichtbar.
+                    </p>
+                    <div class="tab-toggle-list">
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>📋</span><span>Roadmap</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-roadmap" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>📦</span><span>Produkte</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-produkte" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>💰</span><span>Finanzen</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-finanzen" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>🏁</span><span>Meilensteine</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-meilensteine" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>⚙️</span><span>Planung</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-admin" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>🏭</span><span>Produktion</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-produktion" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="tab-toggle-row">
+                            <div class="tab-toggle-label">
+                                <span>📅</span><span>Kalender</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="tab-toggle-kalender" onchange="saveTabVisibility()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Benutzerverwaltung (nur Admin) -->
+                <div class="settings-card" id="users-card" style="display:none">
+                    <div class="settings-card-title">Benutzer</div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Verwalte wer sich bei BizHub anmelden kann.
+                    </p>
+                    <div id="users-list"></div>
+                    <button class="btn-secondary" style="margin-top:12px" onclick="openAddUserModal()">+ Benutzer hinzufügen</button>
+                </div>
+
+                <!-- Projektmitglieder (Projekt-Admin oder Platform-Admin) -->
+                <div class="settings-card" id="members-card" style="display:none">
+                    <div class="settings-card-title">Projektmitglieder</div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Verwalte wer Zugang zu diesem Projekt hat.
+                    </p>
+                    <div id="members-list"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px">
+                        <button class="btn-secondary" onclick="openAddMemberModal()">+ Mitglied hinzufügen</button>
+                        <button class="btn-secondary" onclick="openInviteModal()">Einladungslink</button>
+                    </div>
+                </div>
+
             </div>
 
         </main>
     </div>
 
+    <!-- MODAL: Benutzer hinzufügen -->
+    <div class="modal-backdrop" id="add-user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Benutzer hinzufügen</div>
+                <button class="modal-close" onclick="closeAddUserModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Benutzername</label>
+                    <input type="text" id="new-user-username" placeholder="z.B. max">
+                </div>
+                <div class="form-group">
+                    <label>Passwort</label>
+                    <input type="password" id="new-user-password" placeholder="Passwort">
+                </div>
+                <div class="form-group" style="flex-direction:row;align-items:center;gap:10px">
+                    <input type="checkbox" id="new-user-admin" style="width:auto">
+                    <label for="new-user-admin" style="margin:0">Administrator</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddUserModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmAddUser()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kalender-Ereignis -->
+    <div class="modal-backdrop" id="cal-event-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="cal-modal-title">Ereignis erstellen</div>
+                <button class="modal-close" onclick="closeCalEventModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Titel</label>
+                    <input type="text" id="cal-ev-title" placeholder="z.B. Kundengespräch, Lieferung...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Datum</label>
+                        <input type="date" id="cal-ev-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Enddatum (optional)</label>
+                        <input type="date" id="cal-ev-enddate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Uhrzeit (optional)</label>
+                        <input type="time" id="cal-ev-time">
+                    </div>
+                    <div class="form-group">
+                        <label>Typ</label>
+                        <select id="cal-ev-type">
+                            <option value="event">📌 Ereignis</option>
+                            <option value="deadline">⏰ Deadline</option>
+                            <option value="meeting">🤝 Meeting</option>
+                            <option value="delivery">📦 Lieferung</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung (optional)</label>
+                    <textarea id="cal-ev-desc" rows="2" placeholder="Details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Farbe</label>
+                    <div class="color-picker" id="cal-ev-color-picker">
+                        <button class="color-dot active" style="background:#4f8ef7" data-color="#4f8ef7" onclick="selectCalColor('#4f8ef7', this)"></button>
+                        <button class="color-dot" style="background:#34c77b" data-color="#34c77b" onclick="selectCalColor('#34c77b', this)"></button>
+                        <button class="color-dot" style="background:#f25f5c" data-color="#f25f5c" onclick="selectCalColor('#f25f5c', this)"></button>
+                        <button class="color-dot" style="background:#f5a623" data-color="#f5a623" onclick="selectCalColor('#f5a623', this)"></button>
+                        <button class="color-dot" style="background:#a78bfa" data-color="#a78bfa" onclick="selectCalColor('#a78bfa', this)"></button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cal-ev-delete-btn" onclick="deleteCalEvent()" style="display:none;margin-right:auto">🗑 Löschen</button>
+                <button class="btn-secondary" onclick="closeCalEventModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveCalEvent()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Produktion hinzufügen -->
+    <div class="modal-backdrop" id="production-add-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Zur Produktion hinzufügen</div>
+                <button class="modal-close" onclick="closeProductionAddModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Produkt</label>
+                    <select id="prod-add-product" onchange="onProdProductChange()">
+                        <option value="">— Produkt wählen —</option>
+                    </select>
+                </div>
+                <div class="form-group" id="prod-add-variation-group" style="display:none">
+                    <label>Variante</label>
+                    <select id="prod-add-variation">
+                        <option value="">— Variante wählen (optional) —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Menge</label>
+                    <input type="number" id="prod-add-qty" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Notiz (optional)</label>
+                    <input type="text" id="prod-add-note" placeholder="z.B. Farbe, Sonderwunsch...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeProductionAddModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmAddProductionItem()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: Import -->
-    <div class="modal-backdrop" id="import-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="import-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">Projekt importieren</div>
@@ -362,7 +718,7 @@
     </div>
 
     <!-- MODAL: Ausgabe erfassen -->
-    <div class="modal-backdrop" id="expense-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="expense-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">Ausgabe erfassen</div>
@@ -420,7 +776,7 @@
     </div>
 
     <!-- MODAL: Ausgabe bearbeiten -->
-    <div class="modal-backdrop" id="edit-expense-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="edit-expense-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">Ausgabe bearbeiten</div>
@@ -479,7 +835,7 @@
     </div>
 
     <!-- MODAL: Kategorien verwalten -->
-    <div class="modal-backdrop" id="category-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="category-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">Kategorien verwalten</div>
@@ -503,7 +859,7 @@
     </div>
 
     <!-- MODAL: Woche erstellen/bearbeiten -->
-    <div class="modal-backdrop" id="week-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="week-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="week-modal-title">Woche erstellen</div>
@@ -541,7 +897,7 @@
     </div>
 
     <!-- MODAL: Task erstellen/bearbeiten -->
-    <div class="modal-backdrop" id="task-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="task-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="task-modal-title">Task erstellen</div>
@@ -572,7 +928,7 @@
     </div>
 
     <!-- MODAL: Meilenstein erstellen -->
-    <div class="modal-backdrop" id="milestone-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="milestone-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">Meilenstein setzen</div>
@@ -596,7 +952,7 @@
     </div>
 
     <!-- MODAL: Meilenstein Detail -->
-    <div class="modal-backdrop" id="milestone-detail-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="milestone-detail-modal">
         <div class="modal" style="width:640px;max-width:95vw">
             <div class="modal-header">
                 <div class="modal-title" id="ms-detail-title"></div>
@@ -612,7 +968,7 @@
     </div>
 
     <!-- MODAL: Produkttypen verwalten -->
-    <div class="modal-backdrop" id="manage-types-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="manage-types-modal">
         <div class="modal" style="width:560px;max-width:95vw">
             <div class="modal-header">
                 <div class="modal-title">Produkttypen verwalten</div>
@@ -646,7 +1002,7 @@
     </div>
 
     <!-- MODAL: Felder verwalten -->
-    <div class="modal-backdrop" id="manage-fields-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="manage-fields-modal">
         <div class="modal" style="width:560px;max-width:95vw">
             <div class="modal-header">
                 <div class="modal-title" id="manage-fields-title">Felder verwalten</div>
@@ -692,7 +1048,7 @@
     </div>
 
     <!-- MODAL: Produkt hinzufügen/bearbeiten -->
-    <div class="modal-backdrop" id="product-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="product-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="product-modal-title">Produkt hinzufügen</div>
@@ -707,7 +1063,7 @@
     </div>
 
     <!-- MODAL: Kategorien & Attribute verwalten -->
-    <div class="modal-backdrop" id="manage-catalog-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="manage-catalog-modal">
         <div class="modal" style="width:580px;max-width:95vw">
             <div class="modal-header">
                 <div class="modal-title">Kategorien verwalten</div>
@@ -741,7 +1097,7 @@
     </div>
 
     <!-- MODAL: Attribute verwalten -->
-    <div class="modal-backdrop" id="manage-attributes-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="manage-attributes-modal">
         <div class="modal" style="width:560px;max-width:95vw">
             <div class="modal-header">
                 <div class="modal-title" id="manage-attr-title">Attribute verwalten</div>
@@ -790,7 +1146,7 @@
     </div>
 
     <!-- MODAL: Produkt erstellen/bearbeiten -->
-    <div class="modal-backdrop" id="catalog-product-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="catalog-product-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="catalog-product-modal-title">Produkt hinzufügen</div>
@@ -805,7 +1161,7 @@
     </div>
 
     <!-- MODAL: Variation hinzufügen/bearbeiten -->
-    <div class="modal-backdrop" id="variation-modal" onclick="closeModals(event)">
+    <div class="modal-backdrop" id="variation-modal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="variation-modal-title">Variation hinzufügen</div>
@@ -840,6 +1196,117 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeVariationModal()">Abbrechen</button>
                 <button class="btn-primary" onclick="saveVariation()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Projekt erstellen -->
+    <div class="modal-backdrop" id="create-project-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Neues Projekt</div>
+                <button class="modal-close" onclick="closeCreateProjectModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Projektname</label><input type="text" id="cp-name" placeholder="z.B. AuraPrints"></div>
+                <div class="form-group"><label>Startdatum</label><input type="date" id="cp-start"></div>
+                <div class="form-group"><label>Beschreibung</label><input type="text" id="cp-desc" placeholder="Optional"></div>
+                <div class="form-group"><label>Währung</label>
+                    <select id="cp-currency">
+                        <option value="CHF">CHF</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCreateProjectModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmCreateProject()">Erstellen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Mitglied hinzufügen -->
+    <div class="modal-backdrop" id="add-member-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Mitglied hinzufügen</div>
+                <button class="modal-close" onclick="closeAddMemberModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Benutzername</label><input type="text" id="new-member-username" placeholder="z.B. max"></div>
+                <div class="form-group"><label>Rolle</label>
+                    <select id="new-member-role">
+                        <option value="member">Mitglied</option>
+                        <option value="admin">Projekt-Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddMemberModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmAddMember()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Einladungslink -->
+    <div class="modal-backdrop" id="invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Einladungslink</div>
+                <button class="modal-close" onclick="closeInviteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Rolle</label>
+                    <select id="invite-role">
+                        <option value="member">Mitglied</option>
+                        <option value="admin">Projekt-Admin</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Gültig für (Stunden)</label>
+                    <input type="number" id="invite-hours" value="48" min="1" max="720">
+                </div>
+                <div id="invite-link-wrap" style="display:none">
+                    <label style="font-size:13px;color:var(--text3)">Link (einmal verwendbar):</label>
+                    <div class="invite-link-wrap">
+                        <input type="text" id="invite-link-input" readonly>
+                        <button class="btn-secondary" onclick="copyInviteLink()">Kopieren</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeInviteModal()">Schliessen</button>
+                <button class="btn-primary" onclick="generateInvite()">Link generieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BizHub-Nutzer einladen (Platform-Admin) -->
+    <div class="modal-backdrop" id="platform-invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">BizHub-Nutzer einladen</div>
+                <button class="modal-close" onclick="closePlatformInviteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                    Der Empfänger kann über diesen Link einen Account erstellen.
+                </p>
+                <div class="form-group">
+                    <label>Gültig für (Stunden)</label>
+                    <input type="number" id="platform-invite-hours" value="48" min="1" max="720">
+                </div>
+                <div id="platform-invite-link-wrap" style="display:none">
+                    <label style="font-size:13px;color:var(--text3)">Registrierungslink (einmalig):</label>
+                    <div class="invite-link-wrap">
+                        <input type="text" id="platform-invite-link-input" readonly>
+                        <button class="btn-secondary" onclick="copyPlatformInviteLink()">Kopieren</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePlatformInviteModal()">Schliessen</button>
+                <button class="btn-primary" onclick="generatePlatformInvite()">Link generieren</button>
             </div>
         </div>
     </div>
