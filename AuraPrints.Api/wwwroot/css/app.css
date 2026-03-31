@@ -2527,4 +2527,41 @@ textarea {
 .btn-ghost:hover { background: var(--surface-hover, rgba(255,255,255,.06)); }
 .btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
 .btn-ghost.btn-danger { color: var(--red); border-color: var(--red); }
+
+/* ── PROJECT SELECTOR ── */
+.project-select-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.project-select-card:hover {
+    border-color: var(--blue);
+    background: var(--surface-hover, rgba(255,255,255,.04));
+}
+.project-select-name {
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--text-primary);
+}
+.project-select-meta {
+    font-size: .8rem;
+    color: var(--text3);
+    margin-top: 2px;
+}
+
+/* ── INVITE LINK ── */
+.invite-link-wrap {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+.invite-link-wrap input {
+    flex: 1;
+    font-size: .78rem;
+    color: var(--text-secondary);
+}
 .btn-ghost.btn-danger:hover { background: rgba(239,68,68,.08); }

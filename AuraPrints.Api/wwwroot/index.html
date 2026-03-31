@@ -90,6 +90,16 @@
         </div>
     </div>
 
+    <!-- PROJECT SELECTOR SCREEN -->
+    <div id="project-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; padding:40px 20px">
+        <div style="max-width:640px; margin:0 auto">
+            <div style="font-size:1.5rem; font-weight:700; margin-bottom:8px; font-family:'Space Grotesk',sans-serif">BizHub</div>
+            <div style="color:var(--text3); margin-bottom:32px">Wähle ein Projekt oder erstelle ein neues.</div>
+            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px"></div>
+            <button class="btn-secondary" id="btn-create-project" style="margin-top:20px; display:none" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+        </div>
+    </div>
+
     <!-- MAIN APP -->
     <div id="app" style="display:none">
         <aside class="sidebar">
@@ -158,6 +168,7 @@
                 <div class="sidebar-footer-date" id="sidebar-date"></div>
                 <div class="sidebar-footer-launch" id="sidebar-launch"></div>
                 <div class="sidebar-username" id="sidebar-username"></div>
+                <button class="logout-btn" id="switch-project-btn" onclick="showProjectScreen()" style="display:none" title="Projekt wechseln">&#x21C6; Projekt wechseln</button>
                 <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
             </div>
         </aside>
@@ -512,6 +523,19 @@
                     </p>
                     <div id="users-list"></div>
                     <button class="btn-secondary" style="margin-top:12px" onclick="openAddUserModal()">+ Benutzer hinzufügen</button>
+                </div>
+
+                <!-- Projektmitglieder (Projekt-Admin oder Platform-Admin) -->
+                <div class="settings-card" id="members-card" style="display:none">
+                    <div class="settings-card-title">Projektmitglieder</div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Verwalte wer Zugang zu diesem Projekt hat.
+                    </p>
+                    <div id="members-list"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px">
+                        <button class="btn-secondary" onclick="openAddMemberModal()">+ Mitglied hinzufügen</button>
+                        <button class="btn-secondary" onclick="openInviteModal()">Einladungslink</button>
+                    </div>
                 </div>
 
             </div>
@@ -1150,6 +1174,87 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeVariationModal()">Abbrechen</button>
                 <button class="btn-primary" onclick="saveVariation()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Projekt erstellen -->
+    <div class="modal-backdrop" id="create-project-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Neues Projekt</div>
+                <button class="modal-close" onclick="closeCreateProjectModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Projektname</label><input type="text" id="cp-name" placeholder="z.B. AuraPrints"></div>
+                <div class="form-group"><label>Startdatum</label><input type="date" id="cp-start"></div>
+                <div class="form-group"><label>Beschreibung</label><input type="text" id="cp-desc" placeholder="Optional"></div>
+                <div class="form-group"><label>Währung</label>
+                    <select id="cp-currency">
+                        <option value="CHF">CHF</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCreateProjectModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmCreateProject()">Erstellen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Mitglied hinzufügen -->
+    <div class="modal-backdrop" id="add-member-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Mitglied hinzufügen</div>
+                <button class="modal-close" onclick="closeAddMemberModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Benutzername</label><input type="text" id="new-member-username" placeholder="z.B. max"></div>
+                <div class="form-group"><label>Rolle</label>
+                    <select id="new-member-role">
+                        <option value="member">Mitglied</option>
+                        <option value="admin">Projekt-Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddMemberModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="confirmAddMember()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Einladungslink -->
+    <div class="modal-backdrop" id="invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Einladungslink</div>
+                <button class="modal-close" onclick="closeInviteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Rolle</label>
+                    <select id="invite-role">
+                        <option value="member">Mitglied</option>
+                        <option value="admin">Projekt-Admin</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Gültig für (Stunden)</label>
+                    <input type="number" id="invite-hours" value="48" min="1" max="720">
+                </div>
+                <div id="invite-link-wrap" style="display:none">
+                    <label style="font-size:13px;color:var(--text3)">Link (einmal verwendbar):</label>
+                    <div class="invite-link-wrap">
+                        <input type="text" id="invite-link-input" readonly>
+                        <button class="btn-secondary" onclick="copyInviteLink()">Kopieren</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeInviteModal()">Schliessen</button>
+                <button class="btn-primary" onclick="generateInvite()">Link generieren</button>
             </div>
         </div>
     </div>

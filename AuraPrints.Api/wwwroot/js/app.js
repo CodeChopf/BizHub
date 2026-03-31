@@ -1,6 +1,9 @@
 ﻿// ── PROJEKT SETTINGS ──
 let projectSettings = null;
 let START = new Date();
+let _currentProjectId = 1;
+let _projects = [];
+let _currentProject = null;
 
 function getStart() { return START; }
 
@@ -146,12 +149,17 @@ async function api(url, method = 'GET', body = null) {
     return res.json();
 }
 
+function withProject(url) {
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'projectId=' + _currentProjectId;
+}
+
 async function loadState() {
-    try { state = await api('/api/state'); } catch { state = {}; }
+    try { state = await api(withProject('/api/state')); } catch { state = {}; }
 }
 
 async function saveState() {
-    try { await api('/api/state', 'POST', state); } catch { console.error('Speichern fehlgeschlagen'); }
+    try { await api(withProject('/api/state'), 'POST', state); } catch { console.error('Speichern fehlgeschlagen'); }
 }
 
 // ── SETUP SCREEN ──
@@ -171,8 +179,12 @@ async function createProject() {
     if (!name) { alert('Bitte einen Projektnamen eingeben.'); return; }
     if (!start) { alert('Bitte ein Startdatum wählen.'); return; }
 
-    await api('/api/settings', 'POST', { projectName: name, startDate: start, description: desc, currency });
-    location.reload();
+    const proj = await api('/api/projects', 'POST', { name, description: desc, startDate: start, currency });
+    _currentProjectId = proj.id;
+    _currentProject = proj;
+    _projects = [proj];
+    document.getElementById('setup-screen').style.display = 'none';
+    await loadProject();
 }
 
 let _importData = null;
@@ -233,6 +245,7 @@ function showLoginScreen() {
     _currentUser = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('project-screen').style.display = 'none';
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-username').focus();
 }
@@ -346,29 +359,41 @@ async function changeUserPassword(username) {
 async function init() {
     if (!(await checkAuth())) return;
 
-    // Settings laden
-    const settings = await api('/api/settings');
+    _projects = await api('/api/projects');
 
-    if (!settings.isSetup) {
-        // Setup-Screen anzeigen
+    if (_projects.length === 0) {
+        // Noch kein Projekt → Setup-Screen
         document.getElementById('setup-screen').style.display = 'flex';
         document.getElementById('app').style.display = 'none';
-        // Datum auf heute vorbelegen
         document.getElementById('setup-start').value = today.toISOString().split('T')[0];
         return;
     }
 
-    // App anzeigen
+    if (_projects.length === 1) {
+        _currentProjectId = _projects[0].id;
+        _currentProject = _projects[0];
+        await loadProject();
+    } else {
+        showProjectScreen();
+    }
+}
+
+async function loadProject() {
+    document.getElementById('project-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
 
+    const switchBtn = document.getElementById('switch-project-btn');
+    if (switchBtn) switchBtn.style.display = _projects.length > 1 ? '' : 'none';
+
+    const settings = await api(withProject('/api/settings'));
     applySettings(settings);
 
     await loadState();
     try {
         const [dataRes, finRes] = await Promise.all([
-            fetch('/api/data'),
-            fetch('/api/finance')
+            fetch(withProject('/api/data')),
+            fetch(withProject('/api/finance'))
         ]);
         appData = await dataRes.json();
         financeData = await finRes.json();
@@ -413,6 +438,130 @@ async function init() {
     if (cwChev) cwChev.classList.add('open');
 }
 
+// ── PROJEKTVERWALTUNG ──
+function showProjectScreen() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('project-screen').style.display = 'block';
+    const createBtn = document.getElementById('btn-create-project');
+    if (createBtn) createBtn.style.display = _currentUser?.isAdmin ? '' : 'none';
+    renderProjectScreen();
+}
+
+function renderProjectScreen() {
+    const container = document.getElementById('project-list-screen');
+    if (!container) return;
+    container.innerHTML = _projects.map(p => `
+        <div class="project-select-card" onclick="selectProject(${p.id})">
+            <div class="project-select-name">${escHtml(p.name)}</div>
+            <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? ' · Admin' : ''}</div>
+        </div>`).join('');
+}
+
+async function selectProject(id) {
+    _currentProjectId = id;
+    _currentProject = _projects.find(p => p.id === id) ?? null;
+    await loadProject();
+}
+
+function openCreateProjectModal() {
+    document.getElementById('cp-name').value = '';
+    document.getElementById('cp-start').value = today.toISOString().split('T')[0];
+    document.getElementById('cp-desc').value = '';
+    document.getElementById('cp-currency').value = 'CHF';
+    document.getElementById('create-project-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('cp-name').focus(), 50);
+}
+function closeCreateProjectModal() {
+    document.getElementById('create-project-modal').style.display = 'none';
+}
+async function confirmCreateProject() {
+    const name = document.getElementById('cp-name').value.trim();
+    const start = document.getElementById('cp-start').value;
+    const desc = document.getElementById('cp-desc').value.trim();
+    const currency = document.getElementById('cp-currency').value;
+    if (!name || !start) { showToast('Name und Datum sind Pflicht.'); return; }
+    const proj = await api('/api/projects', 'POST', { name, description: desc, startDate: start, currency });
+    closeCreateProjectModal();
+    _projects = await api('/api/projects');
+    _currentProjectId = proj.id;
+    _currentProject = _projects.find(p => p.id === proj.id) ?? proj;
+    await loadProject();
+}
+
+// ── MITGLIEDERVERWALTUNG ──
+async function renderMemberList() {
+    const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
+    const card = document.getElementById('members-card');
+    if (!card) return;
+    if (!isProjectAdmin) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const members = await api(`/api/projects/${_currentProjectId}/members`);
+    const list = document.getElementById('members-list');
+    list.innerHTML = members.map(m => `
+        <div class="user-row">
+            <div class="user-info">
+                <span class="user-name">${escHtml(m.username)}</span>
+                ${m.role === 'admin' ? '<span class="user-badge">Admin</span>' : ''}
+            </div>
+            <div class="user-actions">
+                <button class="btn-ghost btn-sm btn-danger" onclick="removeMember(${m.userId})"
+                    ${m.username === _currentUser?.username ? 'disabled title="Eigenen Account nicht entfernbar"' : ''}>Entfernen</button>
+            </div>
+        </div>`).join('');
+}
+function openAddMemberModal() {
+    document.getElementById('new-member-username').value = '';
+    document.getElementById('new-member-role').value = 'member';
+    document.getElementById('add-member-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('new-member-username').focus(), 50);
+}
+function closeAddMemberModal() {
+    document.getElementById('add-member-modal').style.display = 'none';
+}
+async function confirmAddMember() {
+    const username = document.getElementById('new-member-username').value.trim();
+    const role = document.getElementById('new-member-role').value;
+    if (!username) { showToast('Benutzername ist Pflicht.'); return; }
+    const res = await fetch(`/api/projects/${_currentProjectId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, role })
+    });
+    if (res.ok) { closeAddMemberModal(); renderMemberList(); showToast('Mitglied hinzugefügt.'); }
+    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+async function removeMember(userId) {
+    if (!confirm('Mitglied wirklich entfernen?')) return;
+    const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
+    if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
+    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+
+// ── EINLADUNGSLINKS ──
+function openInviteModal() {
+    document.getElementById('invite-role').value = 'member';
+    document.getElementById('invite-hours').value = '48';
+    document.getElementById('invite-link-wrap').style.display = 'none';
+    document.getElementById('invite-modal').style.display = 'flex';
+}
+function closeInviteModal() {
+    document.getElementById('invite-modal').style.display = 'none';
+}
+async function generateInvite() {
+    const role = document.getElementById('invite-role').value;
+    const hoursValid = parseInt(document.getElementById('invite-hours').value) || 48;
+    const invite = await api(`/api/projects/${_currentProjectId}/invites`, 'POST', { role, hoursValid });
+    const link = `${location.origin}/api/invites/${invite.token}/accept`;
+    document.getElementById('invite-link-input').value = link;
+    document.getElementById('invite-link-wrap').style.display = '';
+}
+function copyInviteLink() {
+    const input = document.getElementById('invite-link-input');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => showToast('Link kopiert!'));
+}
+
 // ── EINSTELLUNGEN ──
 async function saveSettings() {
     const name = document.getElementById('settings-name').value.trim();
@@ -422,7 +571,7 @@ async function saveSettings() {
 
     if (!name || !start) { showToast('Name und Startdatum sind Pflicht.'); return; }
 
-    const settings = await api('/api/settings', 'POST', {
+    const settings = await api(withProject('/api/settings'), 'POST', {
         projectName: name,
         startDate: start,
         description: desc,
@@ -473,7 +622,7 @@ async function saveTabVisibility() {
     const start = document.getElementById('settings-start')?.value || projectSettings?.startDate || '';
     const desc = document.getElementById('settings-desc')?.value.trim() || projectSettings?.description || '';
     const currency = document.getElementById('settings-currency')?.value || projectSettings?.currency || 'CHF';
-    const updated = await api('/api/settings', 'POST', {
+    const updated = await api(withProject('/api/settings'), 'POST', {
         projectName: name, startDate: start, description: desc, currency,
         projectImage: projectSettings?.projectImage ?? null,
         visibleTabs
@@ -532,7 +681,7 @@ function handleImportFileChange() {
 async function confirmImport() {
     if (!_importData) return;
     try {
-        const res = await fetch('/api/import', {
+        const res = await fetch(withProject('/api/import'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(_importData)
@@ -700,7 +849,7 @@ function renderFinanzen() {
         }).join('');
 
         financeData.expenses.forEach(async e => {
-            const res = await fetch('/api/expenses/' + e.id + '/attachments');
+            const res = await fetch(withProject('/api/expenses/' + e.id + '/attachments'));
             const attachments = await res.json();
             const container = document.getElementById('attachments-' + e.id);
             if (container) renderAttachments(e.id, attachments, container);
@@ -734,7 +883,7 @@ async function deleteAttachment(id, expenseId) {
     if (!confirm('Beleg löschen?')) return;
     try {
         await api('/api/attachments/' + id, 'DELETE');
-        const res = await fetch('/api/expenses/' + expenseId + '/attachments');
+        const res = await fetch(withProject('/api/expenses/' + expenseId + '/attachments'));
         const attachments = await res.json();
         const container = document.getElementById('attachments-' + expenseId);
         if (container) renderAttachments(expenseId, attachments, container);
@@ -821,16 +970,16 @@ async function saveExpense() {
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        const expense = await api('/api/expenses', 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
+        const expense = await api(withProject('/api/expenses'), 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
 
         const fileInput = document.getElementById('exp-file');
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${expense.id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
+            await api(withProject(`/api/expenses/${expense.id}/attachments`), 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
-        financeData = await api('/api/finance');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         closeExpenseModal();
         showToast('✓ Ausgabe gespeichert');
@@ -843,8 +992,8 @@ async function saveExpense() {
 async function deleteExpense(id) {
     if (!confirm('Ausgabe löschen?')) return;
     try {
-        await api('/api/expenses/' + id, 'DELETE');
-        financeData = await api('/api/finance');
+        await api(withProject('/api/expenses/' + id), 'DELETE');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         showToast('✓ Ausgabe gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
@@ -913,16 +1062,16 @@ async function updateExpense() {
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        await api('/api/expenses/' + id, 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
+        await api(withProject('/api/expenses/' + id), 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
 
         const fileInput = document.getElementById('edit-exp-file');
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const base64 = await fileToBase64(file);
-            await api(`/api/expenses/${id}/attachments`, 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
+            await api(withProject(`/api/expenses/${id}/attachments`), 'POST', { fileName: file.name, mimeType: file.type, data: base64 });
         }
 
-        financeData = await api('/api/finance');
+        financeData = await api(withProject('/api/finance'));
         renderFinanzen();
         closeEditExpenseModal();
         showToast('✓ Ausgabe aktualisiert');
@@ -954,16 +1103,16 @@ function renderCategoryList() {
 
 async function updateCategoryName(id, name, color) {
     if (!name.trim()) return;
-    await api('/api/categories/' + id, 'PUT', { name: name.trim(), color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'PUT', { name: name.trim(), color });
+    financeData = await api(withProject('/api/finance'));
     renderFinanzen();
 }
 
 async function updateCategoryColor(id, color) {
     const cat = financeData.categories.find(c => c.id === id);
     if (!cat) return;
-    await api('/api/categories/' + id, 'PUT', { name: cat.name, color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'PUT', { name: cat.name, color });
+    financeData = await api(withProject('/api/finance'));
     renderFinanzen();
 }
 
@@ -971,8 +1120,8 @@ async function addCategory() {
     const name = document.getElementById('new-cat-name').value.trim();
     const color = document.getElementById('new-cat-color').value;
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
-    await api('/api/categories', 'POST', { name, color });
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories'), 'POST', { name, color });
+    financeData = await api(withProject('/api/finance'));
     renderCategoryList();
     renderFinanzen();
     document.getElementById('new-cat-name').value = '';
@@ -981,8 +1130,8 @@ async function addCategory() {
 
 async function deleteCategory(id) {
     if (!confirm('Kategorie löschen?')) return;
-    await api('/api/categories/' + id, 'DELETE');
-    financeData = await api('/api/finance');
+    await api(withProject('/api/categories/' + id), 'DELETE');
+    financeData = await api(withProject('/api/finance'));
     renderCategoryList();
     renderFinanzen();
     showToast('✓ Kategorie gelöscht');
@@ -1032,7 +1181,7 @@ function showPage(id) {
     if (id === 'produkte') renderProdukte();
     if (id === 'produktion') renderProduktion();
     if (id === 'kalender') renderKalender();
-    if (id === 'einstellungen') renderUserList();
+    if (id === 'einstellungen') { renderUserList(); renderMemberList(); }
 }
 
 // ── UPDATE ALL ──
@@ -1232,7 +1381,7 @@ function initDragDrop() {
                 const [moved] = reordered.splice(fromIdx, 1);
                 reordered.splice(toIdx, 0, moved);
                 await api('/api/admin/weeks/' + weekNumber + '/reorder', 'PUT', { taskIds: reordered });
-                appData = await api('/api/data');
+                appData = await api(withProject('/api/data'));
                 renderRoadmap();
                 renderAdmin();
                 updateAll();
@@ -1289,7 +1438,7 @@ async function saveWeek() {
             await api('/api/admin/weeks', 'POST', { title, phase, badgePc, badgePhys, note });
             showToast('✓ Woche erstellt');
         }
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1301,7 +1450,7 @@ async function deleteWeek(number) {
     if (!confirm(`Woche ${number} und alle Tasks löschen?`)) return;
     try {
         await api('/api/admin/weeks/' + number, 'DELETE');
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1354,7 +1503,7 @@ async function saveTask() {
             await api('/api/admin/tasks', 'POST', { weekNumber: editingTaskWeekNumber, type, text, hours });
             showToast('✓ Task erstellt');
         }
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1366,7 +1515,7 @@ async function deleteTask(taskDbId, weekNumber) {
     if (!confirm('Task löschen?')) return;
     try {
         await api('/api/admin/tasks/' + taskDbId, 'DELETE');
-        appData = await api('/api/data');
+        appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
         updateAll();
@@ -1378,7 +1527,7 @@ async function deleteTask(taskDbId, weekNumber) {
 let milestoneData = [];
 
 async function renderMilestones() {
-    milestoneData = await api('/api/milestones');
+    milestoneData = await api(withProject('/api/milestones'));
     const container = document.getElementById('milestones-list');
 
     if (milestoneData.length === 0) {
@@ -1437,7 +1586,7 @@ async function saveMilestone() {
     };
 
     try {
-        await api('/api/milestones', 'POST', { name, description, snapshot: JSON.stringify(snapshot) });
+        await api(withProject('/api/milestones'), 'POST', { name, description, snapshot: JSON.stringify(snapshot) });
         closeMilestoneModal();
         renderMilestones();
         showToast('✓ Meilenstein gespeichert');
@@ -1447,14 +1596,14 @@ async function saveMilestone() {
 async function deleteMilestone(id) {
     if (!confirm('Meilenstein löschen?')) return;
     try {
-        await api('/api/milestones/' + id, 'DELETE');
+        await api(withProject('/api/milestones/' + id), 'DELETE');
         renderMilestones();
         showToast('✓ Meilenstein gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
 }
 
 async function openMilestoneDetail(id) {
-    const milestone = await api('/api/milestones/' + id);
+    const milestone = await api(withProject('/api/milestones/' + id));
     const snap = JSON.parse(milestone.snapshot);
     const currency = getCurrency();
 
@@ -1938,7 +2087,7 @@ let managingAttributesCategoryId = null;
 let editingVariationId = null;
 
 async function loadCatalog() {
-    catalogData = await api('/api/catalog');
+    catalogData = await api(withProject('/api/catalog'));
 }
 
 async function renderProdukte() {
@@ -2131,8 +2280,8 @@ async function addCatalogCategory() {
     const color = document.getElementById('new-cat-type-color').value;
     const desc = document.getElementById('new-cat-type-desc').value.trim() || null;
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
-    await api('/api/catalog/categories', 'POST', { name, color, description: desc });
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/categories'), 'POST', { name, color, description: desc });
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogCategoriesList();
     document.getElementById('new-cat-type-name').value = '';
     document.getElementById('new-cat-type-desc').value = '';
@@ -2143,8 +2292,8 @@ async function deleteCatalogCategory(id) {
     const cat = catalogData.categories.find(c => c.id === id);
     const count = catalogData.products.filter(p => p.categoryId === id).length;
     if (!confirm(`Kategorie "${cat?.name}" löschen? ${count > 0 ? `${count} Produkte werden ebenfalls gelöscht.` : ''}`)) return;
-    await api('/api/catalog/categories/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/categories/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     if (activeCategoryId === id) activeCategoryId = null;
     renderCatalogCategoriesList();
     showToast('✓ Kategorie gelöscht');
@@ -2193,8 +2342,8 @@ async function addCatalogAttribute() {
     if (!name) { showToast('Bitte einen Namen eingeben.'); return; }
     const cat = catalogData.categories.find(c => c.id === managingAttributesCategoryId);
     const sortOrder = (cat?.attributes?.length ?? 0) + 1;
-    await api(`/api/catalog/categories/${managingAttributesCategoryId}/attributes`, 'POST', { name, fieldType, options, required, sortOrder });
-    catalogData = await api('/api/catalog');
+    await api(withProject(`/api/catalog/categories/${managingAttributesCategoryId}/attributes`), 'POST', { name, fieldType, options, required, sortOrder });
+    catalogData = await api(withProject('/api/catalog'));
     renderAttributesList();
     document.getElementById('new-attr-name').value = '';
     document.getElementById('new-attr-options').value = '';
@@ -2204,8 +2353,8 @@ async function addCatalogAttribute() {
 
 async function deleteCatalogAttribute(id) {
     if (!confirm('Attribut löschen?')) return;
-    await api('/api/catalog/attributes/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/attributes/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderAttributesList();
     showToast('✓ Attribut gelöscht');
 }
@@ -2298,13 +2447,13 @@ async function saveCatalogProduct() {
 
     try {
         if (editingCatalogProductId) {
-            await api('/api/catalog/products/' + editingCatalogProductId, 'PUT', { name, description: desc, attributeValues: JSON.stringify(attributeValues) });
+            await api(withProject('/api/catalog/products/' + editingCatalogProductId), 'PUT', { name, description: desc, attributeValues: JSON.stringify(attributeValues) });
             showToast('✓ Produkt aktualisiert');
         } else {
-            await api('/api/catalog/products', 'POST', { categoryId, name, description: desc, attributeValues: JSON.stringify(attributeValues) });
+            await api(withProject('/api/catalog/products'), 'POST', { categoryId, name, description: desc, attributeValues: JSON.stringify(attributeValues) });
             showToast('✓ Produkt hinzugefügt');
         }
-        catalogData = await api('/api/catalog');
+        catalogData = await api(withProject('/api/catalog'));
         closeCatalogProductModal();
         renderCatalogMain();
     } catch { showToast('Fehler beim Speichern.'); }
@@ -2313,8 +2462,8 @@ async function saveCatalogProduct() {
 async function deleteCatalogProduct(id) {
     const product = catalogData.products.find(p => p.id === id);
     if (!confirm(`Produkt "${product?.name}" löschen? Alle Variationen werden ebenfalls gelöscht.`)) return;
-    await api('/api/catalog/products/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/products/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogMain();
     showToast('✓ Produkt gelöscht');
 }
@@ -2361,7 +2510,7 @@ async function generateSku() {
     const varName = document.getElementById('var-name').value.trim();
     if (!varName) { showToast('Bitte zuerst den Variationsnamen eingeben.'); return; }
     try {
-        const res = await fetch(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`);
+        const res = await fetch(withProject(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`));
         const data = await res.json();
         document.getElementById('var-sku').value = data.sku;
     } catch { showToast('Fehler beim Generieren der SKU.'); }
@@ -2382,7 +2531,7 @@ async function saveVariation() {
 
     try {
         if (editingVariationId) {
-            const res = await fetch('/api/catalog/variations/' + editingVariationId, {
+            const res = await fetch(withProject('/api/catalog/variations/' + editingVariationId), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, sku, price, stock })
@@ -2391,7 +2540,7 @@ async function saveVariation() {
             if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
             showToast('✓ Variation aktualisiert');
         } else {
-            const res = await fetch('/api/catalog/variations', {
+            const res = await fetch(withProject('/api/catalog/variations'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ productId, name, sku, price, stock })
@@ -2400,7 +2549,7 @@ async function saveVariation() {
             if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
             showToast('✓ Variation hinzugefügt');
         }
-        catalogData = await api('/api/catalog');
+        catalogData = await api(withProject('/api/catalog'));
         closeVariationModal();
         renderCatalogMain();
     } catch { showToast('Fehler beim Speichern.'); }
@@ -2408,8 +2557,8 @@ async function saveVariation() {
 
 async function deleteVariation(id) {
     if (!confirm('Variation löschen?')) return;
-    await api('/api/catalog/variations/' + id, 'DELETE');
-    catalogData = await api('/api/catalog');
+    await api(withProject('/api/catalog/variations/' + id), 'DELETE');
+    catalogData = await api(withProject('/api/catalog'));
     renderCatalogMain();
     showToast('✓ Variation gelöscht');
 }
@@ -2423,7 +2572,7 @@ let _calColor = '#4f8ef7';
 let _calPopupDate = null;
 
 async function renderKalender() {
-    calEvents = await api('/api/calendar');
+    calEvents = await api(withProject('/api/calendar'));
     drawCalendar();
 }
 
@@ -2656,23 +2805,23 @@ async function saveCalEvent() {
     const payload = { title, date, endDate, time, description, color: _calColor, type };
 
     if (_calEditId) {
-        await api(`/api/calendar/${_calEditId}`, 'PUT', payload);
+        await api(withProject(`/api/calendar/${_calEditId}`), 'PUT', payload);
         showToast('✓ Ereignis aktualisiert');
     } else {
-        await api('/api/calendar', 'POST', payload);
+        await api(withProject('/api/calendar'), 'POST', payload);
         showToast('✓ Ereignis erstellt');
     }
     closeCalEventModal();
-    calEvents = await api('/api/calendar');
+    calEvents = await api(withProject('/api/calendar'));
     drawCalendar();
 }
 
 async function deleteCalEvent() {
     if (!_calEditId || !confirm('Ereignis löschen?')) return;
-    await api(`/api/calendar/${_calEditId}`, 'DELETE');
+    await api(withProject(`/api/calendar/${_calEditId}`), 'DELETE');
     showToast('✓ Ereignis gelöscht');
     closeCalEventModal();
-    calEvents = await api('/api/calendar');
+    calEvents = await api(withProject('/api/calendar'));
     drawCalendar();
 }
 
@@ -2681,7 +2830,7 @@ let prodFilter = 'all';
 let productionData = [];
 
 async function renderProduktion() {
-    productionData = await api('/api/production');
+    productionData = await api(withProject('/api/production'));
     renderProdList();
 }
 
@@ -2747,7 +2896,7 @@ function escHtml(str) {
 }
 
 async function toggleProdDone(id, done) {
-    await api(`/api/production/${id}/done`, 'PATCH', { done });
+    await api(withProject(`/api/production/${id}/done`), 'PATCH', { done });
     const item = productionData.find(i => i.id === id);
     if (item) item.done = done;
     renderProdList();
@@ -2757,14 +2906,14 @@ async function changeProdQty(id, qty) {
     if (qty < 1) return;
     const item = productionData.find(i => i.id === id);
     if (!item) return;
-    await api(`/api/production/${id}`, 'PUT', { quantity: qty, note: item.note ?? null });
+    await api(withProject(`/api/production/${id}`), 'PUT', { quantity: qty, note: item.note ?? null });
     item.quantity = qty;
     renderProdList();
 }
 
 async function deleteProductionItem(id) {
     if (!confirm('Artikel aus der Produktionswarteschlange entfernen?')) return;
-    await api(`/api/production/${id}`, 'DELETE');
+    await api(withProject(`/api/production/${id}`), 'DELETE');
     productionData = productionData.filter(i => i.id !== id);
     renderProdList();
     showToast('✓ Artikel entfernt');
@@ -2772,7 +2921,7 @@ async function deleteProductionItem(id) {
 
 async function deleteAllDoneProduction() {
     if (!confirm('Alle erledigten Artikel löschen?')) return;
-    await api('/api/production/done', 'DELETE');
+    await api(withProject('/api/production/done'), 'DELETE');
     productionData = productionData.filter(i => !i.done);
     renderProdList();
     showToast('✓ Erledigte Artikel gelöscht');
@@ -2780,7 +2929,7 @@ async function deleteAllDoneProduction() {
 
 async function openProductionAddModal() {
     // Katalog laden falls nötig
-    if (!catalogData) catalogData = await api('/api/catalog');
+    if (!catalogData) catalogData = await api(withProject('/api/catalog'));
     const sel = document.getElementById('prod-add-product');
     sel.innerHTML = '<option value="">— Produkt wählen —</option>' +
         catalogData.products.map(p =>
@@ -2813,9 +2962,9 @@ async function confirmAddProductionItem() {
     const variationId = variationIdRaw ? parseInt(variationIdRaw) : null;
     const quantity = parseInt(document.getElementById('prod-add-qty').value) || 1;
     const note = document.getElementById('prod-add-note').value.trim() || null;
-    await api('/api/production', 'POST', { productId, variationId, quantity, note });
+    await api(withProject('/api/production'), 'POST', { productId, variationId, quantity, note });
     closeProductionAddModal();
-    productionData = await api('/api/production');
+    productionData = await api(withProject('/api/production'));
     renderProdList();
     showToast('✓ Zur Produktion hinzugefügt');
 }
