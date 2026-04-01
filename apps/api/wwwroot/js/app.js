@@ -1,0 +1,2 @@
+checkInviteParam();
+init();
