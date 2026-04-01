@@ -43,7 +43,7 @@ public static class RoadmapEndpoints
         {
             var req = await JsonSerializer.DeserializeAsync<UpdateWeekRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            return Results.Ok(repo.UpdateWeek(number, req));
+            return Results.Ok(repo.UpdateWeek(ApiHelpers.GetProjectId(request), number, req));
         });
 
         app.MapDelete("/api/admin/weeks/{number}", (int number, HttpRequest request, IAdminRepository repo) =>
