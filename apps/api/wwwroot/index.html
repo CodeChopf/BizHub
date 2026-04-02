@@ -192,11 +192,18 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="sidebar-footer-date" id="sidebar-date"></div>
+                <div class="sidebar-user-row">
+                    <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name" id="sidebar-username"></div>
+                        <div class="sidebar-footer-date" id="sidebar-date"></div>
+                    </div>
+                </div>
                 <div class="sidebar-footer-launch" id="sidebar-launch"></div>
-                <div class="sidebar-username" id="sidebar-username"></div>
-                <button class="logout-btn" id="switch-project-btn" onclick="showProjectScreen()" style="display:none" title="Projekt wechseln">&#x21C6; Projekt wechseln</button>
-                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+                <div class="sidebar-footer-btns">
+                    <button class="sidebar-footer-btn" id="switch-project-btn" onclick="showProjectScreen()" title="Projektübersicht">&#x2190; Projektübersicht</button>
+                    <button class="sidebar-footer-btn sidebar-footer-btn-logout" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+                </div>
             </div>
         </aside>
 

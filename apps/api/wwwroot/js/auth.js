@@ -147,7 +147,7 @@ async function loadProject() {
     document.getElementById('app').style.display = 'flex';
 
     const switchBtn = document.getElementById('switch-project-btn');
-    if (switchBtn) switchBtn.style.display = _projects.length > 1 ? '' : 'none';
+    if (switchBtn) switchBtn.style.display = '';
 
     const settings = await api(withProject('/api/settings'));
     applySettings(settings);
@@ -184,7 +184,9 @@ async function loadProject() {
         daysToLaunch > 0 ? '🚀 in ' + daysToLaunch + ' Tagen' : '🚀 Gestartet!';
     if (_currentUser) {
         const el = document.getElementById('sidebar-username');
-        if (el) el.textContent = '👤 ' + _currentUser.username;
+        if (el) el.textContent = _currentUser.username;
+        const avatar = document.getElementById('sidebar-user-avatar');
+        if (avatar) avatar.textContent = _currentUser.username.charAt(0).toUpperCase();
     }
     document.getElementById('topbar-date').innerHTML =
         'Heute: ' + fmt(today) + '<br>Start: ' + fmt(START);
