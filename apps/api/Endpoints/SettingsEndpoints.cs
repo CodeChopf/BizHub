@@ -14,11 +14,13 @@ public static class SettingsEndpoints
             Results.Ok(repo.GetSettings()));
 
         // POST /api/settings
-        app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository repo) =>
+        app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository repo, IProjectRepository projectRepo) =>
         {
+            var projectId = ApiHelpers.GetProjectId(request);
             var settings = await JsonSerializer.DeserializeAsync<ProjectSettings>(request.Body, ApiHelpers.JsonOptions);
             if (settings == null) return Results.BadRequest();
             repo.SaveSettings(settings);
+            projectRepo.Update(projectId, settings.ProjectName, settings.Description, settings.StartDate, settings.Currency ?? "CHF", settings.ProjectImage, settings.VisibleTabs);
             return Results.Ok(repo.GetSettings());
         });
 
