@@ -559,9 +559,8 @@
                         Verwalte wer Zugang zu diesem Projekt hat.
                     </p>
                     <div id="members-list"></div>
-                    <div style="display:flex;gap:8px;margin-top:12px">
+                    <div style="margin-top:12px">
                         <button class="btn-secondary" onclick="openAddMemberModal()">+ Mitglied hinzufügen</button>
-                        <button class="btn-secondary" onclick="openInviteModal()">Einladungslink</button>
                     </div>
                 </div>
 
@@ -1254,37 +1253,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Einladungslink -->
-    <div class="modal-backdrop" id="invite-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Einladungslink</div>
-                <button class="modal-close" onclick="closeInviteModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group"><label>Rolle</label>
-                    <select id="invite-role">
-                        <option value="member">Mitglied</option>
-                        <option value="admin">Projekt-Admin</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Gültig für (Stunden)</label>
-                    <input type="number" id="invite-hours" value="48" min="1" max="720">
-                </div>
-                <div id="invite-link-wrap" style="display:none">
-                    <label style="font-size:13px;color:var(--text3)">Link (einmal verwendbar):</label>
-                    <div class="invite-link-wrap">
-                        <input type="text" id="invite-link-input" readonly>
-                        <button class="btn-secondary" onclick="copyInviteLink()">Kopieren</button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeInviteModal()">Schliessen</button>
-                <button class="btn-primary" onclick="generateInvite()">Link generieren</button>
-            </div>
-        </div>
-    </div>
 
     <!-- MODAL: BizHub-Nutzer einladen (Platform-Admin) -->
     <div class="modal-backdrop" id="platform-invite-modal">

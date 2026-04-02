@@ -205,27 +205,3 @@ async function removeMember(userId) {
     if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
     else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
 }
-
-// ── EINLADUNGSLINKS ──
-function openInviteModal() {
-    document.getElementById('invite-role').value = 'member';
-    document.getElementById('invite-hours').value = '48';
-    document.getElementById('invite-link-wrap').style.display = 'none';
-    document.getElementById('invite-modal').style.display = 'flex';
-}
-function closeInviteModal() {
-    document.getElementById('invite-modal').style.display = 'none';
-}
-async function generateInvite() {
-    const role = document.getElementById('invite-role').value;
-    const hoursValid = parseInt(document.getElementById('invite-hours').value) || 48;
-    const invite = await api(`/api/projects/${_currentProjectId}/invites`, 'POST', { role, hoursValid });
-    const link = `${location.origin}/api/invites/${invite.token}/accept`;
-    document.getElementById('invite-link-input').value = link;
-    document.getElementById('invite-link-wrap').style.display = '';
-}
-function copyInviteLink() {
-    const input = document.getElementById('invite-link-input');
-    input.select();
-    navigator.clipboard.writeText(input.value).then(() => showToast('Link kopiert!'));
-}
