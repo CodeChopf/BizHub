@@ -2440,7 +2440,7 @@ textarea {
     z-index: 9999;
 }
 .login-wrap {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 40px;
@@ -2466,7 +2466,7 @@ textarea {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 1.4rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text);
 }
 .login-error {
     background: rgba(239,68,68,.12);
@@ -2479,7 +2479,7 @@ textarea {
 .logout-btn {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--text2);
     font-size: .78rem;
     cursor: pointer;
     padding: 4px 0;
@@ -2487,11 +2487,53 @@ textarea {
     margin-top: 4px;
     transition: color .15s;
 }
-.logout-btn:hover { color: var(--text-primary); }
+.logout-btn:hover { color: var(--text); }
 .sidebar-username {
     font-size: .78rem;
-    color: var(--text-muted);
+    color: var(--text2);
     padding: 2px 0;
+}
+
+/* ── PROJECT SELECTOR SCREEN ── */
+#project-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    overflow-y: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 20px;
+}
+.project-screen-wrap {
+    width: 100%;
+    max-width: 540px;
+}
+.project-screen-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 36px;
+}
+.project-screen-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.project-screen-sub {
+    font-size: 13px;
+    color: var(--text3);
+    text-align: center;
+    margin-top: -2px;
+}
+.project-screen-footer {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
 }
 
 /* ── USER MANAGEMENT ── */
@@ -2505,11 +2547,11 @@ textarea {
 }
 .user-row:last-child { border-bottom: none; }
 .user-info { display: flex; align-items: center; gap: 8px; }
-.user-name { font-size: .9rem; color: var(--text-primary); }
+.user-name { font-size: .9rem; color: var(--text); }
 .user-badge {
     font-size: .7rem;
-    background: var(--blue-dim, rgba(79,142,247,.15));
-    color: var(--blue, #4f8ef7);
+    background: var(--accent-dim);
+    color: var(--accent);
     border-radius: 4px;
     padding: 1px 6px;
 }
@@ -2521,14 +2563,14 @@ textarea {
     padding: 3px 10px;
     font-size: .78rem;
     cursor: pointer;
-    color: var(--text-secondary);
+    color: var(--text2);
     transition: background .15s;
 }
-.btn-ghost:hover { background: var(--surface-hover, rgba(255,255,255,.06)); }
+.btn-ghost:hover { background: rgba(255,255,255,.06); }
 .btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
 .btn-ghost.btn-danger { color: var(--red); border-color: var(--red); }
 
-/* ── PROJECT SELECTOR ── */
+/* ── PROJECT SELECTOR CARDS ── */
 .project-select-card {
     display: flex;
     align-items: center;
@@ -2541,14 +2583,14 @@ textarea {
     transition: border-color .15s, background .15s;
 }
 .project-select-card:hover {
-    border-color: var(--blue);
-    background: var(--surface-hover, rgba(255,255,255,.04));
+    border-color: var(--accent);
+    background: var(--bg3);
 }
 .project-select-name {
     font-size: 1rem;
     font-weight: 600;
     font-family: 'Space Grotesk', sans-serif;
-    color: var(--text-primary);
+    color: var(--text);
 }
 .project-select-meta {
     font-size: .8rem;
@@ -2565,6 +2607,6 @@ textarea {
 .invite-link-wrap input {
     flex: 1;
     font-size: .78rem;
-    color: var(--text-secondary);
+    color: var(--text2);
 }
 .btn-ghost.btn-danger:hover { background: rgba(239,68,68,.08); }

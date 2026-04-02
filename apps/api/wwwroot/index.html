@@ -107,18 +107,23 @@
     </div>
 
     <!-- PROJECT SELECTOR SCREEN -->
-    <div id="project-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; padding:40px 20px">
-        <div style="max-width:640px; margin:0 auto">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
-                <div style="font-size:1.5rem; font-weight:700; font-family:'Space Grotesk',sans-serif">BizHub</div>
-                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+    <div id="project-screen" style="display:none">
+        <div class="project-screen-wrap">
+            <div class="project-screen-logo">
+                <div class="login-logo-icon">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
+                <div class="project-screen-title">BizHub</div>
+                <div class="project-screen-sub" id="project-screen-welcome"></div>
             </div>
-            <div style="color:var(--text3); margin-bottom:8px" id="project-screen-welcome"></div>
-            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:24px">
+            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:16px; text-align:center">
                 <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
             </div>
-            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px"></div>
-            <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px"></div>
+            <div class="project-screen-footer">
+                <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+            </div>
         </div>
     </div>
 
