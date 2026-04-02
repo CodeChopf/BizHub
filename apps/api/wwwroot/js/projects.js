@@ -25,7 +25,7 @@ function renderProjectScreen() {
         <div class="project-select-card">
             <div style="flex:1;cursor:pointer;min-width:0" onclick="selectProject(${p.id})">
                 <div class="project-select-name">${escHtml(p.name)}</div>
-                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--blue);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
+                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
             </div>
             <button class="btn-ghost btn-sm" onclick="selectProject(${p.id})">Öffnen</button>
             <button class="btn-ghost btn-sm btn-danger" onclick="leaveProject(${p.id}, '${escHtml(p.name).replace(/'/g, "\\'")}')">Austreten</button>
