@@ -542,16 +542,6 @@
                     </div>
                 </div>
 
-                <!-- Benutzerverwaltung (nur Admin) -->
-                <div class="settings-card" id="users-card" style="display:none">
-                    <div class="settings-card-title">Benutzer</div>
-                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
-                        Verwalte wer sich bei BizHub anmelden kann.
-                    </p>
-                    <div id="users-list"></div>
-                    <button class="btn-secondary" style="margin-top:12px" onclick="openAddUserModal()">+ Benutzer hinzufügen</button>
-                </div>
-
                 <!-- Projektmitglieder (Projekt-Admin oder Platform-Admin) -->
                 <div class="settings-card" id="members-card" style="display:none">
                     <div class="settings-card-title">Projektmitglieder</div>
@@ -567,34 +557,6 @@
             </div>
 
         </main>
-    </div>
-
-    <!-- MODAL: Benutzer hinzufügen -->
-    <div class="modal-backdrop" id="add-user-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Benutzer hinzufügen</div>
-                <button class="modal-close" onclick="closeAddUserModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Benutzername</label>
-                    <input type="text" id="new-user-username" placeholder="z.B. max">
-                </div>
-                <div class="form-group">
-                    <label>Passwort</label>
-                    <input type="password" id="new-user-password" placeholder="Passwort">
-                </div>
-                <div class="form-group" style="flex-direction:row;align-items:center;gap:10px">
-                    <input type="checkbox" id="new-user-admin" style="width:auto">
-                    <label for="new-user-admin" style="margin:0">Administrator</label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeAddUserModal()">Abbrechen</button>
-                <button class="btn-primary" onclick="confirmAddUser()">Hinzufügen</button>
-            </div>
-        </div>
     </div>
 
     <!-- MODAL: Kalender-Ereignis -->

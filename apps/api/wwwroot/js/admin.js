@@ -36,7 +36,7 @@ function showPage(id) {
     if (id === 'produkte') renderProdukte();
     if (id === 'produktion') renderProduktion();
     if (id === 'kalender') renderKalender();
-    if (id === 'einstellungen') { renderUserList(); renderMemberList(); }
+    if (id === 'einstellungen') { renderMemberList(); }
 }
 
 // ── UPDATE ALL ──
