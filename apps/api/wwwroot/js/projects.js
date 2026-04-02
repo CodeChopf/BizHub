@@ -1,8 +1,12 @@
 // ── PROJEKTVERWALTUNG ──
-function showProjectScreen() {
+async function showProjectScreen() {
     document.getElementById('app').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('project-screen').style.display = 'flex';
+    try {
+        const raw = await api('/api/projects');
+        _projects = Array.isArray(raw) ? raw : [];
+    } catch {}
     renderProjectScreen();
 }
 
