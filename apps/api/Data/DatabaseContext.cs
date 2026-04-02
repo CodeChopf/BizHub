@@ -99,6 +99,12 @@ public class DatabaseContext
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS settings_v2 (
+                project_id INTEGER NOT NULL,
+                key        TEXT NOT NULL,
+                value      TEXT NOT NULL,
+                PRIMARY KEY (project_id, key)
+            );
             CREATE TABLE IF NOT EXISTS product_categories (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT NOT NULL,
@@ -201,7 +207,6 @@ public class DatabaseContext
             "ALTER TABLE categories         ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE expenses           ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE milestones         ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
-            "ALTER TABLE settings           ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE product_categories ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE production_queue   ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE calendar_events    ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
@@ -224,6 +229,9 @@ public class DatabaseContext
 
         // Schritt 4: Migration — falls projects leer ist, Projekt 1 aus settings erstellen
         RunMigration(con);
+
+        // Schritt 5: settings → settings_v2 migrieren
+        MigrateSettingsToV2(con);
     }
 
     private static void RunMigration(SqliteConnection con)
@@ -269,7 +277,7 @@ public class DatabaseContext
         stateCmd.CommandText = "INSERT OR IGNORE INTO state_v2 (project_id, key, value) SELECT 1, key, value FROM state";
         stateCmd.ExecuteNonQuery();
 
-        // Admin-User zu project_members hinzufügen
+        // Admin-User zu project_members hinzufügen (settings werden in MigrateSettingsToV2 kopiert)
         using var uCmd = con.CreateCommand();
         uCmd.CommandText = "SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1";
         var adminId = uCmd.ExecuteScalar();
@@ -288,5 +296,19 @@ public class DatabaseContext
             paCmd.Parameters.AddWithValue("@uid", adminId);
             paCmd.ExecuteNonQuery();
         }
+    }
+
+    private static void MigrateSettingsToV2(SqliteConnection con)
+    {
+        using var checkCmd = con.CreateCommand();
+        checkCmd.CommandText = "SELECT COUNT(*) FROM settings_v2 WHERE project_id = 1";
+        var count = (long)(checkCmd.ExecuteScalar() ?? 0L);
+        if (count > 0) return;
+
+        using var migrateCmd = con.CreateCommand();
+        migrateCmd.CommandText = @"
+            INSERT OR IGNORE INTO settings_v2 (project_id, key, value)
+            SELECT 1, key, value FROM settings";
+        migrateCmd.ExecuteNonQuery();
     }
 }
