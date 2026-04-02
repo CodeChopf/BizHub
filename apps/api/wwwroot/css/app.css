@@ -1048,7 +1048,8 @@ body {
     color: #fff;
     border: none;
     border-radius: 8px;
-    padding: 8px 16px;
+    height: 34px;
+    padding: 0 16px;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -1062,11 +1063,12 @@ body {
 
 .btn-secondary {
     background: transparent;
-    color: var(--text2);
-    border: 1px solid var(--border2);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.22);
     border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
+    height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
@@ -2562,15 +2564,16 @@ textarea {
 .user-actions { display: flex; gap: 6px; }
 .btn-ghost {
     background: none;
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255,255,255,0.18);
     border-radius: 6px;
-    padding: 3px 10px;
-    font-size: .78rem;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
     cursor: pointer;
-    color: var(--text2);
-    transition: background .15s;
+    color: var(--text);
+    transition: background .15s, border-color .15s;
 }
-.btn-ghost:hover { background: rgba(255,255,255,.06); }
+.btn-ghost:hover { background: rgba(255,255,255,.09); }
 .btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
 .btn-ghost.btn-danger { color: var(--red); border-color: var(--red); }
 

@@ -2,7 +2,7 @@
 function showProjectScreen() {
     document.getElementById('app').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
-    document.getElementById('project-screen').style.display = 'block';
+    document.getElementById('project-screen').style.display = 'flex';
     renderProjectScreen();
 }
 
