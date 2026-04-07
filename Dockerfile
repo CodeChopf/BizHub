@@ -14,6 +14,8 @@ RUN adduser --disabled-password --gecos '' appuser
 COPY --from=build /app/publish .
 RUN chown -R appuser /app
 USER appuser
+ARG VERSION=dev
+ENV BIZHUB_VERSION=$VERSION
 ENV ASPNETCORE_URLS=http://+:5000
 ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 5000

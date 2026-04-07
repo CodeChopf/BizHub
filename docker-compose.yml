@@ -1,7 +1,12 @@
 services:
   api:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${BIZHUB_VERSION:-dev}
     env_file: .env
+    environment:
+      - BIZHUB_VERSION=${BIZHUB_VERSION:-dev}
     volumes:
       - bizhub-data:/data
     networks:
