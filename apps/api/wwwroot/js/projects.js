@@ -96,7 +96,9 @@ async function checkInviteParam() {
         const info = await res.json();
         if (!res.ok) { return; } // abgelaufen / ungültig — still login screen
         if (info.type === 'platform') {
-            // Registrierung für neuen User
+            // Registrierung für neuen User — Login-Felder ausblenden
+            const loginForm = document.getElementById('login-form-section');
+            if (loginForm) loginForm.style.display = 'none';
             const regSection = document.getElementById('register-section');
             if (regSection) regSection.style.display = 'block';
             const regToken = document.getElementById('_reg_token');

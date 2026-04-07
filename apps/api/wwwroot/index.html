@@ -19,6 +19,7 @@
                 </div>
                 <div class="login-logo-name">BizHub</div>
             </div>
+            <div id="login-form-section">
             <div class="form-group">
                 <label>Benutzername</label>
                 <input type="text" id="login-username" placeholder="Benutzername" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
@@ -29,6 +30,7 @@
             </div>
             <div id="login-error" class="login-error" style="display:none"></div>
             <button class="btn-primary" style="width:100%" onclick="doLogin()">Anmelden</button>
+            </div>
 
             <!-- Hinweis: Projekt-Einladung -->
             <div id="project-invite-notice" style="display:none; margin-top:16px; padding:12px 14px; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); font-size:13px; color:var(--text2)"></div>
