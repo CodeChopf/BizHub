@@ -112,7 +112,8 @@ function updateOverview() {
         <div class="task-dot ${type === 'PC' ? 'dot-pc' : 'dot-phys'}"></div>
         <span style="flex:1">${text}</span>
         <span style="font-size:11px;color:var(--text3);flex-shrink:0;padding-left:10px">${hrs}</span>`;
-            div.onclick = () => {
+            div.onclick = (e) => {
+                e.stopPropagation();
                 showPage('roadmap');
                 setTimeout(() => {
                     const wb = document.getElementById('wb-' + currentWeek);
