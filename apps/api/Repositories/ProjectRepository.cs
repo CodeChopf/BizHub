@@ -96,6 +96,22 @@ public class ProjectRepository : IProjectRepository
         mCmd.Parameters.AddWithValue("@uid", adminUserId);
         mCmd.ExecuteNonQuery();
 
+        // settings_v2 mit Anfangswerten befüllen
+        var initialSettings = new Dictionary<string, string> { ["project_name"] = name, ["currency"] = currency };
+        if (!string.IsNullOrEmpty(description)) initialSettings["description"] = description;
+        if (!string.IsNullOrEmpty(startDate))   initialSettings["start_date"]  = startDate;
+        foreach (var (key, value) in initialSettings)
+        {
+            using var sCmd = con.CreateCommand();
+            sCmd.CommandText = @"
+                INSERT OR IGNORE INTO settings_v2 (project_id, key, value)
+                VALUES (@pid, @k, @v)";
+            sCmd.Parameters.AddWithValue("@pid", id);
+            sCmd.Parameters.AddWithValue("@k", key);
+            sCmd.Parameters.AddWithValue("@v", value);
+            sCmd.ExecuteNonQuery();
+        }
+
         tx.Commit();
 
         return new Project
