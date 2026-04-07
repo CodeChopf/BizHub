@@ -223,6 +223,11 @@ public class ProjectRepository : IProjectRepository
     {
         using var con = _context.CreateConnection();
         con.Open();
+
+        using var pragmaOff = con.CreateCommand();
+        pragmaOff.CommandText = "PRAGMA foreign_keys = OFF";
+        pragmaOff.ExecuteNonQuery();
+
         using var tx = con.BeginTransaction();
         var steps = new[]
         {
@@ -266,10 +271,15 @@ public class ProjectRepository : IProjectRepository
         foreach (var sql in steps)
         {
             using var cmd = con.CreateCommand();
+            cmd.Transaction = tx;
             cmd.CommandText = sql;
             cmd.Parameters.AddWithValue("@pid", id);
             cmd.ExecuteNonQuery();
         }
         tx.Commit();
+
+        using var pragmaOn = con.CreateCommand();
+        pragmaOn.CommandText = "PRAGMA foreign_keys = ON";
+        pragmaOn.ExecuteNonQuery();
     }
 }
