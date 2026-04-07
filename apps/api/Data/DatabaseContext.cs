@@ -37,12 +37,14 @@ public class DatabaseContext
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS weeks (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                number     INTEGER NOT NULL UNIQUE,
+                number     INTEGER NOT NULL,
                 title      TEXT NOT NULL,
                 phase      TEXT NOT NULL,
                 badge_pc   TEXT NOT NULL,
                 badge_phys TEXT NOT NULL,
-                note       TEXT
+                note       TEXT,
+                project_id INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(project_id, number)
             );
             CREATE TABLE IF NOT EXISTS tasks (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +53,7 @@ public class DatabaseContext
                 type        TEXT NOT NULL,
                 text        TEXT NOT NULL,
                 hours       TEXT NOT NULL,
-                FOREIGN KEY (week_number) REFERENCES weeks(number)
+                project_id  INTEGER NOT NULL DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS state (
                 key   TEXT PRIMARY KEY,
@@ -203,6 +205,7 @@ public class DatabaseContext
         var alterStatements = new[]
         {
             "ALTER TABLE weeks              ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE tasks              ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE state              ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE categories         ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE expenses           ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
@@ -232,6 +235,9 @@ public class DatabaseContext
 
         // Schritt 5: settings → settings_v2 migrieren
         MigrateSettingsToV2(con);
+
+        // Schritt 6: weeks.number UNIQUE → UNIQUE(project_id, number) migrieren
+        MigrateWeeksConstraint(con);
     }
 
     private static void RunMigration(SqliteConnection con)
@@ -296,6 +302,54 @@ public class DatabaseContext
             paCmd.Parameters.AddWithValue("@uid", adminId);
             paCmd.ExecuteNonQuery();
         }
+    }
+
+    private static void MigrateWeeksConstraint(SqliteConnection con)
+    {
+        // Prüfen ob die alte globale UNIQUE-Constraint auf number noch existiert
+        using var schemaCmd = con.CreateCommand();
+        schemaCmd.CommandText = "SELECT sql FROM sqlite_master WHERE type='table' AND name='weeks'";
+        var schema = (schemaCmd.ExecuteScalar() as string) ?? "";
+
+        // Falls bereits UNIQUE(project_id, number) vorhanden → fertig
+        if (!schema.Contains("number     INTEGER NOT NULL UNIQUE") && !schema.Contains("number INTEGER NOT NULL UNIQUE"))
+            return;
+
+        // Neue weeks-Tabelle ohne globale UNIQUE-Constraint erstellen
+        using var pragma1 = con.CreateCommand();
+        pragma1.CommandText = "PRAGMA foreign_keys = OFF";
+        pragma1.ExecuteNonQuery();
+
+        using var createCmd = con.CreateCommand();
+        createCmd.CommandText = @"
+            CREATE TABLE weeks_migration (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                number     INTEGER NOT NULL,
+                title      TEXT NOT NULL,
+                phase      TEXT NOT NULL,
+                badge_pc   TEXT NOT NULL,
+                badge_phys TEXT NOT NULL,
+                note       TEXT,
+                project_id INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(project_id, number)
+            )";
+        createCmd.ExecuteNonQuery();
+
+        using var copyCmd = con.CreateCommand();
+        copyCmd.CommandText = "INSERT OR IGNORE INTO weeks_migration SELECT id, number, title, phase, badge_pc, badge_phys, note, project_id FROM weeks";
+        copyCmd.ExecuteNonQuery();
+
+        using var dropCmd = con.CreateCommand();
+        dropCmd.CommandText = "DROP TABLE weeks";
+        dropCmd.ExecuteNonQuery();
+
+        using var renameCmd = con.CreateCommand();
+        renameCmd.CommandText = "ALTER TABLE weeks_migration RENAME TO weeks";
+        renameCmd.ExecuteNonQuery();
+
+        using var pragma2 = con.CreateCommand();
+        pragma2.CommandText = "PRAGMA foreign_keys = ON";
+        pragma2.ExecuteNonQuery();
     }
 
     private static void MigrateSettingsToV2(SqliteConnection con)
