@@ -79,7 +79,14 @@ function updateOverview() {
     const currentWeek = window._currentWeek ?? 1;
     const week = appData.weeks.find(w => w.number === currentWeek);
     const weekRanges = getWeekRanges();
-    if (!week) return;
+    if (!week) {
+        document.getElementById('cw-badge').textContent = '';
+        document.getElementById('cw-title').textContent = '';
+        document.getElementById('cw-date').textContent = '';
+        document.getElementById('cw-tasks').innerHTML = '';
+        document.getElementById('weeks-grid').innerHTML = '';
+        return;
+    }
 
     document.getElementById('cw-badge').textContent = 'Woche ' + currentWeek;
     document.getElementById('cw-title').textContent = week.title;
