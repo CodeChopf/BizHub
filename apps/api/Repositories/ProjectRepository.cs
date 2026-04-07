@@ -96,6 +96,22 @@ public class ProjectRepository : IProjectRepository
         mCmd.Parameters.AddWithValue("@uid", adminUserId);
         mCmd.ExecuteNonQuery();
 
+        // settings_v2 mit Anfangswerten befüllen
+        var initialSettings = new Dictionary<string, string> { ["project_name"] = name, ["currency"] = currency };
+        if (!string.IsNullOrEmpty(description)) initialSettings["description"] = description;
+        if (!string.IsNullOrEmpty(startDate))   initialSettings["start_date"]  = startDate;
+        foreach (var (key, value) in initialSettings)
+        {
+            using var sCmd = con.CreateCommand();
+            sCmd.CommandText = @"
+                INSERT OR IGNORE INTO settings_v2 (project_id, key, value)
+                VALUES (@pid, @k, @v)";
+            sCmd.Parameters.AddWithValue("@pid", id);
+            sCmd.Parameters.AddWithValue("@k", key);
+            sCmd.Parameters.AddWithValue("@v", value);
+            sCmd.ExecuteNonQuery();
+        }
+
         tx.Commit();
 
         return new Project
@@ -201,5 +217,59 @@ public class ProjectRepository : IProjectRepository
         cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@uid", userId);
         return cmd.ExecuteScalar() as string;
+    }
+
+    public void DeleteProject(int id)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var tx = con.BeginTransaction();
+        var steps = new[]
+        {
+            // Produktvariationen (hängen an Produkten, die an Produktkategorien hängen)
+            @"DELETE FROM product_variations
+              WHERE product_id IN (
+                  SELECT p.id FROM products_v2 p
+                  JOIN product_categories pc ON pc.id = p.category_id
+                  WHERE pc.project_id = @pid)",
+            // Produkte
+            @"DELETE FROM products_v2
+              WHERE category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)",
+            // Produktattribute
+            @"DELETE FROM product_attributes
+              WHERE category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)",
+            // Produktkategorien
+            "DELETE FROM product_categories WHERE project_id = @pid",
+            // Belegdateien
+            @"DELETE FROM expense_attachments
+              WHERE expense_id IN (SELECT id FROM expenses WHERE project_id = @pid)",
+            // Ausgaben
+            "DELETE FROM expenses WHERE project_id = @pid",
+            // Ausgabenkategorien
+            "DELETE FROM categories WHERE project_id = @pid",
+            // Tasks
+            "DELETE FROM tasks WHERE project_id = @pid",
+            // Wochen
+            "DELETE FROM weeks WHERE project_id = @pid",
+            // Sonstiger Projektzustand
+            "DELETE FROM state_v2 WHERE project_id = @pid",
+            "DELETE FROM settings_v2 WHERE project_id = @pid",
+            "DELETE FROM milestones WHERE project_id = @pid",
+            "DELETE FROM production_queue WHERE project_id = @pid",
+            "DELETE FROM calendar_events WHERE project_id = @pid",
+            // Mitglieder und Einladungen
+            "DELETE FROM project_members WHERE project_id = @pid",
+            "DELETE FROM invites WHERE project_id = @pid",
+            // Projekt selbst
+            "DELETE FROM projects WHERE id = @pid"
+        };
+        foreach (var sql in steps)
+        {
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@pid", id);
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 }

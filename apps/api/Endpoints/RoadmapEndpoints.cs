@@ -91,8 +91,8 @@ public static class RoadmapEndpoints
             using var cmd = con.CreateCommand();
             cmd.CommandText = @"
                 SELECT t.id FROM tasks t
-                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
-                WHERE t.week_number = @w ORDER BY t.sort_order";
+                WHERE t.project_id = @pid AND t.week_number = @w
+                ORDER BY t.sort_order";
             cmd.Parameters.AddWithValue("@pid", projectId);
             cmd.Parameters.AddWithValue("@w", weekNumber);
             var ids = new List<int>();

@@ -132,9 +132,43 @@ public static class ProjectEndpoints
             var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (user == null) return Results.Unauthorized();
             if (!projectRepo.IsMember(id, user.Id)) return Results.BadRequest(new { error = "Nicht Mitglied." });
+
+            var members = projectRepo.GetMembers(id);
+            if (members.Count == 1)
+                return Results.BadRequest(new { error = "Du bist das letzte Mitglied. Lösche das Projekt, um es zu entfernen." });
+
+            var role = projectRepo.GetRole(id, user.Id);
+            if (role == "admin")
+            {
+                var next = members.FirstOrDefault(m => m.UserId != user.Id);
+                if (next != null) projectRepo.AddMember(id, next.UserId, "admin");
+            }
+
             projectRepo.RemoveMember(id, user.Id);
             return Results.Ok(new { left = true });
         });
+
+        // DELETE /api/projects/{id}
+        app.MapDelete("/api/projects/{id}", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+            if (user == null) return Results.Unauthorized();
+            var role = projectRepo.GetRole(id, user.Id);
+            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            projectRepo.DeleteProject(id);
+            return Results.Ok(new { deleted = true });
+        });
+
+        // GET /api/invites/{token} — Einladung prüfen ohne zu verbrauchen
+        app.MapGet("/api/invites/{token}", (string token, IInviteRepository inviteRepo) =>
+        {
+            var invite = inviteRepo.GetByToken(token);
+            if (invite == null) return Results.NotFound(new { error = "Einladung nicht gefunden." });
+            if (invite.UsedAt != null) return Results.BadRequest(new { error = "Einladung wurde bereits verwendet." });
+            if (DateTime.TryParse(invite.ExpiresAt, out var exp) && exp < DateTime.UtcNow)
+                return Results.BadRequest(new { error = "Einladung ist abgelaufen." });
+            return Results.Ok(new { type = invite.Type, projectName = invite.ProjectName });
+        }).AllowAnonymous();
 
         // POST /api/platform/invites
         app.MapPost("/api/platform/invites", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IInviteRepository inviteRepo) =>

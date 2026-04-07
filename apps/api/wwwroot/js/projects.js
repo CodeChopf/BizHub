@@ -1,8 +1,12 @@
 // ── PROJEKTVERWALTUNG ──
-function showProjectScreen() {
+async function showProjectScreen() {
     document.getElementById('app').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
-    document.getElementById('project-screen').style.display = 'block';
+    document.getElementById('project-screen').style.display = 'flex';
+    try {
+        const raw = await api('/api/projects');
+        _projects = Array.isArray(raw) ? raw : [];
+    } catch {}
     renderProjectScreen();
 }
 
@@ -25,7 +29,7 @@ function renderProjectScreen() {
         <div class="project-select-card">
             <div style="flex:1;cursor:pointer;min-width:0" onclick="selectProject(${p.id})">
                 <div class="project-select-name">${escHtml(p.name)}</div>
-                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--blue);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
+                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
             </div>
             <button class="btn-ghost btn-sm" onclick="selectProject(${p.id})">Öffnen</button>
             <button class="btn-ghost btn-sm btn-danger" onclick="leaveProject(${p.id}, '${escHtml(p.name).replace(/'/g, "\\'")}')">Austreten</button>
@@ -83,15 +87,32 @@ function copyPlatformInviteLink() {
     });
 }
 
-function checkInviteParam() {
+async function checkInviteParam() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('invite');
-    if (token) {
-        const regSection = document.getElementById('register-section');
-        if (regSection) regSection.style.display = 'block';
-        const regToken = document.getElementById('_reg_token');
-        if (regToken) regToken.value = token;
-    }
+    if (!token) return;
+    try {
+        const res = await fetch(`/api/invites/${token}`);
+        const info = await res.json();
+        if (!res.ok) { return; } // abgelaufen / ungültig — still login screen
+        if (info.type === 'platform') {
+            // Registrierung für neuen User — Login-Felder ausblenden
+            const loginForm = document.getElementById('login-form-section');
+            if (loginForm) loginForm.style.display = 'none';
+            const regSection = document.getElementById('register-section');
+            if (regSection) regSection.style.display = 'block';
+            const regToken = document.getElementById('_reg_token');
+            if (regToken) regToken.value = token;
+        } else if (info.type === 'project') {
+            // Projekt-Einladung: Token speichern, Hinweis zeigen
+            sessionStorage.setItem('pendingProjectInvite', token);
+            const notice = document.getElementById('project-invite-notice');
+            if (notice) {
+                notice.textContent = `Du wurdest eingeladen dem Projekt „${info.projectName}" beizutreten. Bitte melde dich an.`;
+                notice.style.display = 'block';
+            }
+        }
+    } catch { /* Netzwerkfehler — einfach Login zeigen */ }
 }
 
 async function doRegister() {
@@ -161,9 +182,15 @@ async function confirmCreateProject() {
 async function renderMemberList() {
     const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
     const card = document.getElementById('members-card');
+    const dangerCard = document.getElementById('danger-zone-card');
     if (!card) return;
-    if (!isProjectAdmin) { card.style.display = 'none'; return; }
+    if (!isProjectAdmin) {
+        card.style.display = 'none';
+        if (dangerCard) dangerCard.style.display = 'none';
+        return;
+    }
     card.style.display = '';
+    if (dangerCard) dangerCard.style.display = '';
     const members = await api(`/api/projects/${_currentProjectId}/members`);
     const list = document.getElementById('members-list');
     list.innerHTML = members.map(m => `
@@ -178,26 +205,31 @@ async function renderMemberList() {
             </div>
         </div>`).join('');
 }
-function openAddMemberModal() {
-    document.getElementById('new-member-username').value = '';
-    document.getElementById('new-member-role').value = 'member';
-    document.getElementById('add-member-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('new-member-username').focus(), 50);
+function openProjectInviteModal() {
+    document.getElementById('project-invite-hours').value = '48';
+    document.getElementById('project-invite-role').value = 'member';
+    document.getElementById('project-invite-link-wrap').style.display = 'none';
+    document.getElementById('project-invite-modal').style.display = 'flex';
 }
-function closeAddMemberModal() {
-    document.getElementById('add-member-modal').style.display = 'none';
+function closeProjectInviteModal() {
+    document.getElementById('project-invite-modal').style.display = 'none';
 }
-async function confirmAddMember() {
-    const username = document.getElementById('new-member-username').value.trim();
-    const role = document.getElementById('new-member-role').value;
-    if (!username) { showToast('Benutzername ist Pflicht.'); return; }
-    const res = await fetch(`/api/projects/${_currentProjectId}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, role })
-    });
-    if (res.ok) { closeAddMemberModal(); renderMemberList(); showToast('Mitglied hinzugefügt.'); }
-    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+async function generateProjectInvite() {
+    const hours = parseInt(document.getElementById('project-invite-hours').value) || 48;
+    const role = document.getElementById('project-invite-role').value;
+    try {
+        const invite = await api(`/api/projects/${_currentProjectId}/invites`, 'POST', { hoursValid: hours, role });
+        const link = `${location.origin}/?invite=${invite.token}`;
+        document.getElementById('project-invite-link-input').value = link;
+        document.getElementById('project-invite-link-wrap').style.display = '';
+    } catch { showToast('Fehler beim Generieren des Links.'); }
+}
+function copyProjectInviteLink() {
+    const input = document.getElementById('project-invite-link-input');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value)
+        .then(() => showToast('Link kopiert!'))
+        .catch(() => { input.select(); document.execCommand('copy'); showToast('Link kopiert!'); });
 }
 async function removeMember(userId) {
     if (!confirm('Mitglied wirklich entfernen?')) return;
@@ -206,26 +238,14 @@ async function removeMember(userId) {
     else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
 }
 
-// ── EINLADUNGSLINKS ──
-function openInviteModal() {
-    document.getElementById('invite-role').value = 'member';
-    document.getElementById('invite-hours').value = '48';
-    document.getElementById('invite-link-wrap').style.display = 'none';
-    document.getElementById('invite-modal').style.display = 'flex';
-}
-function closeInviteModal() {
-    document.getElementById('invite-modal').style.display = 'none';
-}
-async function generateInvite() {
-    const role = document.getElementById('invite-role').value;
-    const hoursValid = parseInt(document.getElementById('invite-hours').value) || 48;
-    const invite = await api(`/api/projects/${_currentProjectId}/invites`, 'POST', { role, hoursValid });
-    const link = `${location.origin}/api/invites/${invite.token}/accept`;
-    document.getElementById('invite-link-input').value = link;
-    document.getElementById('invite-link-wrap').style.display = '';
-}
-function copyInviteLink() {
-    const input = document.getElementById('invite-link-input');
-    input.select();
-    navigator.clipboard.writeText(input.value).then(() => showToast('Link kopiert!'));
+async function deleteProject() {
+    if (!confirm(`Projekt "${_currentProject?.name}" wirklich löschen? Alle Daten gehen verloren.`)) return;
+    const res = await fetch(`/api/projects/${_currentProjectId}`, { method: 'DELETE' });
+    if (res.ok) {
+        _projects = _projects.filter(p => p.id !== _currentProjectId);
+        showToast('Projekt gelöscht.');
+        showProjectScreen();
+    } else {
+        try { const err = await res.json(); showToast(err.error ?? 'Fehler.'); } catch { showToast('Fehler.'); }
+    }
 }

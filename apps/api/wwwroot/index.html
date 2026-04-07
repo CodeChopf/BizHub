@@ -19,6 +19,7 @@
                 </div>
                 <div class="login-logo-name">BizHub</div>
             </div>
+            <div id="login-form-section">
             <div class="form-group">
                 <label>Benutzername</label>
                 <input type="text" id="login-username" placeholder="Benutzername" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
@@ -29,8 +30,12 @@
             </div>
             <div id="login-error" class="login-error" style="display:none"></div>
             <button class="btn-primary" style="width:100%" onclick="doLogin()">Anmelden</button>
+            </div>
 
-            <!-- Registrierung via Einladungslink -->
+            <!-- Hinweis: Projekt-Einladung -->
+            <div id="project-invite-notice" style="display:none; margin-top:16px; padding:12px 14px; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); font-size:13px; color:var(--text2)"></div>
+
+            <!-- Registrierung via Platform-Einladungslink -->
             <div id="register-section" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px">
                 <div style="font-size:13px; color:var(--text3); margin-bottom:14px">Du wurdest eingeladen. Erstelle deinen Account:</div>
                 <input type="hidden" id="_reg_token">
@@ -107,18 +112,23 @@
     </div>
 
     <!-- PROJECT SELECTOR SCREEN -->
-    <div id="project-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; padding:40px 20px">
-        <div style="max-width:640px; margin:0 auto">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
-                <div style="font-size:1.5rem; font-weight:700; font-family:'Space Grotesk',sans-serif">BizHub</div>
-                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+    <div id="project-screen" style="display:none">
+        <div class="project-screen-wrap">
+            <div class="project-screen-logo">
+                <div class="login-logo-icon">
+                    <img src="/favicon.svg" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+                </div>
+                <div class="project-screen-title">BizHub</div>
+                <div class="project-screen-sub" id="project-screen-welcome"></div>
             </div>
-            <div style="color:var(--text3); margin-bottom:8px" id="project-screen-welcome"></div>
-            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:24px">
+            <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:16px; text-align:center">
                 <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
             </div>
-            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px"></div>
-            <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+            <div id="project-list-screen" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px"></div>
+            <div class="project-screen-footer">
+                <button class="btn-secondary" onclick="openCreateProjectModal()">+ Neues Projekt</button>
+                <button class="btn-ghost" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+            </div>
         </div>
     </div>
 
@@ -187,11 +197,18 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="sidebar-footer-date" id="sidebar-date"></div>
+                <div class="sidebar-user-row">
+                    <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name" id="sidebar-username"></div>
+                        <div class="sidebar-footer-date" id="sidebar-date"></div>
+                    </div>
+                </div>
                 <div class="sidebar-footer-launch" id="sidebar-launch"></div>
-                <div class="sidebar-username" id="sidebar-username"></div>
-                <button class="logout-btn" id="switch-project-btn" onclick="showProjectScreen()" style="display:none" title="Projekt wechseln">&#x21C6; Projekt wechseln</button>
-                <button class="logout-btn" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+                <div class="sidebar-footer-btns">
+                    <button class="sidebar-footer-btn" id="switch-project-btn" onclick="showProjectScreen()" title="Projektübersicht">&#x2190; Projektübersicht</button>
+                    <button class="sidebar-footer-btn sidebar-footer-btn-logout" onclick="doLogout()" title="Abmelden">&#x2192; Abmelden</button>
+                </div>
             </div>
         </aside>
 
@@ -537,16 +554,6 @@
                     </div>
                 </div>
 
-                <!-- Benutzerverwaltung (nur Admin) -->
-                <div class="settings-card" id="users-card" style="display:none">
-                    <div class="settings-card-title">Benutzer</div>
-                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
-                        Verwalte wer sich bei BizHub anmelden kann.
-                    </p>
-                    <div id="users-list"></div>
-                    <button class="btn-secondary" style="margin-top:12px" onclick="openAddUserModal()">+ Benutzer hinzufügen</button>
-                </div>
-
                 <!-- Projektmitglieder (Projekt-Admin oder Platform-Admin) -->
                 <div class="settings-card" id="members-card" style="display:none">
                     <div class="settings-card-title">Projektmitglieder</div>
@@ -554,43 +561,23 @@
                         Verwalte wer Zugang zu diesem Projekt hat.
                     </p>
                     <div id="members-list"></div>
-                    <div style="display:flex;gap:8px;margin-top:12px">
-                        <button class="btn-secondary" onclick="openAddMemberModal()">+ Mitglied hinzufügen</button>
-                        <button class="btn-secondary" onclick="openInviteModal()">Einladungslink</button>
+                    <div style="margin-top:12px">
+                        <button class="btn-secondary" onclick="openProjectInviteModal()">+ Einladungslink erstellen</button>
                     </div>
+                </div>
+
+                <!-- Gefahrenzone (nur Projekt-Admin) -->
+                <div class="settings-card" id="danger-zone-card" style="display:none;border-color:var(--red)">
+                    <div class="settings-card-title" style="color:var(--red)">Gefahrenzone</div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Das Löschen ist unwiderruflich — alle Projektdaten werden permanent entfernt.
+                    </p>
+                    <button class="btn-ghost btn-danger" onclick="deleteProject()">Projekt löschen</button>
                 </div>
 
             </div>
 
         </main>
-    </div>
-
-    <!-- MODAL: Benutzer hinzufügen -->
-    <div class="modal-backdrop" id="add-user-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Benutzer hinzufügen</div>
-                <button class="modal-close" onclick="closeAddUserModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Benutzername</label>
-                    <input type="text" id="new-user-username" placeholder="z.B. max">
-                </div>
-                <div class="form-group">
-                    <label>Passwort</label>
-                    <input type="password" id="new-user-password" placeholder="Passwort">
-                </div>
-                <div class="form-group" style="flex-direction:row;align-items:center;gap:10px">
-                    <input type="checkbox" id="new-user-admin" style="width:auto">
-                    <label for="new-user-admin" style="margin:0">Administrator</label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeAddUserModal()">Abbrechen</button>
-                <button class="btn-primary" onclick="confirmAddUser()">Hinzufügen</button>
-            </div>
-        </div>
     </div>
 
     <!-- MODAL: Kalender-Ereignis -->
@@ -1226,60 +1213,45 @@
         </div>
     </div>
 
-    <!-- MODAL: Mitglied hinzufügen -->
-    <div class="modal-backdrop" id="add-member-modal">
+    <!-- MODAL: Projekt-Einladungslink -->
+    <div class="modal-backdrop" id="project-invite-modal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">Mitglied hinzufügen</div>
-                <button class="modal-close" onclick="closeAddMemberModal()">✕</button>
+                <div class="modal-title">Einladungslink erstellen</div>
+                <button class="modal-close" onclick="closeProjectInviteModal()">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group"><label>Benutzername</label><input type="text" id="new-member-username" placeholder="z.B. max"></div>
-                <div class="form-group"><label>Rolle</label>
-                    <select id="new-member-role">
-                        <option value="member">Mitglied</option>
-                        <option value="admin">Projekt-Admin</option>
-                    </select>
+                <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                    Nur Nutzer mit bestehendem BizHub-Account können über diesen Link beitreten.
+                </p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rolle</label>
+                        <select id="project-invite-role">
+                            <option value="member">Mitglied</option>
+                            <option value="admin">Projekt-Admin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Gültig (Stunden)</label>
+                        <input type="number" id="project-invite-hours" value="48" min="1" max="720">
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeAddMemberModal()">Abbrechen</button>
-                <button class="btn-primary" onclick="confirmAddMember()">Hinzufügen</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Einladungslink -->
-    <div class="modal-backdrop" id="invite-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Einladungslink</div>
-                <button class="modal-close" onclick="closeInviteModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group"><label>Rolle</label>
-                    <select id="invite-role">
-                        <option value="member">Mitglied</option>
-                        <option value="admin">Projekt-Admin</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Gültig für (Stunden)</label>
-                    <input type="number" id="invite-hours" value="48" min="1" max="720">
-                </div>
-                <div id="invite-link-wrap" style="display:none">
-                    <label style="font-size:13px;color:var(--text3)">Link (einmal verwendbar):</label>
+                <div id="project-invite-link-wrap" style="display:none; margin-top:8px">
+                    <label style="font-size:13px;color:var(--text3)">Einladungslink (einmalig):</label>
                     <div class="invite-link-wrap">
-                        <input type="text" id="invite-link-input" readonly>
-                        <button class="btn-secondary" onclick="copyInviteLink()">Kopieren</button>
+                        <input type="text" id="project-invite-link-input" readonly>
+                        <button class="btn-secondary" onclick="copyProjectInviteLink()">Kopieren</button>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeInviteModal()">Schliessen</button>
-                <button class="btn-primary" onclick="generateInvite()">Link generieren</button>
+                <button class="btn-secondary" onclick="closeProjectInviteModal()">Schliessen</button>
+                <button class="btn-primary" onclick="generateProjectInvite()">Link generieren</button>
             </div>
         </div>
     </div>
+
 
     <!-- MODAL: BizHub-Nutzer einladen (Platform-Admin) -->
     <div class="modal-backdrop" id="platform-invite-modal">

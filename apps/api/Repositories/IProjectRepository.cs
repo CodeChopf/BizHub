@@ -13,4 +13,5 @@ public interface IProjectRepository
     void RemoveMember(int projectId, int userId);
     bool IsMember(int projectId, int userId);
     string? GetRole(int projectId, int userId);
+    void DeleteProject(int id);
 }
