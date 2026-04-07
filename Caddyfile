@@ -1,7 +1,7 @@
 # Replace "deine-domain.com" with your actual domain.
 # Caddy will automatically obtain and renew a TLS certificate via Let's Encrypt.
 
-deine-domain.com {
+biz-hub.ch, www.biz-hub.ch {
     reverse_proxy api:5000
 
     header {

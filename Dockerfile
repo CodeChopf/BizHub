@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY AuraPrints.Api/ .
-RUN dotnet publish -c Release -r linux-x64 \
+RUN dotnet publish AuraPrintsApi.csproj -c Release -r linux-x64 \
     -p:PublishSingleFile=true \
     -p:SelfContained=true \
     -p:OutputType=Exe \
