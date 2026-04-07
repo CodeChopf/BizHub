@@ -136,6 +136,17 @@ public static class ProjectEndpoints
             return Results.Ok(new { left = true });
         });
 
+        // GET /api/invites/{token} — Einladung prüfen ohne zu verbrauchen
+        app.MapGet("/api/invites/{token}", (string token, IInviteRepository inviteRepo) =>
+        {
+            var invite = inviteRepo.GetByToken(token);
+            if (invite == null) return Results.NotFound(new { error = "Einladung nicht gefunden." });
+            if (invite.UsedAt != null) return Results.BadRequest(new { error = "Einladung wurde bereits verwendet." });
+            if (DateTime.TryParse(invite.ExpiresAt, out var exp) && exp < DateTime.UtcNow)
+                return Results.BadRequest(new { error = "Einladung ist abgelaufen." });
+            return Results.Ok(new { type = invite.Type, projectName = invite.ProjectName });
+        }).AllowAnonymous();
+
         // POST /api/platform/invites
         app.MapPost("/api/platform/invites", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IInviteRepository inviteRepo) =>
         {

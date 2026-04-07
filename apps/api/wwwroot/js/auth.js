@@ -99,6 +99,13 @@ async function doLogin() {
             _currentUser = await res.json();
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('login-password').value = '';
+            const pendingInvite = sessionStorage.getItem('pendingProjectInvite');
+            if (pendingInvite) {
+                sessionStorage.removeItem('pendingProjectInvite');
+                try {
+                    await fetch(`/api/invites/${pendingInvite}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                } catch { /* Bei Fehler einfach normal weiter */ }
+            }
             await init();
         } else if (res.status === 429) {
             errEl.textContent = 'Zu viele Versuche. Bitte warte eine Minute.';
