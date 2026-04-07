@@ -10,23 +10,25 @@ public static class SettingsEndpoints
     public static WebApplication MapSettingsEndpoints(this WebApplication app)
     {
         // GET /api/settings
-        app.MapGet("/api/settings", (ISettingsRepository repo) =>
-            Results.Ok(repo.GetSettings()));
+        app.MapGet("/api/settings", (HttpRequest request, ISettingsRepository repo) =>
+            Results.Ok(repo.GetSettings(ApiHelpers.GetProjectId(request))));
 
         // POST /api/settings
-        app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository repo) =>
+        app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository repo, IProjectRepository projectRepo) =>
         {
+            var projectId = ApiHelpers.GetProjectId(request);
             var settings = await JsonSerializer.DeserializeAsync<ProjectSettings>(request.Body, ApiHelpers.JsonOptions);
             if (settings == null) return Results.BadRequest();
-            repo.SaveSettings(settings);
-            return Results.Ok(repo.GetSettings());
+            repo.SaveSettings(projectId, settings);
+            projectRepo.Update(projectId, settings.ProjectName, settings.Description, settings.StartDate, settings.Currency ?? "CHF", settings.ProjectImage, settings.VisibleTabs);
+            return Results.Ok(repo.GetSettings(projectId));
         });
 
         // GET /api/export
         app.MapGet("/api/export", (HttpRequest request, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo) =>
         {
             var projectId = ApiHelpers.GetProjectId(request);
-            var settings = settingsRepo.GetSettings();
+            var settings = settingsRepo.GetSettings(projectId);
             var roadmap = roadmapRepo.GetAll(projectId);
             var finance = expenseRepo.GetAll(projectId);
             var state = stateRepo.GetState(projectId);
@@ -122,7 +124,7 @@ public static class SettingsEndpoints
                 if (body.TryGetProperty("settings", out var settingsEl))
                 {
                     var settings = JsonSerializer.Deserialize<ProjectSettings>(settingsEl.GetRawText(), ApiHelpers.JsonOptions);
-                    if (settings != null) settingsRepo.SaveSettings(settings);
+                    if (settings != null) settingsRepo.SaveSettings(projectId, settings);
                 }
 
                 if (body.TryGetProperty("state", out var stateEl))

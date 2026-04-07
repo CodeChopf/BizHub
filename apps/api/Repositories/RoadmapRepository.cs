@@ -42,7 +42,7 @@ public class RoadmapRepository : IRoadmapRepository
             tCmd.CommandText = @"
                 SELECT t.id, t.week_number, t.type, t.text, t.hours
                 FROM tasks t
-                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
+                WHERE t.project_id = @pid
                 ORDER BY t.week_number, t.sort_order";
             tCmd.Parameters.AddWithValue("@pid", projectId);
             using var tReader = tCmd.ExecuteReader();

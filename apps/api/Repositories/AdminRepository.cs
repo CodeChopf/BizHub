@@ -119,14 +119,15 @@ public class AdminRepository : IAdminRepository
 
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO tasks (week_number, sort_order, type, text, hours)
-            VALUES (@w, @s, @t, @tx, @h);
+            INSERT INTO tasks (week_number, sort_order, type, text, hours, project_id)
+            VALUES (@w, @s, @t, @tx, @h, @pid);
             SELECT last_insert_rowid();";
-        cmd.Parameters.AddWithValue("@w", req.WeekNumber);
-        cmd.Parameters.AddWithValue("@s", nextSort);
-        cmd.Parameters.AddWithValue("@t", req.Type);
-        cmd.Parameters.AddWithValue("@tx", req.Text);
-        cmd.Parameters.AddWithValue("@h", req.Hours);
+        cmd.Parameters.AddWithValue("@w",   req.WeekNumber);
+        cmd.Parameters.AddWithValue("@s",   nextSort);
+        cmd.Parameters.AddWithValue("@t",   req.Type);
+        cmd.Parameters.AddWithValue("@tx",  req.Text);
+        cmd.Parameters.AddWithValue("@h",   req.Hours);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
 
         return new AppTask

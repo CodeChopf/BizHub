@@ -12,22 +12,24 @@ public class SettingsRepository : ISettingsRepository
         _context = context;
     }
 
-    public bool IsSetup()
+    public bool IsSetup(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM settings WHERE key = 'project_name'";
+        cmd.CommandText = "SELECT COUNT(*) FROM settings_v2 WHERE project_id = @pid AND key = 'project_name'";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var count = (long)(cmd.ExecuteScalar() ?? 0L);
         return count > 0;
     }
 
-    public ProjectSettings GetSettings()
+    public ProjectSettings GetSettings(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT key, value FROM settings";
+        cmd.CommandText = "SELECT key, value FROM settings_v2 WHERE project_id = @pid";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var dict = new Dictionary<string, string>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -76,7 +78,7 @@ public class SettingsRepository : ISettingsRepository
         cmd.ExecuteNonQuery();
     }
 
-    public void SaveSettings(ProjectSettings settings)
+    public void SaveSettings(int projectId, ProjectSettings settings)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -97,15 +99,17 @@ public class SettingsRepository : ISettingsRepository
             if (value == null)
             {
                 using var delCmd = con.CreateCommand();
-                delCmd.CommandText = "DELETE FROM settings WHERE key = @k";
+                delCmd.CommandText = "DELETE FROM settings_v2 WHERE project_id = @pid AND key = @k";
+                delCmd.Parameters.AddWithValue("@pid", projectId);
                 delCmd.Parameters.AddWithValue("@k", key);
                 delCmd.ExecuteNonQuery();
                 continue;
             }
             using var cmd = con.CreateCommand();
             cmd.CommandText = @"
-            INSERT INTO settings (key, value) VALUES (@k, @v)
-            ON CONFLICT(key) DO UPDATE SET value = @v";
+            INSERT INTO settings_v2 (project_id, key, value) VALUES (@pid, @k, @v)
+            ON CONFLICT(project_id, key) DO UPDATE SET value = @v";
+            cmd.Parameters.AddWithValue("@pid", projectId);
             cmd.Parameters.AddWithValue("@k", key);
             cmd.Parameters.AddWithValue("@v", value);
             cmd.ExecuteNonQuery();

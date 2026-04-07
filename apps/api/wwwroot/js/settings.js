@@ -16,6 +16,9 @@ async function saveSettings() {
         visibleTabs: projectSettings?.visibleTabs ?? null
     });
     applySettings(settings);
+    if (_currentProject) { _currentProject.name = name; _currentProject.description = desc; }
+    const _pi = _projects.findIndex(p => p.id === _currentProjectId);
+    if (_pi !== -1) { _projects[_pi].name = name; _projects[_pi].description = desc; }
     showToast('✓ Einstellungen gespeichert');
 }
 

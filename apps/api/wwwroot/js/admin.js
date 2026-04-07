@@ -36,7 +36,7 @@ function showPage(id) {
     if (id === 'produkte') renderProdukte();
     if (id === 'produktion') renderProduktion();
     if (id === 'kalender') renderKalender();
-    if (id === 'einstellungen') { renderUserList(); renderMemberList(); }
+    if (id === 'einstellungen') { renderMemberList(); }
 }
 
 // ── UPDATE ALL ──
@@ -79,7 +79,14 @@ function updateOverview() {
     const currentWeek = window._currentWeek ?? 1;
     const week = appData.weeks.find(w => w.number === currentWeek);
     const weekRanges = getWeekRanges();
-    if (!week) return;
+    if (!week) {
+        document.getElementById('cw-badge').textContent = '';
+        document.getElementById('cw-title').textContent = '';
+        document.getElementById('cw-date').textContent = '';
+        document.getElementById('cw-tasks').innerHTML = '';
+        document.getElementById('weeks-grid').innerHTML = '';
+        return;
+    }
 
     document.getElementById('cw-badge').textContent = 'Woche ' + currentWeek;
     document.getElementById('cw-title').textContent = week.title;
@@ -235,7 +242,7 @@ function initDragDrop() {
                 const reordered = [...ids];
                 const [moved] = reordered.splice(fromIdx, 1);
                 reordered.splice(toIdx, 0, moved);
-                await api('/api/admin/weeks/' + weekNumber + '/reorder', 'PUT', { taskIds: reordered });
+                await api(withProject('/api/admin/weeks/' + weekNumber + '/reorder'), 'PUT', { taskIds: reordered });
                 appData = await api(withProject('/api/data'));
                 renderRoadmap();
                 renderAdmin();
@@ -287,10 +294,10 @@ async function saveWeek() {
 
     try {
         if (editingWeekNumber) {
-            await api('/api/admin/weeks/' + editingWeekNumber, 'PUT', { title, phase, badgePc, badgePhys, note });
+            await api(withProject('/api/admin/weeks/' + editingWeekNumber), 'PUT', { title, phase, badgePc, badgePhys, note });
             showToast('✓ Woche aktualisiert');
         } else {
-            await api('/api/admin/weeks', 'POST', { title, phase, badgePc, badgePhys, note });
+            await api(withProject('/api/admin/weeks'), 'POST', { title, phase, badgePc, badgePhys, note });
             showToast('✓ Woche erstellt');
         }
         appData = await api(withProject('/api/data'));
@@ -304,7 +311,7 @@ async function saveWeek() {
 async function deleteWeek(number) {
     if (!confirm(`Woche ${number} und alle Tasks löschen?`)) return;
     try {
-        await api('/api/admin/weeks/' + number, 'DELETE');
+        await api(withProject('/api/admin/weeks/' + number), 'DELETE');
         appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();
@@ -352,10 +359,10 @@ async function saveTask() {
 
     try {
         if (editingTaskId !== null) {
-            await api('/api/admin/tasks/' + editingTaskId, 'PUT', { type, text, hours });
+            await api(withProject('/api/admin/tasks/' + editingTaskId), 'PUT', { type, text, hours });
             showToast('✓ Task aktualisiert');
         } else {
-            await api('/api/admin/tasks', 'POST', { weekNumber: editingTaskWeekNumber, type, text, hours });
+            await api(withProject('/api/admin/tasks'), 'POST', { weekNumber: editingTaskWeekNumber, type, text, hours });
             showToast('✓ Task erstellt');
         }
         appData = await api(withProject('/api/data'));
@@ -369,7 +376,7 @@ async function saveTask() {
 async function deleteTask(taskDbId, weekNumber) {
     if (!confirm('Task löschen?')) return;
     try {
-        await api('/api/admin/tasks/' + taskDbId, 'DELETE');
+        await api(withProject('/api/admin/tasks/' + taskDbId), 'DELETE');
         appData = await api(withProject('/api/data'));
         renderRoadmap();
         renderAdmin();

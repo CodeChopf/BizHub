@@ -99,6 +99,13 @@ async function doLogin() {
             _currentUser = await res.json();
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('login-password').value = '';
+            const pendingInvite = sessionStorage.getItem('pendingProjectInvite');
+            if (pendingInvite) {
+                sessionStorage.removeItem('pendingProjectInvite');
+                try {
+                    await fetch(`/api/invites/${pendingInvite}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                } catch { /* Bei Fehler einfach normal weiter */ }
+            }
             await init();
         } else if (res.status === 429) {
             errEl.textContent = 'Zu viele Versuche. Bitte warte eine Minute.';
@@ -116,77 +123,6 @@ async function doLogin() {
 async function doLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     showLoginScreen();
-}
-
-// ── BENUTZERVERWALTUNG ──
-async function renderUserList() {
-    if (!_currentUser?.isAdmin) return;
-    document.getElementById('users-card').style.display = '';
-    const users = await api('/api/users');
-    const list = document.getElementById('users-list');
-    list.innerHTML = users.map(u => `
-        <div class="user-row">
-            <div class="user-info">
-                <span class="user-name">${escHtml(u.username)}</span>
-                ${u.isAdmin ? '<span class="user-badge">Admin</span>' : ''}
-            </div>
-            <div class="user-actions">
-                <button class="btn-ghost btn-sm" onclick="changeUserPassword('${escHtml(u.username)}')">Passwort</button>
-                <button class="btn-ghost btn-sm btn-danger" onclick="deleteUser('${escHtml(u.username)}')"
-                    ${u.username === _currentUser.username ? 'disabled title="Eigenen Account nicht löschbar"' : ''}>Löschen</button>
-            </div>
-        </div>`).join('');
-}
-
-function openAddUserModal() {
-    document.getElementById('new-user-username').value = '';
-    document.getElementById('new-user-password').value = '';
-    document.getElementById('new-user-admin').checked = false;
-    document.getElementById('add-user-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('new-user-username').focus(), 50);
-}
-
-function closeAddUserModal() {
-    document.getElementById('add-user-modal').style.display = 'none';
-}
-
-async function confirmAddUser() {
-    const username = document.getElementById('new-user-username').value.trim();
-    const password = document.getElementById('new-user-password').value;
-    const isAdmin  = document.getElementById('new-user-admin').checked;
-    if (!username || !password) { showToast('Benutzername und Passwort sind Pflicht.'); return; }
-    const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, isAdmin })
-    });
-    if (res.ok) {
-        closeAddUserModal();
-        renderUserList();
-        showToast('Benutzer erstellt.');
-    } else {
-        const err = await res.json();
-        showToast(err.error ?? 'Fehler beim Erstellen.');
-    }
-}
-
-async function deleteUser(username) {
-    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
-    const res = await fetch(`/api/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
-    if (res.ok) { renderUserList(); showToast('Benutzer gelöscht.'); }
-    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
-}
-
-async function changeUserPassword(username) {
-    const pw = prompt(`Neues Passwort für "${username}":`);
-    if (!pw) return;
-    const res = await fetch(`/api/users/${encodeURIComponent(username)}/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
-    });
-    if (res.ok) showToast('Passwort geändert.');
-    else showToast('Fehler beim Ändern.');
 }
 
 // ── INIT ──
@@ -218,7 +154,7 @@ async function loadProject() {
     document.getElementById('app').style.display = 'flex';
 
     const switchBtn = document.getElementById('switch-project-btn');
-    if (switchBtn) switchBtn.style.display = _projects.length > 1 ? '' : 'none';
+    if (switchBtn) switchBtn.style.display = '';
 
     const settings = await api(withProject('/api/settings'));
     applySettings(settings);
@@ -255,7 +191,9 @@ async function loadProject() {
         daysToLaunch > 0 ? '🚀 in ' + daysToLaunch + ' Tagen' : '🚀 Gestartet!';
     if (_currentUser) {
         const el = document.getElementById('sidebar-username');
-        if (el) el.textContent = '👤 ' + _currentUser.username;
+        if (el) el.textContent = _currentUser.username;
+        const avatar = document.getElementById('sidebar-user-avatar');
+        if (avatar) avatar.textContent = _currentUser.username.charAt(0).toUpperCase();
     }
     document.getElementById('topbar-date').innerHTML =
         'Heute: ' + fmt(today) + '<br>Start: ' + fmt(START);
