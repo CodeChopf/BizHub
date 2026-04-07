@@ -132,8 +132,31 @@ public static class ProjectEndpoints
             var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (user == null) return Results.Unauthorized();
             if (!projectRepo.IsMember(id, user.Id)) return Results.BadRequest(new { error = "Nicht Mitglied." });
+
+            var members = projectRepo.GetMembers(id);
+            if (members.Count == 1)
+                return Results.BadRequest(new { error = "Du bist das letzte Mitglied. Lösche das Projekt, um es zu entfernen." });
+
+            var role = projectRepo.GetRole(id, user.Id);
+            if (role == "admin")
+            {
+                var next = members.FirstOrDefault(m => m.UserId != user.Id);
+                if (next != null) projectRepo.AddMember(id, next.UserId, "admin");
+            }
+
             projectRepo.RemoveMember(id, user.Id);
             return Results.Ok(new { left = true });
+        });
+
+        // DELETE /api/projects/{id}
+        app.MapDelete("/api/projects/{id}", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+            if (user == null) return Results.Unauthorized();
+            var role = projectRepo.GetRole(id, user.Id);
+            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            projectRepo.DeleteProject(id);
+            return Results.Ok(new { deleted = true });
         });
 
         // GET /api/invites/{token} — Einladung prüfen ohne zu verbrauchen

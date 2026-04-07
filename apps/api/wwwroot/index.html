@@ -566,6 +566,15 @@
                     </div>
                 </div>
 
+                <!-- Gefahrenzone (nur Projekt-Admin) -->
+                <div class="settings-card" id="danger-zone-card" style="display:none;border-color:var(--red)">
+                    <div class="settings-card-title" style="color:var(--red)">Gefahrenzone</div>
+                    <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+                        Das Löschen ist unwiderruflich — alle Projektdaten werden permanent entfernt.
+                    </p>
+                    <button class="btn-ghost btn-danger" onclick="deleteProject()">Projekt löschen</button>
+                </div>
+
             </div>
 
         </main>

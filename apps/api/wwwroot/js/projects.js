@@ -182,9 +182,15 @@ async function confirmCreateProject() {
 async function renderMemberList() {
     const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
     const card = document.getElementById('members-card');
+    const dangerCard = document.getElementById('danger-zone-card');
     if (!card) return;
-    if (!isProjectAdmin) { card.style.display = 'none'; return; }
+    if (!isProjectAdmin) {
+        card.style.display = 'none';
+        if (dangerCard) dangerCard.style.display = 'none';
+        return;
+    }
     card.style.display = '';
+    if (dangerCard) dangerCard.style.display = '';
     const members = await api(`/api/projects/${_currentProjectId}/members`);
     const list = document.getElementById('members-list');
     list.innerHTML = members.map(m => `
@@ -230,4 +236,16 @@ async function removeMember(userId) {
     const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
     if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
     else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+}
+
+async function deleteProject() {
+    if (!confirm(`Projekt "${_currentProject?.name}" wirklich löschen? Alle Daten gehen verloren.`)) return;
+    const res = await fetch(`/api/projects/${_currentProjectId}`, { method: 'DELETE' });
+    if (res.ok) {
+        _projects = _projects.filter(p => p.id !== _currentProjectId);
+        showToast('Projekt gelöscht.');
+        showProjectScreen();
+    } else {
+        try { const err = await res.json(); showToast(err.error ?? 'Fehler.'); } catch { showToast('Fehler.'); }
+    }
 }
