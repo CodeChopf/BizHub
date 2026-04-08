@@ -204,6 +204,9 @@ function setExpModalType(type) {
     // Kategorien nach Typ filtern
     const sel = document.getElementById('exp-category');
     if (sel) sel.innerHTML = buildCategoryOptions(type);
+    // Datalist-Vorschläge je nach Typ umschalten
+    const catInp = document.getElementById('exp-new-cat-name');
+    if (catInp) catInp.setAttribute('list', isIncome ? 'income-cat-suggestions' : 'expense-cat-suggestions');
     // Neue-Kategorie-Eingabe zurücksetzen
     cancelNewExpCat();
 }
@@ -342,6 +345,9 @@ function setEditExpModalType(type) {
     // Kategorien nach Typ filtern
     const sel = document.getElementById('edit-exp-category');
     if (sel) sel.innerHTML = buildCategoryOptions(type);
+    // Datalist-Vorschläge je nach Typ umschalten
+    const catInp = document.getElementById('edit-exp-new-cat-name');
+    if (catInp) catInp.setAttribute('list', isIncome ? 'income-cat-suggestions' : 'expense-cat-suggestions');
     // Neue-Kategorie-Eingabe zurücksetzen
     cancelNewEditExpCat();
 }

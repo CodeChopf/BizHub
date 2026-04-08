@@ -750,14 +750,26 @@
                         <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewExpCat()" title="Neue Kategorie erstellen">+</button>
                     </div>
                     <div id="exp-new-cat-wrap" style="display:none;margin-top:8px">
-                        <input type="text" id="exp-new-cat-name" list="income-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <input type="text" id="exp-new-cat-name" list="expense-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
                         <div style="display:flex;gap:6px">
                             <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewExpCat()">Hinzufügen</button>
                             <button type="button" class="btn-secondary" onclick="cancelNewExpCat()">Abbrechen</button>
                         </div>
                     </div>
                 </div>
-                <!-- Vordefinierte Einnahme-Kategorievorschläge -->
+                <!-- Vordefinierte Kategorie-Vorschläge -->
+                <datalist id="expense-cat-suggestions">
+                    <option value="Material">
+                    <option value="Versand">
+                    <option value="Marketing">
+                    <option value="Software / Tools">
+                    <option value="Bürobedarf">
+                    <option value="Druck & Produktion">
+                    <option value="Miete / Raum">
+                    <option value="Steuern & Abgaben">
+                    <option value="Reise & Transport">
+                    <option value="Sonstiges">
+                </datalist>
                 <datalist id="income-cat-suggestions">
                     <option value="Shopify">
                     <option value="Etsy">
@@ -837,7 +849,7 @@
                         <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewEditExpCat()" title="Neue Kategorie erstellen">+</button>
                     </div>
                     <div id="edit-exp-new-cat-wrap" style="display:none;margin-top:8px">
-                        <input type="text" id="edit-exp-new-cat-name" list="income-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <input type="text" id="edit-exp-new-cat-name" list="expense-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
                         <div style="display:flex;gap:6px">
                             <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewEditExpCat()">Hinzufügen</button>
                             <button type="button" class="btn-secondary" onclick="cancelNewEditExpCat()">Abbrechen</button>
