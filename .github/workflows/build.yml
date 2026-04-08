@@ -1,0 +1,16 @@
+name: Build on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'  # Wird bei jedem Tag der mit v beginnt ausgelöst
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --build-arg VERSION=${{ github.ref_name }} .

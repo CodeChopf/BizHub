@@ -1391,6 +1391,48 @@ body {
     font-family: 'Space Grotesk', sans-serif;
     white-space: nowrap;
 }
+.exp-amount.income { color: var(--green); }
+
+/* ── FIN TAB TOGGLE (Ausgaben / Einnahmen) ── */
+.fin-tab-toggle { display:flex; gap:4px; }
+.fin-tab {
+    padding: 4px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.fin-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── FIN TYPE TOGGLE (in Modals) ── */
+.fin-type-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+.fin-type-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: none;
+    color: var(--text2);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.fin-type-btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+.fin-type-btn.active.income-active {
+    background: var(--green);
+}
 
 .exp-delete {
     background: none;

@@ -9,6 +9,11 @@ public static class SettingsEndpoints
 {
     public static WebApplication MapSettingsEndpoints(this WebApplication app)
     {
+        // GET /api/version
+        app.MapGet("/api/version", () =>
+            Results.Ok(new { version = Environment.GetEnvironmentVariable("BIZHUB_VERSION") ?? "dev" })
+        ).AllowAnonymous();
+
         // GET /api/settings
         app.MapGet("/api/settings", (HttpRequest request, ISettingsRepository repo) =>
             Results.Ok(repo.GetSettings(ApiHelpers.GetProjectId(request))));

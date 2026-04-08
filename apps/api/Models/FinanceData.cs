@@ -5,6 +5,8 @@ public class FinanceData
     public List<Category> Categories { get; set; } = new();
     public List<Expense> Expenses { get; set; } = new();
     public decimal TotalExpenses { get; set; }
+    public decimal TotalIncome { get; set; }
+    public decimal NetBalance { get; set; }
     public List<CategorySummary> Summary { get; set; } = new();
 }
 

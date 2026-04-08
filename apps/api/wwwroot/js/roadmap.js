@@ -15,7 +15,7 @@ function renderKpis() {
     ];
 
     strip.innerHTML = kpis.map(k => `
-    <div class="kpi-card ${k.color}">
+    <div class="kpi-card ${k.color}" onclick="showPage('roadmap')" style="cursor:pointer">
       <div class="kpi-icon">${k.icon}</div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-label">${k.label}</div>

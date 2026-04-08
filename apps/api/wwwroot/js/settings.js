@@ -1,3 +1,15 @@
+// ── APP-VERSION ──
+async function loadAppVersion() {
+    try {
+        const res = await fetch('/api/version');
+        if (res.ok) {
+            const { version } = await res.json();
+            const el = document.getElementById('app-version');
+            if (el) el.textContent = version;
+        }
+    } catch {}
+}
+
 // ── EINSTELLUNGEN ──
 async function saveSettings() {
     const name = document.getElementById('settings-name').value.trim();
