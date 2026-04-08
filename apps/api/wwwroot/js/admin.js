@@ -313,7 +313,18 @@ function renderAdminTasks(week) {
     if (!week.tasks || week.tasks.length === 0) {
         return '<div style="padding:12px 18px;font-size:13px;color:var(--text3)">Noch keine Tasks.</div>';
     }
-    return week.tasks.map(task => `
+    return week.tasks.map(task => {
+        const subs = task.subtasks ?? [];
+        const subsHtml = subs.map(sub => `
+      <div class="admin-subtask-row" data-subtask-id="${sub.id}">
+        <span class="subtask-indent">↳</span>
+        <span class="admin-subtask-text">${sub.text}</span>
+        <span class="admin-task-hrs">${sub.hours}</span>
+        <button class="btn-icon" onclick="openEditSubtaskModal(${sub.id},${task.id})">✏️</button>
+        <button class="btn-icon danger" onclick="deleteSubtask(${sub.id},${task.id})">🗑</button>
+      </div>`).join('');
+
+        return `
       <div class="admin-task-row" data-task-db-id="${task.id}">
         <span class="drag-handle">⠿</span>
         <span class="task-type type-${task.type}">${task.type === 'pc' ? 'PC' : 'Physisch'}</span>
@@ -321,7 +332,10 @@ function renderAdminTasks(week) {
         <span class="admin-task-hrs">${task.hours}</span>
         <button class="btn-icon" onclick="openEditTaskModal(${task.id}, ${week.number})">✏️</button>
         <button class="btn-icon danger" onclick="deleteTask(${task.id}, ${week.number})">🗑</button>
-      </div>`).join('');
+      </div>
+      ${subsHtml}
+      <button class="admin-add-subtask" onclick="openNewSubtaskModal(${task.id})">+ Unteraufgabe</button>`;
+    }).join('');
 }
 
 function initDragDrop() {
@@ -496,5 +510,74 @@ async function deleteTask(taskDbId, weekNumber) {
         renderAdmin();
         updateAll();
         showToast('✓ Task gelöscht');
+    } catch { showToast('Fehler beim Löschen.'); }
+}
+
+// ── SUBTASK MODAL ──
+let _editingSubtaskId = null;
+let _editingSubtaskTaskId = null;
+
+function openNewSubtaskModal(taskId) {
+    _editingSubtaskId = null;
+    _editingSubtaskTaskId = taskId;
+    document.getElementById('subtask-modal-title').textContent = 'Unteraufgabe erstellen';
+    document.getElementById('subtask-modal-save').textContent = 'Erstellen';
+    document.getElementById('subtask-text').value = '';
+    document.getElementById('subtask-hours').value = '';
+    document.getElementById('subtask-modal').classList.add('open');
+}
+
+function openEditSubtaskModal(subtaskId, taskId) {
+    // Find subtask in appData
+    let sub = null;
+    for (const week of appData.weeks) {
+        for (const task of week.tasks) {
+            if (task.id === taskId) { sub = (task.subtasks ?? []).find(s => s.id === subtaskId); break; }
+        }
+        if (sub) break;
+    }
+    if (!sub) return;
+    _editingSubtaskId = subtaskId;
+    _editingSubtaskTaskId = taskId;
+    document.getElementById('subtask-modal-title').textContent = 'Unteraufgabe bearbeiten';
+    document.getElementById('subtask-modal-save').textContent = 'Speichern';
+    document.getElementById('subtask-text').value = sub.text;
+    document.getElementById('subtask-hours').value = sub.hours;
+    document.getElementById('subtask-modal').classList.add('open');
+}
+
+function closeSubtaskModal() {
+    document.getElementById('subtask-modal').classList.remove('open');
+}
+
+async function saveSubtask() {
+    const text  = document.getElementById('subtask-text').value.trim();
+    const hours = document.getElementById('subtask-hours').value.trim();
+    if (!text) { showToast('Beschreibung ist ein Pflichtfeld.'); return; }
+    try {
+        if (_editingSubtaskId !== null) {
+            await api(withProject('/api/admin/subtasks/' + _editingSubtaskId), 'PUT', { text, hours });
+            showToast('✓ Unteraufgabe aktualisiert');
+        } else {
+            await api(withProject('/api/admin/subtasks'), 'POST', { taskId: _editingSubtaskTaskId, text, hours });
+            showToast('✓ Unteraufgabe erstellt');
+        }
+        appData = await api(withProject('/api/data'));
+        renderRoadmap();
+        renderAdmin();
+        updateAll();
+        closeSubtaskModal();
+    } catch { showToast('Fehler beim Speichern.'); }
+}
+
+async function deleteSubtask(subtaskId, taskId) {
+    if (!confirm('Unteraufgabe löschen?')) return;
+    try {
+        await api(withProject('/api/admin/subtasks/' + subtaskId), 'DELETE');
+        appData = await api(withProject('/api/data'));
+        renderRoadmap();
+        renderAdmin();
+        updateAll();
+        showToast('✓ Unteraufgabe gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
 }

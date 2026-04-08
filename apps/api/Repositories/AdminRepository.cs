@@ -83,6 +83,17 @@ public class AdminRepository : IAdminRepository
         con.Open();
         using var tx = con.BeginTransaction();
 
+        using var delSubs = con.CreateCommand();
+        delSubs.CommandText = @"
+            DELETE FROM subtasks WHERE task_id IN (
+                SELECT t.id FROM tasks t
+                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
+                WHERE t.week_number = @n
+            )";
+        delSubs.Parameters.AddWithValue("@n",   number);
+        delSubs.Parameters.AddWithValue("@pid", projectId);
+        delSubs.ExecuteNonQuery();
+
         using var delTasks = con.CreateCommand();
         delTasks.CommandText = @"
             DELETE FROM tasks WHERE week_number = @n
@@ -162,10 +173,16 @@ public class AdminRepository : IAdminRepository
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using var tx = con.BeginTransaction();
+        using var delSub = con.CreateCommand();
+        delSub.CommandText = "DELETE FROM subtasks WHERE task_id = @id";
+        delSub.Parameters.AddWithValue("@id", id);
+        delSub.ExecuteNonQuery();
         using var cmd = con.CreateCommand();
         cmd.CommandText = "DELETE FROM tasks WHERE id = @id";
         cmd.Parameters.AddWithValue("@id", id);
         cmd.ExecuteNonQuery();
+        tx.Commit();
     }
 
     public void ReorderTasks(int projectId, int weekNumber, ReorderTasksRequest req)
@@ -189,5 +206,56 @@ public class AdminRepository : IAdminRepository
         }
 
         tx.Commit();
+    }
+
+    // ── SUBTASKS ──
+
+    public AppSubtask CreateSubtask(int projectId, CreateSubtaskRequest req)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+
+        using var sortCmd = con.CreateCommand();
+        sortCmd.CommandText = "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM subtasks WHERE task_id = @tid";
+        sortCmd.Parameters.AddWithValue("@tid", req.TaskId);
+        var nextSort = (long)(sortCmd.ExecuteScalar() ?? 1L);
+
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO subtasks (task_id, sort_order, text, hours, project_id)
+            VALUES (@tid, @s, @tx, @h, @pid);
+            SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("@tid", req.TaskId);
+        cmd.Parameters.AddWithValue("@s",   nextSort);
+        cmd.Parameters.AddWithValue("@tx",  req.Text);
+        cmd.Parameters.AddWithValue("@h",   req.Hours);
+        cmd.Parameters.AddWithValue("@pid", projectId);
+        var id = (long)(cmd.ExecuteScalar() ?? 0L);
+
+        return new AppSubtask { Id = (int)id, Text = req.Text, Hours = req.Hours };
+    }
+
+    public AppSubtask UpdateSubtask(int id, UpdateSubtaskRequest req)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "UPDATE subtasks SET text = @tx, hours = @h WHERE id = @id";
+        cmd.Parameters.AddWithValue("@tx", req.Text);
+        cmd.Parameters.AddWithValue("@h",  req.Hours);
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.ExecuteNonQuery();
+
+        return new AppSubtask { Id = id, Text = req.Text, Hours = req.Hours };
+    }
+
+    public void DeleteSubtask(int id)
+    {
+        using var con = _context.CreateConnection();
+        con.Open();
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "DELETE FROM subtasks WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.ExecuteNonQuery();
     }
 }

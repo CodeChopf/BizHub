@@ -47,13 +47,30 @@ function renderRoadmap() {
         week.tasks.forEach(task => {
             const stateKey = 'task-' + task.id;
             const isDone = !!state[stateKey];
+            const subs = task.subtasks ?? [];
+            const subsDoneCount = subs.filter(s => !!state['subtask-' + s.id]).length;
+            const hasSubs = subs.length > 0;
+
+            const subsHtml = hasSubs ? subs.map(sub => {
+                const subKey = 'subtask-' + sub.id;
+                const subDone = !!state[subKey];
+                return `
+        <div class="subtask-row${subDone ? ' done' : ''}" onclick="toggleSubtask(this)" data-idx="${subKey}">
+          <div class="subtask-check"><span class="check-icon">✓</span></div>
+          <span class="subtask-text">${sub.text}</span>
+          <span class="task-hrs">${sub.hours}</span>
+        </div>`;
+            }).join('') : '';
+
             tasksHtml += `
         <div class="task-row${isDone ? ' done' : ''}" onclick="toggleTask(this)" data-idx="${stateKey}">
           <div class="task-check"><span class="check-icon">✓</span></div>
           <span class="task-type type-${task.type}">${task.type === 'pc' ? 'PC' : 'Physisch'}</span>
           <span class="task-text">${task.text}</span>
           <span class="task-hrs">${task.hours}</span>
-        </div>`;
+          ${hasSubs ? `<button class="subtask-toggle-btn" onclick="event.stopPropagation();toggleSubtaskList(${task.id},this)" title="Unteraufgaben ein-/ausblenden"><span class="subtask-pill">${subsDoneCount}/${subs.length}</span></button>` : ''}
+        </div>
+        ${hasSubs ? `<div class="subtask-list" id="subtask-list-${task.id}" style="display:none">${subsHtml}</div>` : ''}`;
         });
 
         const wIdx = week.number - 1;
@@ -80,4 +97,32 @@ function renderRoadmap() {
       </div>`;
         container.appendChild(card);
     });
+}
+
+function toggleSubtaskList(taskId, btn) {
+    const list = document.getElementById('subtask-list-' + taskId);
+    if (!list) return;
+    const open = list.style.display === 'none';
+    list.style.display = open ? '' : 'none';
+    btn.classList.toggle('open', open);
+}
+
+function toggleSubtask(row) {
+    const key = row.dataset.idx;
+    state[key] = !state[key];
+    row.classList.toggle('done', !!state[key]);
+    saveState();
+    // Update the subtask pill count on the parent task row
+    const taskId = key.replace('subtask-', '');
+    const list = row.closest('.subtask-list');
+    if (list) {
+        const listId = list.id; // subtask-list-{taskId}
+        const parentTaskId = listId.replace('subtask-list-', '');
+        const pill = document.querySelector(`.subtask-toggle-btn[onclick*="toggleSubtaskList(${parentTaskId},"] .subtask-pill`);
+        if (pill) {
+            const allRows = list.querySelectorAll('.subtask-row');
+            const doneRows = list.querySelectorAll('.subtask-row.done');
+            pill.textContent = `${doneRows.length}/${allRows.length}`;
+        }
+    }
 }

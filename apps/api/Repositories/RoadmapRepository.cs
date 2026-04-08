@@ -36,6 +36,8 @@ public class RoadmapRepository : IRoadmapRepository
             });
         }
 
+        var taskMap = new Dictionary<int, AppTask>();
+
         if (weeks.Count > 0)
         {
             using var tCmd = con.CreateCommand();
@@ -51,13 +53,38 @@ public class RoadmapRepository : IRoadmapRepository
                 var weekNum = tReader.GetInt32(1);
                 var week = weeks.FirstOrDefault(w => w.Number == weekNum);
                 if (week == null) continue;
-                week.Tasks.Add(new AppTask
+                var task = new AppTask
                 {
                     Id    = tReader.GetInt32(0),
                     Type  = tReader.GetString(2),
                     Text  = tReader.GetString(3),
                     Hours = tReader.GetString(4)
-                });
+                };
+                week.Tasks.Add(task);
+                taskMap[task.Id] = task;
+            }
+
+            if (taskMap.Count > 0)
+            {
+                using var sCmd = con.CreateCommand();
+                sCmd.CommandText = @"
+                    SELECT id, task_id, text, hours
+                    FROM subtasks
+                    WHERE project_id = @pid
+                    ORDER BY task_id, sort_order";
+                sCmd.Parameters.AddWithValue("@pid", projectId);
+                using var sReader = sCmd.ExecuteReader();
+                while (sReader.Read())
+                {
+                    var taskId = sReader.GetInt32(1);
+                    if (!taskMap.TryGetValue(taskId, out var parentTask)) continue;
+                    parentTask.Subtasks.Add(new AppSubtask
+                    {
+                        Id    = sReader.GetInt32(0),
+                        Text  = sReader.GetString(2),
+                        Hours = sReader.GetString(3)
+                    });
+                }
             }
         }
 

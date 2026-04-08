@@ -144,6 +144,11 @@ public static class SettingsEndpoints
                     con1.Open();
                     using var tx1 = con1.BeginTransaction();
 
+                    using var delSubs = con1.CreateCommand();
+                    delSubs.CommandText = "DELETE FROM subtasks WHERE task_id IN (SELECT id FROM tasks WHERE project_id = @pid)";
+                    delSubs.Parameters.AddWithValue("@pid", projectId);
+                    delSubs.ExecuteNonQuery();
+
                     using var delTasks = con1.CreateCommand();
                     delTasks.CommandText = "DELETE FROM tasks WHERE week_number IN (SELECT number FROM weeks WHERE project_id = @pid)";
                     delTasks.Parameters.AddWithValue("@pid", projectId);
@@ -184,14 +189,38 @@ public static class SettingsEndpoints
                                     {
                                         using var tCmd = con1.CreateCommand();
                                         tCmd.CommandText = @"
-                                            INSERT INTO tasks (week_number, sort_order, type, text, hours)
-                                            VALUES (@w, @s, @t, @tx, @h)";
-                                        tCmd.Parameters.AddWithValue("@w", week.GetProperty("number").GetInt32());
-                                        tCmd.Parameters.AddWithValue("@s", sort++);
-                                        tCmd.Parameters.AddWithValue("@t", task.GetProperty("type").GetString() ?? "pc");
-                                        tCmd.Parameters.AddWithValue("@tx", task.GetProperty("text").GetString() ?? "");
-                                        tCmd.Parameters.AddWithValue("@h", task.GetProperty("hours").GetString() ?? "");
-                                        tCmd.ExecuteNonQuery();
+                                            INSERT INTO tasks (week_number, sort_order, type, text, hours, project_id)
+                                            VALUES (@w, @s, @t, @tx, @h, @pid);
+                                            SELECT last_insert_rowid();";
+                                        tCmd.Parameters.AddWithValue("@w",   week.GetProperty("number").GetInt32());
+                                        tCmd.Parameters.AddWithValue("@s",   sort++);
+                                        tCmd.Parameters.AddWithValue("@t",   task.GetProperty("type").GetString() ?? "pc");
+                                        tCmd.Parameters.AddWithValue("@tx",  task.GetProperty("text").GetString() ?? "");
+                                        tCmd.Parameters.AddWithValue("@h",   task.GetProperty("hours").GetString() ?? "");
+                                        tCmd.Parameters.AddWithValue("@pid", projectId);
+                                        var newTaskId = (long)(tCmd.ExecuteScalar() ?? 0L);
+
+                                        if (task.TryGetProperty("subtasks", out var subtasksEl) && subtasksEl.ValueKind == JsonValueKind.Array)
+                                        {
+                                            var subtasks = JsonSerializer.Deserialize<List<JsonElement>>(subtasksEl.GetRawText(), ApiHelpers.JsonOptions);
+                                            if (subtasks != null)
+                                            {
+                                                int subSort = 1;
+                                                foreach (var sub in subtasks)
+                                                {
+                                                    using var sCmd = con1.CreateCommand();
+                                                    sCmd.CommandText = @"
+                                                        INSERT INTO subtasks (task_id, sort_order, text, hours, project_id)
+                                                        VALUES (@tid, @s, @tx, @h, @pid)";
+                                                    sCmd.Parameters.AddWithValue("@tid", newTaskId);
+                                                    sCmd.Parameters.AddWithValue("@s",   subSort++);
+                                                    sCmd.Parameters.AddWithValue("@tx",  sub.TryGetProperty("text", out var st) ? st.GetString() ?? "" : "");
+                                                    sCmd.Parameters.AddWithValue("@h",   sub.TryGetProperty("hours", out var sh) ? sh.GetString() ?? "" : "");
+                                                    sCmd.Parameters.AddWithValue("@pid", projectId);
+                                                    sCmd.ExecuteNonQuery();
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

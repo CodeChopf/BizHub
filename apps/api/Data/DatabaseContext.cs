@@ -151,6 +151,14 @@ public class DatabaseContext
                 note         TEXT,
                 added_at     TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS subtasks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id     INTEGER NOT NULL,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                text        TEXT NOT NULL,
+                hours       TEXT NOT NULL DEFAULT '',
+                project_id  INTEGER NOT NULL DEFAULT 1
+            );
             CREATE TABLE IF NOT EXISTS calendar_events (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 title       TEXT NOT NULL,

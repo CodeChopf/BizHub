@@ -37,3 +37,16 @@ public class ReorderTasksRequest
 {
     public List<int> TaskIds { get; set; } = new();
 }
+
+public class CreateSubtaskRequest
+{
+    public int TaskId { get; set; }
+    public string Text { get; set; } = "";
+    public string Hours { get; set; } = "";
+}
+
+public class UpdateSubtaskRequest
+{
+    public string Text { get; set; } = "";
+    public string Hours { get; set; } = "";
+}

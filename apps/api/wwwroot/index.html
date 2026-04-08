@@ -995,6 +995,30 @@
         </div>
     </div>
 
+    <!-- MODAL: Unteraufgabe erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="subtask-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="subtask-modal-title">Unteraufgabe erstellen</div>
+                <button class="modal-close" onclick="closeSubtaskModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="subtask-text" placeholder="z.B. Datei vorbereiten, Upload, Review...">
+                </div>
+                <div class="form-group">
+                    <label>Zeitaufwand (optional)</label>
+                    <input type="text" id="subtask-hours" placeholder="z.B. 0.5h oder 1h">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSubtaskModal()">Abbrechen</button>
+                <button class="btn-primary" id="subtask-modal-save" onclick="saveSubtask()">Erstellen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: Meilenstein erstellen -->
     <div class="modal-backdrop" id="milestone-modal">
         <div class="modal">
