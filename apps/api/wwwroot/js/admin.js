@@ -31,6 +31,7 @@ function showPage(id) {
             if (btn.getAttribute('onclick') === `showPage('${id}')`) btn.classList.add('active');
         });
     }
+    if (id === 'overview') { updateDashboardCards(); loadDashboardAsync(); }
     if (id === 'admin') renderAdmin();
     if (id === 'meilensteine') renderMilestones();
     if (id === 'produkte') renderProdukte();
