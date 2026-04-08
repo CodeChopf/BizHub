@@ -113,10 +113,15 @@ function renderRoadmap() {
         </div>`;
                 }).join('') + `</div>` : '';
 
+            const tags = task.tags ?? [];
+            const tagsHtml = tags.length > 0
+                ? tags.map(t => `<span class="task-tag-chip" style="background:${t.color}22;color:${t.color}">${t.name}</span>`).join('')
+                : (task.type ? `<span class="task-tag-chip" style="background:var(--border2);color:var(--text3)">${task.type === 'pc' ? 'PC' : task.type === 'phys' ? 'Physisch' : task.type}</span>` : '');
+
             tasksHtml += `
         <div class="task-row${isDone ? ' done' : ''}" onclick="toggleTask(this)" data-idx="${stateKey}">
           <div class="task-check"><span class="check-icon">✓</span></div>
-          <span class="task-type type-${task.type}">${task.type === 'pc' ? 'PC' : 'Physisch'}</span>
+          <div class="task-tags-wrap">${tagsHtml}</div>
           <span class="task-text">${task.text}</span>
           <span class="task-hrs">${task.hours}</span>
         </div>

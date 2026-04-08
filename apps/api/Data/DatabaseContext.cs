@@ -159,6 +159,18 @@ public class DatabaseContext
                 hours       TEXT NOT NULL DEFAULT '',
                 project_id  INTEGER NOT NULL DEFAULT 1
             );
+            CREATE TABLE IF NOT EXISTS task_tags (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL DEFAULT 1,
+                name       TEXT NOT NULL,
+                color      TEXT NOT NULL DEFAULT '#4f8ef7',
+                sort_order INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS task_tag_assignments (
+                task_id INTEGER NOT NULL,
+                tag_id  INTEGER NOT NULL,
+                PRIMARY KEY (task_id, tag_id)
+            );
             CREATE TABLE IF NOT EXISTS calendar_events (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 title       TEXT NOT NULL,

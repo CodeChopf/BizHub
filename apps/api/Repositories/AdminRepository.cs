@@ -94,6 +94,17 @@ public class AdminRepository : IAdminRepository
         delSubs.Parameters.AddWithValue("@pid", projectId);
         delSubs.ExecuteNonQuery();
 
+        using var delTagAssign = con.CreateCommand();
+        delTagAssign.CommandText = @"
+            DELETE FROM task_tag_assignments WHERE task_id IN (
+                SELECT t.id FROM tasks t
+                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
+                WHERE t.week_number = @n
+            )";
+        delTagAssign.Parameters.AddWithValue("@n",   number);
+        delTagAssign.Parameters.AddWithValue("@pid", projectId);
+        delTagAssign.ExecuteNonQuery();
+
         using var delTasks = con.CreateCommand();
         delTasks.CommandText = @"
             DELETE FROM tasks WHERE week_number = @n
@@ -128,6 +139,8 @@ public class AdminRepository : IAdminRepository
         sortCmd.Parameters.AddWithValue("@w", req.WeekNumber);
         var nextSort = (long)(sortCmd.ExecuteScalar() ?? 1L);
 
+        using var tx = con.BeginTransaction();
+
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO tasks (week_number, sort_order, type, text, hours, project_id)
@@ -141,32 +154,51 @@ public class AdminRepository : IAdminRepository
         cmd.Parameters.AddWithValue("@pid", projectId);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
 
-        return new AppTask
+        foreach (var tagId in req.TagIds)
         {
-            Type = req.Type,
-            Text = req.Text,
-            Hours = req.Hours
-        };
+            using var tagCmd = con.CreateCommand();
+            tagCmd.CommandText = "INSERT OR IGNORE INTO task_tag_assignments (task_id, tag_id) VALUES (@tid, @gid)";
+            tagCmd.Parameters.AddWithValue("@tid", id);
+            tagCmd.Parameters.AddWithValue("@gid", tagId);
+            tagCmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+
+        return new AppTask { Id = (int)id, Type = req.Type, Text = req.Text, Hours = req.Hours };
     }
 
     public AppTask UpdateTask(int id, UpdateTaskRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using var tx = con.BeginTransaction();
+
         using var cmd = con.CreateCommand();
         cmd.CommandText = "UPDATE tasks SET type = @t, text = @tx, hours = @h WHERE id = @id";
-        cmd.Parameters.AddWithValue("@t", req.Type);
+        cmd.Parameters.AddWithValue("@t",  req.Type);
         cmd.Parameters.AddWithValue("@tx", req.Text);
-        cmd.Parameters.AddWithValue("@h", req.Hours);
+        cmd.Parameters.AddWithValue("@h",  req.Hours);
         cmd.Parameters.AddWithValue("@id", id);
         cmd.ExecuteNonQuery();
 
-        return new AppTask
+        using var delTags = con.CreateCommand();
+        delTags.CommandText = "DELETE FROM task_tag_assignments WHERE task_id = @id";
+        delTags.Parameters.AddWithValue("@id", id);
+        delTags.ExecuteNonQuery();
+
+        foreach (var tagId in req.TagIds)
         {
-            Type = req.Type,
-            Text = req.Text,
-            Hours = req.Hours
-        };
+            using var tagCmd = con.CreateCommand();
+            tagCmd.CommandText = "INSERT OR IGNORE INTO task_tag_assignments (task_id, tag_id) VALUES (@tid, @gid)";
+            tagCmd.Parameters.AddWithValue("@tid", id);
+            tagCmd.Parameters.AddWithValue("@gid", tagId);
+            tagCmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+
+        return new AppTask { Id = id, Type = req.Type, Text = req.Text, Hours = req.Hours };
     }
 
     public void DeleteTask(int id)
@@ -178,6 +210,10 @@ public class AdminRepository : IAdminRepository
         delSub.CommandText = "DELETE FROM subtasks WHERE task_id = @id";
         delSub.Parameters.AddWithValue("@id", id);
         delSub.ExecuteNonQuery();
+        using var delTags = con.CreateCommand();
+        delTags.CommandText = "DELETE FROM task_tag_assignments WHERE task_id = @id";
+        delTags.Parameters.AddWithValue("@id", id);
+        delTags.ExecuteNonQuery();
         using var cmd = con.CreateCommand();
         cmd.CommandText = "DELETE FROM tasks WHERE id = @id";
         cmd.Parameters.AddWithValue("@id", id);

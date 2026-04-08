@@ -54,7 +54,7 @@ function showPage(id) {
         });
     }
     if (id === 'overview') { updateDashboardCards(); loadDashboardAsync(); }
-    if (id === 'admin') renderAdmin();
+    if (id === 'admin') { loadTaskTags().then(() => renderAdmin()); }
     if (id === 'meilensteine') renderMilestones();
     if (id === 'produkte') renderProdukte();
     if (id === 'produktion') renderProduktion();
@@ -139,13 +139,14 @@ function updateOverview() {
     if (cwBody && cwTasksEl) {
         cwBody.querySelectorAll('.task-row').forEach(row => {
             const isDone = row.classList.contains('done');
-            const type = row.querySelector('.task-type').textContent.trim();
-            const text = row.querySelector('.task-text').textContent.trim();
-            const hrs = row.querySelector('.task-hrs').textContent.trim();
+            const text = row.querySelector('.task-text')?.textContent.trim() ?? '';
+            const hrs  = row.querySelector('.task-hrs')?.textContent.trim() ?? '';
+            const firstChip = row.querySelector('.task-tag-chip');
+            const dotColor = firstChip ? firstChip.style.color : 'var(--text3)';
             const div = document.createElement('div');
             div.className = 'cw-task' + (isDone ? ' done' : '');
             div.innerHTML = `
-        <div class="task-dot ${type === 'PC' ? 'dot-pc' : 'dot-phys'}"></div>
+        <div class="task-dot" style="background:${dotColor}"></div>
         <span style="flex:1">${text}</span>
         <span style="font-size:11px;color:var(--text3);flex-shrink:0;padding-left:10px">${hrs}</span>`;
             div.onclick = (e) => {
@@ -297,6 +298,89 @@ async function loadDashboardAsync() {
     } catch { /* silently ignore */ }
 }
 
+// ── TASK TAGS ──
+let taskTags = [];
+
+async function loadTaskTags() {
+    try {
+        taskTags = await api(withProject('/api/task-tags')) ?? [];
+    } catch { taskTags = []; }
+}
+
+function renderTagsSection() {
+    const el = document.getElementById('admin-tags-section');
+    if (!el) return;
+    const chipsHtml = taskTags.map(tag => `
+        <div class="admin-tag-chip" style="background:${tag.color}22;color:${tag.color};border-color:${tag.color}44">
+            <span class="admin-tag-name">${tag.name}</span>
+            <button class="admin-tag-edit-btn" onclick="openEditTagModal(${tag.id})" title="Bearbeiten">✏️</button>
+            <button class="admin-tag-del-btn" onclick="deleteTaskTag(${tag.id})" title="Löschen">×</button>
+        </div>`).join('');
+    el.innerHTML = `
+        <div class="admin-tags-header">Tags</div>
+        <div class="admin-tag-row">
+            ${chipsHtml}
+            <button class="admin-add-tag-btn" onclick="openNewTagModal()">+ Tag</button>
+        </div>`;
+}
+
+let _editingTagId = null;
+
+function openNewTagModal() {
+    _editingTagId = null;
+    document.getElementById('tag-modal-title').textContent = 'Tag erstellen';
+    document.getElementById('tag-name').value = '';
+    document.getElementById('tag-color').value = '#4f8ef7';
+    document.getElementById('tag-modal').classList.add('open');
+}
+
+function openEditTagModal(tagId) {
+    const tag = taskTags.find(t => t.id === tagId);
+    if (!tag) return;
+    _editingTagId = tagId;
+    document.getElementById('tag-modal-title').textContent = 'Tag bearbeiten';
+    document.getElementById('tag-name').value = tag.name;
+    document.getElementById('tag-color').value = tag.color;
+    document.getElementById('tag-modal').classList.add('open');
+}
+
+function closeTagModal() {
+    document.getElementById('tag-modal').classList.remove('open');
+}
+
+async function saveTag() {
+    const name  = document.getElementById('tag-name').value.trim();
+    const color = document.getElementById('tag-color').value.trim();
+    if (!name) { showToast('Name ist ein Pflichtfeld.'); return; }
+    try {
+        if (_editingTagId !== null) {
+            await api(withProject('/api/task-tags/' + _editingTagId), 'PUT', { name, color });
+            showToast('✓ Tag aktualisiert');
+        } else {
+            await api(withProject('/api/task-tags'), 'POST', { name, color });
+            showToast('✓ Tag erstellt');
+        }
+        await loadTaskTags();
+        renderTagsSection();
+        renderAdmin();
+        closeTagModal();
+    } catch { showToast('Fehler beim Speichern.'); }
+}
+
+async function deleteTaskTag(tagId) {
+    if (!confirm('Tag löschen?')) return;
+    try {
+        await api(withProject('/api/task-tags/' + tagId), 'DELETE');
+        await loadTaskTags();
+        renderTagsSection();
+        appData = await api(withProject('/api/data'));
+        renderRoadmap();
+        renderAdmin();
+        updateAll();
+        showToast('✓ Tag gelöscht');
+    } catch { showToast('Fehler beim Löschen.'); }
+}
+
 // ── ADMIN ──
 let editingWeekNumber = null;
 let editingTaskId = null;
@@ -304,32 +388,42 @@ let editingTaskWeekNumber = null;
 
 function renderAdmin() {
     if (!appData) return;
+    renderTagsSection();
     const container = document.getElementById('admin-content');
     container.innerHTML = '';
 
     appData.weeks.forEach(week => {
+        const taskCount = week.tasks?.length ?? 0;
         const div = document.createElement('div');
         div.className = 'admin-week';
         div.innerHTML = `
-      <div class="admin-week-header">
-        <span class="admin-week-num">W0${week.number}</span>
+      <div class="admin-week-header" onclick="toggleAdminWeek(${week.number})">
+        <span class="admin-week-chev" id="admin-chev-${week.number}">▶</span>
+        <span class="admin-week-num">W${String(week.number).padStart(2,'0')}</span>
         <div style="flex:1">
           <div class="admin-week-title">${week.title}</div>
-          <div class="admin-week-phase">${week.phase}</div>
+          <div class="admin-week-phase">${week.phase} · ${taskCount} Tasks</div>
         </div>
-        <div class="admin-week-actions">
+        <div class="admin-week-actions" onclick="event.stopPropagation()">
           <button class="btn-icon" onclick="openEditWeekModal(${week.number})">✏️ Bearbeiten</button>
           <button class="btn-icon danger" onclick="deleteWeek(${week.number})">🗑 Löschen</button>
         </div>
       </div>
       <div class="admin-tasks" id="admin-tasks-${week.number}">
         ${renderAdminTasks(week)}
-      </div>
-      <button class="admin-add-task" onclick="openNewTaskModal(${week.number})">+ Task hinzufügen</button>`;
+        <button class="admin-add-task" onclick="openNewTaskModal(${week.number})">+ Task hinzufügen</button>
+      </div>`;
         container.appendChild(div);
     });
 
     initDragDrop();
+}
+
+function toggleAdminWeek(number) {
+    const body = document.getElementById('admin-tasks-' + number);
+    const chev = document.getElementById('admin-chev-' + number);
+    if (body) body.classList.toggle('open');
+    if (chev) chev.classList.toggle('open');
 }
 
 function renderAdminTasks(week) {
@@ -338,6 +432,7 @@ function renderAdminTasks(week) {
     }
     return week.tasks.map(task => {
         const subs = task.subtasks ?? [];
+        const tags = task.tags ?? [];
         const subsHtml = subs.map(sub => `
       <div class="admin-subtask-row" data-subtask-id="${sub.id}">
         <span class="subtask-indent">↳</span>
@@ -347,10 +442,14 @@ function renderAdminTasks(week) {
         <button class="btn-icon danger" onclick="deleteSubtask(${sub.id},${task.id})">🗑</button>
       </div>`).join('');
 
+        const tagsHtml = tags.length > 0
+            ? tags.map(t => `<span class="task-tag-chip" style="background:${t.color}22;color:${t.color}">${t.name}</span>`).join('')
+            : (task.type ? `<span class="task-tag-chip" style="background:var(--border2);color:var(--text3)">${task.type === 'pc' ? 'PC' : task.type === 'phys' ? 'Physisch' : task.type}</span>` : '');
+
         return `
       <div class="admin-task-row" data-task-db-id="${task.id}">
         <span class="drag-handle">⠿</span>
-        <span class="task-type type-${task.type}">${task.type === 'pc' ? 'PC' : 'Physisch'}</span>
+        <div class="admin-task-tags">${tagsHtml}</div>
         <span class="admin-task-text">${task.text}</span>
         <span class="admin-task-hrs">${task.hours}</span>
         <button class="btn-icon" onclick="openEditTaskModal(${task.id}, ${week.number})">✏️</button>
@@ -471,14 +570,36 @@ async function deleteWeek(number) {
     } catch { showToast('Fehler beim Löschen.'); }
 }
 
+function renderTaskTagSelector(selectedTagIds) {
+    const el = document.getElementById('task-tag-selector');
+    if (!el) return;
+    if (!taskTags.length) {
+        el.innerHTML = '<span style="font-size:12px;color:var(--text3)">Keine Tags vorhanden. Zuerst Tags erstellen.</span>';
+        return;
+    }
+    el.innerHTML = taskTags.map(tag => {
+        const sel = selectedTagIds.includes(tag.id);
+        return `<button type="button" class="task-tag-btn${sel ? ' selected' : ''}"
+            data-tag-id="${tag.id}"
+            style="border-color:${tag.color};color:${tag.color};background:${sel ? tag.color + '22' : 'transparent'}"
+            onclick="toggleTaskTagBtn(this, '${tag.color}')">${tag.name}</button>`;
+    }).join('');
+}
+
+function toggleTaskTagBtn(btn, color) {
+    btn.classList.toggle('selected');
+    const isSel = btn.classList.contains('selected');
+    btn.style.background = isSel ? color + '22' : 'transparent';
+}
+
 function openNewTaskModal(weekNumber) {
     editingTaskId = null;
     editingTaskWeekNumber = weekNumber;
     document.getElementById('task-modal-title').textContent = 'Task erstellen';
     document.getElementById('task-modal-save').textContent = 'Erstellen';
-    document.getElementById('task-type').value = 'pc';
     document.getElementById('task-text').value = '';
     document.getElementById('task-hours').value = '';
+    renderTaskTagSelector([]);
     document.getElementById('task-modal').classList.add('open');
 }
 
@@ -491,9 +612,9 @@ function openEditTaskModal(taskDbId, weekNumber) {
     editingTaskWeekNumber = weekNumber;
     document.getElementById('task-modal-title').textContent = 'Task bearbeiten';
     document.getElementById('task-modal-save').textContent = 'Speichern';
-    document.getElementById('task-type').value = task.type;
     document.getElementById('task-text').value = task.text;
     document.getElementById('task-hours').value = task.hours;
+    renderTaskTagSelector((task.tags ?? []).map(t => t.id));
     document.getElementById('task-modal').classList.add('open');
 }
 
@@ -502,18 +623,19 @@ function closeTaskModal() {
 }
 
 async function saveTask() {
-    const type = document.getElementById('task-type').value;
-    const text = document.getElementById('task-text').value.trim();
+    const text  = document.getElementById('task-text').value.trim();
     const hours = document.getElementById('task-hours').value.trim();
+    const tagIds = [...document.querySelectorAll('#task-tag-selector .task-tag-btn.selected')]
+        .map(btn => parseInt(btn.dataset.tagId));
 
     if (!text || !hours) { showToast('Beschreibung und Zeitaufwand sind Pflichtfelder.'); return; }
 
     try {
         if (editingTaskId !== null) {
-            await api(withProject('/api/admin/tasks/' + editingTaskId), 'PUT', { type, text, hours });
+            await api(withProject('/api/admin/tasks/' + editingTaskId), 'PUT', { type: '', text, hours, tagIds });
             showToast('✓ Task aktualisiert');
         } else {
-            await api(withProject('/api/admin/tasks'), 'POST', { weekNumber: editingTaskWeekNumber, type, text, hours });
+            await api(withProject('/api/admin/tasks'), 'POST', { weekNumber: editingTaskWeekNumber, type: '', text, hours, tagIds });
             showToast('✓ Task erstellt');
         }
         appData = await api(withProject('/api/data'));

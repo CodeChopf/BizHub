@@ -85,6 +85,27 @@ public class RoadmapRepository : IRoadmapRepository
                         Hours = sReader.GetString(3)
                     });
                 }
+
+                using var tagCmd = con.CreateCommand();
+                tagCmd.CommandText = @"
+                    SELECT tta.task_id, tt.id, tt.name, tt.color
+                    FROM task_tag_assignments tta
+                    JOIN task_tags tt ON tt.id = tta.tag_id
+                    WHERE tt.project_id = @pid
+                    ORDER BY tta.task_id, tt.sort_order, tt.name";
+                tagCmd.Parameters.AddWithValue("@pid", projectId);
+                using var tagReader = tagCmd.ExecuteReader();
+                while (tagReader.Read())
+                {
+                    var taskId = tagReader.GetInt32(0);
+                    if (!taskMap.TryGetValue(taskId, out var parentTask)) continue;
+                    parentTask.Tags.Add(new TaskTag
+                    {
+                        Id    = tagReader.GetInt32(1),
+                        Name  = tagReader.GetString(2),
+                        Color = tagReader.GetString(3)
+                    });
+                }
             }
         }
 

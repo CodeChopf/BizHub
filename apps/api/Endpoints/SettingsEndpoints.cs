@@ -30,7 +30,7 @@ public static class SettingsEndpoints
         });
 
         // GET /api/export
-        app.MapGet("/api/export", (HttpRequest request, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo) =>
+        app.MapGet("/api/export", (HttpRequest request, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo, ITaskTagRepository taskTagRepo) =>
         {
             var projectId = ApiHelpers.GetProjectId(request);
             var settings = settingsRepo.GetSettings(projectId);
@@ -38,6 +38,7 @@ public static class SettingsEndpoints
             var finance = expenseRepo.GetAll(projectId);
             var state = stateRepo.GetState(projectId);
             var catalog = catalogRepo.GetAll(projectId);
+            var taskTags = taskTagRepo.GetAll(projectId);
 
             var catalogJson = new
             {
@@ -99,6 +100,7 @@ public static class SettingsEndpoints
                 version = "1.0",
                 settings,
                 state,
+                taskTags,
                 weeks = roadmap.Weeks,
                 finance,
                 catalog = catalogJson
@@ -138,11 +140,50 @@ public static class SettingsEndpoints
                     if (state != null) stateRepo.SaveState(projectId, state);
                 }
 
+                // Import task tags (before weeks so assignments can reference them)
+                if (body.TryGetProperty("taskTags", out var taskTagsEl) && taskTagsEl.ValueKind == JsonValueKind.Array)
+                {
+                    using var con0 = dbContext.CreateConnection();
+                    con0.Open();
+                    using var tx0 = con0.BeginTransaction();
+
+                    using var delTagAssign0 = con0.CreateCommand();
+                    delTagAssign0.CommandText = "DELETE FROM task_tag_assignments WHERE tag_id IN (SELECT id FROM task_tags WHERE project_id = @pid)";
+                    delTagAssign0.Parameters.AddWithValue("@pid", projectId);
+                    delTagAssign0.ExecuteNonQuery();
+
+                    using var delTags0 = con0.CreateCommand();
+                    delTags0.CommandText = "DELETE FROM task_tags WHERE project_id = @pid";
+                    delTags0.Parameters.AddWithValue("@pid", projectId);
+                    delTags0.ExecuteNonQuery();
+
+                    var importedTags = JsonSerializer.Deserialize<List<JsonElement>>(taskTagsEl.GetRawText(), ApiHelpers.JsonOptions);
+                    if (importedTags != null)
+                    {
+                        foreach (var tag in importedTags)
+                        {
+                            using var tgCmd = con0.CreateCommand();
+                            tgCmd.CommandText = "INSERT INTO task_tags (id, project_id, name, color) VALUES (@id, @pid, @n, @c)";
+                            tgCmd.Parameters.AddWithValue("@id",  tag.GetProperty("id").GetInt32());
+                            tgCmd.Parameters.AddWithValue("@pid", projectId);
+                            tgCmd.Parameters.AddWithValue("@n",   tag.GetProperty("name").GetString() ?? "");
+                            tgCmd.Parameters.AddWithValue("@c",   tag.TryGetProperty("color", out var tc) ? tc.GetString() ?? "#4f8ef7" : "#4f8ef7");
+                            tgCmd.ExecuteNonQuery();
+                        }
+                    }
+                    tx0.Commit();
+                }
+
                 if (body.TryGetProperty("weeks", out var weeksEl))
                 {
                     using var con1 = dbContext.CreateConnection();
                     con1.Open();
                     using var tx1 = con1.BeginTransaction();
+
+                    using var delTagAssign1 = con1.CreateCommand();
+                    delTagAssign1.CommandText = "DELETE FROM task_tag_assignments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = @pid)";
+                    delTagAssign1.Parameters.AddWithValue("@pid", projectId);
+                    delTagAssign1.ExecuteNonQuery();
 
                     using var delSubs = con1.CreateCommand();
                     delSubs.CommandText = "DELETE FROM subtasks WHERE task_id IN (SELECT id FROM tasks WHERE project_id = @pid)";
@@ -218,6 +259,24 @@ public static class SettingsEndpoints
                                                     sCmd.Parameters.AddWithValue("@h",   sub.TryGetProperty("hours", out var sh) ? sh.GetString() ?? "" : "");
                                                     sCmd.Parameters.AddWithValue("@pid", projectId);
                                                     sCmd.ExecuteNonQuery();
+                                                }
+                                            }
+                                        }
+
+                                        // Restore tag assignments
+                                        if (task.TryGetProperty("tags", out var tagsEl) && tagsEl.ValueKind == JsonValueKind.Array)
+                                        {
+                                            var tagList = JsonSerializer.Deserialize<List<JsonElement>>(tagsEl.GetRawText(), ApiHelpers.JsonOptions);
+                                            if (tagList != null)
+                                            {
+                                                foreach (var tagEl in tagList)
+                                                {
+                                                    if (!tagEl.TryGetProperty("id", out var tagIdEl)) continue;
+                                                    using var taCmd = con1.CreateCommand();
+                                                    taCmd.CommandText = "INSERT OR IGNORE INTO task_tag_assignments (task_id, tag_id) VALUES (@tid, @gid)";
+                                                    taCmd.Parameters.AddWithValue("@tid", newTaskId);
+                                                    taCmd.Parameters.AddWithValue("@gid", tagIdEl.GetInt32());
+                                                    taCmd.ExecuteNonQuery();
                                                 }
                                             }
                                         }
