@@ -49,11 +49,15 @@ function updateAll() {
 
     const circumference = 2 * Math.PI * 50;
     const filled = (pct / 100) * circumference;
-    document.getElementById('donut-fill').setAttribute('stroke-dasharray', `${filled} ${circumference}`);
-    document.getElementById('donut-pct').textContent = pct + '%';
-    document.getElementById('stat-done').textContent = done;
-    document.getElementById('stat-open').textContent = total - done;
-    document.getElementById('stat-weeks').textContent = appData.weeks.length;
+    document.getElementById('donut-fill')?.setAttribute('stroke-dasharray', `${filled} ${circumference}`);
+    const donutPct = document.getElementById('donut-pct');
+    if (donutPct) donutPct.textContent = pct + '%';
+    const statDone = document.getElementById('stat-done');
+    if (statDone) statDone.textContent = done;
+    const statOpen = document.getElementById('stat-open');
+    if (statOpen) statOpen.textContent = total - done;
+    const statWeeks = document.getElementById('stat-weeks');
+    if (statWeeks) statWeeks.textContent = appData.weeks.length;
 
     renderKpis();
 
@@ -81,27 +85,34 @@ function updateOverview() {
     const week = appData.weeks.find(w => w.number === currentWeek);
     const weekRanges = getWeekRanges();
     if (!week) {
-        document.getElementById('cw-badge').textContent = '';
-        document.getElementById('cw-title').textContent = '';
-        document.getElementById('cw-date').textContent = '';
-        document.getElementById('cw-tasks').innerHTML = '';
-        document.getElementById('weeks-grid').innerHTML = '';
+        const cwBadge = document.getElementById('cw-badge');
+        if (cwBadge) cwBadge.textContent = '';
+        const cwTitle = document.getElementById('cw-title');
+        if (cwTitle) cwTitle.textContent = '';
+        const cwDate = document.getElementById('cw-date');
+        if (cwDate) cwDate.textContent = '';
+        const cwTasks = document.getElementById('cw-tasks');
+        if (cwTasks) cwTasks.innerHTML = '';
+        const weeksGrid = document.getElementById('weeks-grid');
+        if (weeksGrid) weeksGrid.innerHTML = '';
         return;
     }
 
-    document.getElementById('cw-badge').textContent = 'Woche ' + currentWeek;
-    document.getElementById('cw-title').textContent = week.title;
+    const cwBadgeEl = document.getElementById('cw-badge');
+    if (cwBadgeEl) cwBadgeEl.textContent = 'Woche ' + currentWeek;
+    const cwTitleEl = document.getElementById('cw-title');
+    if (cwTitleEl) cwTitleEl.textContent = week.title;
     const wIdx = currentWeek - 1;
     if (wIdx < weekRanges.length) {
-        document.getElementById('cw-date').textContent =
-            fmt(weekRanges[wIdx].start) + ' – ' + fmt(weekRanges[wIdx].end);
+        const cwDateEl = document.getElementById('cw-date');
+        if (cwDateEl) cwDateEl.textContent = fmt(weekRanges[wIdx].start) + ' – ' + fmt(weekRanges[wIdx].end);
     }
 
     const cwBody = document.getElementById('wb-' + currentWeek);
     const cwTasksEl = document.getElementById('cw-tasks');
-    cwTasksEl.innerHTML = '';
+    if (cwTasksEl) cwTasksEl.innerHTML = '';
 
-    if (cwBody) {
+    if (cwBody && cwTasksEl) {
         cwBody.querySelectorAll('.task-row').forEach(row => {
             const isDone = row.classList.contains('done');
             const type = row.querySelector('.task-type').textContent.trim();
@@ -126,6 +137,7 @@ function updateOverview() {
     }
 
     const grid = document.getElementById('weeks-grid');
+    if (!grid) return;
     grid.innerHTML = '';
     appData.weeks.forEach(week => {
         const w = week.number;
