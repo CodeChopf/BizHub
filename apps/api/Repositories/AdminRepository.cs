@@ -81,14 +81,19 @@ public class AdminRepository : IAdminRepository
     {
         using var con = _context.CreateConnection();
         con.Open();
+
+        // Disable FK checking — old DB files may have a legacy FK from tasks.week_number
+        // -> weeks.number that became invalid after the weeks UNIQUE constraint migration.
+        using var fkOff = con.CreateCommand();
+        fkOff.CommandText = "PRAGMA foreign_keys = OFF";
+        fkOff.ExecuteNonQuery();
+
         using var tx = con.BeginTransaction();
 
         using var delSubs = con.CreateCommand();
         delSubs.CommandText = @"
             DELETE FROM subtasks WHERE task_id IN (
-                SELECT t.id FROM tasks t
-                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
-                WHERE t.week_number = @n
+                SELECT id FROM tasks WHERE week_number = @n AND project_id = @pid
             )";
         delSubs.Parameters.AddWithValue("@n",   number);
         delSubs.Parameters.AddWithValue("@pid", projectId);
@@ -97,18 +102,14 @@ public class AdminRepository : IAdminRepository
         using var delTagAssign = con.CreateCommand();
         delTagAssign.CommandText = @"
             DELETE FROM task_tag_assignments WHERE task_id IN (
-                SELECT t.id FROM tasks t
-                JOIN weeks w ON w.number = t.week_number AND w.project_id = @pid
-                WHERE t.week_number = @n
+                SELECT id FROM tasks WHERE week_number = @n AND project_id = @pid
             )";
         delTagAssign.Parameters.AddWithValue("@n",   number);
         delTagAssign.Parameters.AddWithValue("@pid", projectId);
         delTagAssign.ExecuteNonQuery();
 
         using var delTasks = con.CreateCommand();
-        delTasks.CommandText = @"
-            DELETE FROM tasks WHERE week_number = @n
-            AND EXISTS (SELECT 1 FROM weeks WHERE number = @n AND project_id = @pid)";
+        delTasks.CommandText = "DELETE FROM tasks WHERE week_number = @n AND project_id = @pid";
         delTasks.Parameters.AddWithValue("@n",   number);
         delTasks.Parameters.AddWithValue("@pid", projectId);
         delTasks.ExecuteNonQuery();
