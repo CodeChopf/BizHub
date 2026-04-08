@@ -100,6 +100,7 @@ function updateAll() {
 
     updateOverview();
     updateDashboardCards();
+    renderRoadmapProgress();
 }
 
 function updateOverview() {
