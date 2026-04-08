@@ -203,6 +203,8 @@ async function loadProject() {
     renderFinanzen();
     updateAll();
     updateOverdueBanner();
+    updateDashboardCards();
+    loadDashboardAsync();
 
     const cwBody = document.getElementById('wb-' + currentWeek);
     const cwChev = document.getElementById('chev-' + currentWeek);

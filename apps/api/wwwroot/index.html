@@ -235,57 +235,74 @@
                     <div class="page-header-right" id="topbar-date"></div>
                 </div>
                 <div id="overview-project-image" style="margin-bottom:16px"></div>
-                <div class="kpi-strip" id="kpi-strip"></div>
-                <div class="overview-grid">
-                    <div class="overview-left">
-                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
-                            <div class="card-header">
-                                <div class="card-title">Diese Woche</div>
-                                <div class="card-badge" id="cw-badge"></div>
-                            </div>
-                            <div class="cw-title" id="cw-title">Lädt...</div>
-                            <div class="cw-date" id="cw-date"></div>
-                            <div id="cw-tasks"></div>
+
+                <div class="dash-grid" id="dash-grid">
+
+                    <!-- Roadmap Card -->
+                    <div class="dash-card dash-card--blue" id="dash-card-roadmap" onclick="showPage('roadmap')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">📋</span>
+                            <span class="dash-card-name">Roadmap</span>
                         </div>
-                    </div>
-                    <div class="overview-right">
-                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
-                            <div class="card-header">
-                                <div class="card-title">Gesamtfortschritt</div>
-                            </div>
-                            <div class="donut-wrap">
-                                <svg viewBox="0 0 120 120" class="donut-svg">
-                                    <circle class="donut-bg" cx="60" cy="60" r="50" />
-                                    <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
-                                            stroke-dasharray="0 314" stroke-dashoffset="78" />
-                                </svg>
-                                <div class="donut-center">
-                                    <div class="donut-pct" id="donut-pct">0%</div>
-                                    <div class="donut-label">Erledigt</div>
-                                </div>
-                            </div>
-                            <div class="donut-stats">
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-done">0</div>
-                                    <div class="donut-stat-label">Erledigt</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-open">0</div>
-                                    <div class="donut-stat-label">Offen</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-weeks">0</div>
-                                    <div class="donut-stat-label">Wochen</div>
-                                </div>
+                        <div class="dash-card-body">
+                            <div class="dash-stat" id="dash-roadmap-progress">—</div>
+                            <div class="dash-stat-label">Gesamtfortschritt</div>
+                            <div class="dash-row" style="margin-top:12px">
+                                <span class="dash-chip" id="dash-roadmap-week">Woche —</span>
+                                <span class="dash-chip dash-chip--muted" id="dash-roadmap-tasks">— / — Tasks</span>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="card" style="margin-top:20px">
-                    <div class="card-header" onclick="showPage('roadmap')" style="cursor:pointer">
-                        <div class="card-title">Alle Wochen</div>
+
+                    <!-- Finanzen Card -->
+                    <div class="dash-card dash-card--green" id="dash-card-finanzen" onclick="showPage('finanzen')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">💰</span>
+                            <span class="dash-card-name">Finanzen</span>
+                        </div>
+                        <div class="dash-card-body">
+                            <div class="dash-stat" id="dash-fin-balance">—</div>
+                            <div class="dash-stat-label" id="dash-fin-balance-label">Bilanz</div>
+                            <div class="dash-row" style="margin-top:12px">
+                                <span class="dash-chip" id="dash-fin-income">↑ —</span>
+                                <span class="dash-chip dash-chip--muted" id="dash-fin-expenses">↓ —</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="weeks-grid" id="weeks-grid"></div>
+
+                    <!-- Kalender Card -->
+                    <div class="dash-card dash-card--purple" id="dash-card-kalender" onclick="showPage('kalender')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">📅</span>
+                            <span class="dash-card-name">Kalender</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-cal-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
+                    <!-- Produktion Card -->
+                    <div class="dash-card dash-card--amber" id="dash-card-produktion" onclick="showPage('produktion')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">🏭</span>
+                            <span class="dash-card-name">Produktion</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-prod-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
+                    <!-- Meilensteine Card -->
+                    <div class="dash-card dash-card--red" id="dash-card-meilensteine" onclick="showPage('meilensteine')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">🏁</span>
+                            <span class="dash-card-name">Meilensteine</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-ms-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -297,6 +314,8 @@
                         <div class="page-sub" id="roadmap-sub">Launch-Plan</div>
                     </div>
                 </div>
+                <div class="rm-progress-bar" id="rm-progress"></div>
+                <div class="rm-phase-tabs" id="rm-phase-tabs"></div>
                 <div id="roadmap-content"></div>
             </div>
 
@@ -375,6 +394,7 @@
                     </div>
                     <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
                 </div>
+                <div class="admin-tags-section" id="admin-tags-section"></div>
                 <div id="admin-content"></div>
             </div>
 
@@ -723,13 +743,48 @@
             </div>
             <div class="modal-body">
                 <div class="fin-type-toggle" id="exp-type-toggle">
-                    <button class="fin-type-btn active" id="exp-type-btn-expense" onclick="setExpModalType('expense')">Ausgabe</button>
-                    <button class="fin-type-btn" id="exp-type-btn-income" onclick="setExpModalType('income')">Einnahme</button>
+                    <button type="button" class="fin-type-btn active" id="exp-type-btn-expense" onclick="setExpModalType('expense')">Ausgabe</button>
+                    <button type="button" class="fin-type-btn" id="exp-type-btn-income" onclick="setExpModalType('income')">Einnahme</button>
                 </div>
                 <div class="form-group">
-                    <label>Kategorie</label>
-                    <select id="exp-category"></select>
+                    <label id="exp-cat-label">Kategorie</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <select id="exp-category" style="flex:1"></select>
+                        <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewExpCat()" title="Neue Kategorie erstellen">+</button>
+                    </div>
+                    <div id="exp-new-cat-wrap" style="display:none;margin-top:8px">
+                        <input type="text" id="exp-new-cat-name" list="expense-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <div style="display:flex;gap:6px">
+                            <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewExpCat()">Hinzufügen</button>
+                            <button type="button" class="btn-secondary" onclick="cancelNewExpCat()">Abbrechen</button>
+                        </div>
+                    </div>
                 </div>
+                <!-- Vordefinierte Kategorie-Vorschläge -->
+                <datalist id="expense-cat-suggestions">
+                    <option value="Material">
+                    <option value="Versand">
+                    <option value="Marketing">
+                    <option value="Software / Tools">
+                    <option value="Bürobedarf">
+                    <option value="Druck & Produktion">
+                    <option value="Miete / Raum">
+                    <option value="Steuern & Abgaben">
+                    <option value="Reise & Transport">
+                    <option value="Sonstiges">
+                </datalist>
+                <datalist id="income-cat-suggestions">
+                    <option value="Shopify">
+                    <option value="Etsy">
+                    <option value="Amazon">
+                    <option value="WooCommerce">
+                    <option value="Direktverkauf">
+                    <option value="Online-Shop">
+                    <option value="Messe / Markt">
+                    <option value="Kursgebühren">
+                    <option value="Beratung">
+                    <option value="Sonstiges">
+                </datalist>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Betrag</label>
@@ -741,11 +796,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Beschreibung</label>
+                    <label id="exp-description-label">Beschreibung</label>
                     <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg">
                 </div>
-                <div class="form-group">
-                    <label>Link (optional)</label>
+                <div class="form-group" id="exp-link-group">
+                    <label id="exp-link-label">Link (optional)</label>
                     <input type="url" id="exp-link" placeholder="https://...">
                 </div>
                 <div class="form-row">
@@ -758,7 +813,7 @@
                         <select id="exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="exp-attachment-group">
                     <label>Beleg (optional)</label>
                     <input type="file" id="exp-file" accept="image/*" onchange="handleFilePreview()" style="display:none">
                     <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
@@ -787,12 +842,22 @@
                 <input type="hidden" id="edit-exp-id">
                 <input type="hidden" id="edit-exp-type" value="expense">
                 <div class="fin-type-toggle">
-                    <button class="fin-type-btn active" id="edit-exp-type-btn-expense" onclick="setEditExpModalType('expense')">Ausgabe</button>
-                    <button class="fin-type-btn" id="edit-exp-type-btn-income" onclick="setEditExpModalType('income')">Einnahme</button>
+                    <button type="button" class="fin-type-btn active" id="edit-exp-type-btn-expense" onclick="setEditExpModalType('expense')">Ausgabe</button>
+                    <button type="button" class="fin-type-btn" id="edit-exp-type-btn-income" onclick="setEditExpModalType('income')">Einnahme</button>
                 </div>
                 <div class="form-group">
-                    <label>Kategorie</label>
-                    <select id="edit-exp-category"></select>
+                    <label id="edit-exp-cat-label">Kategorie</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <select id="edit-exp-category" style="flex:1"></select>
+                        <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewEditExpCat()" title="Neue Kategorie erstellen">+</button>
+                    </div>
+                    <div id="edit-exp-new-cat-wrap" style="display:none;margin-top:8px">
+                        <input type="text" id="edit-exp-new-cat-name" list="expense-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <div style="display:flex;gap:6px">
+                            <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewEditExpCat()">Hinzufügen</button>
+                            <button type="button" class="btn-secondary" onclick="cancelNewEditExpCat()">Abbrechen</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -805,11 +870,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Beschreibung</label>
+                    <label id="edit-exp-description-label">Beschreibung</label>
                     <input type="text" id="edit-exp-description">
                 </div>
-                <div class="form-group">
-                    <label>Link (optional)</label>
+                <div class="form-group" id="edit-exp-link-group">
+                    <label id="edit-exp-link-label">Link (optional)</label>
                     <input type="url" id="edit-exp-link" placeholder="https://...">
                 </div>
                 <div class="form-row">
@@ -822,7 +887,7 @@
                         <select id="edit-exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="edit-exp-attachment-group">
                     <label>Beleg hinzufügen (optional)</label>
                     <input type="file" id="edit-exp-file" accept="image/*" onchange="handleEditFilePreview()" style="display:none">
                     <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
@@ -911,11 +976,8 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>Typ</label>
-                    <select id="task-type">
-                        <option value="pc">PC</option>
-                        <option value="phys">Physisch</option>
-                    </select>
+                    <label>Tags</label>
+                    <div id="task-tag-selector" class="task-tag-selector"></div>
                 </div>
                 <div class="form-group">
                     <label>Beschreibung</label>
@@ -929,6 +991,54 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeTaskModal()">Abbrechen</button>
                 <button class="btn-primary" id="task-modal-save" onclick="saveTask()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Tag erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="tag-modal">
+        <div class="modal" style="max-width:360px">
+            <div class="modal-header">
+                <div class="modal-title" id="tag-modal-title">Tag erstellen</div>
+                <button class="modal-close" onclick="closeTagModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="tag-name" placeholder="z.B. Design, Druck, PC...">
+                </div>
+                <div class="form-group">
+                    <label>Farbe</label>
+                    <input type="color" id="tag-color" value="#4f8ef7">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTagModal()">Abbrechen</button>
+                <button class="btn-primary" onclick="saveTag()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Unteraufgabe erstellen/bearbeiten -->
+    <div class="modal-backdrop" id="subtask-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="subtask-modal-title">Unteraufgabe erstellen</div>
+                <button class="modal-close" onclick="closeSubtaskModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" id="subtask-text" placeholder="z.B. Datei vorbereiten, Upload, Review...">
+                </div>
+                <div class="form-group">
+                    <label>Zeitaufwand (optional)</label>
+                    <input type="text" id="subtask-hours" placeholder="z.B. 0.5h oder 1h">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSubtaskModal()">Abbrechen</button>
+                <button class="btn-primary" id="subtask-modal-save" onclick="saveSubtask()">Erstellen</button>
             </div>
         </div>
     </div>

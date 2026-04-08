@@ -6,4 +6,6 @@ public class AppTask
     public string Type { get; set; } = "";
     public string Text { get; set; } = "";
     public string Hours { get; set; } = "";
+    public List<AppSubtask> Subtasks { get; set; } = new();
+    public List<TaskTag> Tags { get; set; } = new();
 }

@@ -20,7 +20,7 @@ public class ExpenseRepository : IExpenseRepository
         // Kategorien laden
         var categories = new List<Category>();
         using var cCmd = con.CreateCommand();
-        cCmd.CommandText = "SELECT id, name, color FROM categories WHERE project_id = @pid ORDER BY name";
+        cCmd.CommandText = "SELECT id, name, color, type FROM categories WHERE project_id = @pid ORDER BY name";
         cCmd.Parameters.AddWithValue("@pid", projectId);
         using var cReader = cCmd.ExecuteReader();
         while (cReader.Read())
@@ -29,7 +29,8 @@ public class ExpenseRepository : IExpenseRepository
             {
                 Id = cReader.GetInt32(0),
                 Name = cReader.GetString(1),
-                Color = cReader.GetString(2)
+                Color = cReader.GetString(2),
+                Type = cReader.IsDBNull(3) ? "expense" : cReader.GetString(3)
             });
         }
 

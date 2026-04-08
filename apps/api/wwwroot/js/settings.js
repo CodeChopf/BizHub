@@ -43,6 +43,9 @@ function applyTabVisibility(visibleTabsJson) {
         const visible = tabs[id] !== false;
         const navEl = document.getElementById('nav-' + id);
         if (navEl) navEl.style.display = visible ? '' : 'none';
+        // Mirror visibility on dashboard card
+        const dashCard = document.getElementById('dash-card-' + id);
+        if (dashCard) dashCard.style.display = visible ? '' : 'none';
         // Update toggle checkbox in settings
         const toggle = document.getElementById('tab-toggle-' + id);
         if (toggle) toggle.checked = visible;

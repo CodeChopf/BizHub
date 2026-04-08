@@ -30,6 +30,7 @@ builder.Services.AddSingleton<ICalendarRepository, CalendarRepository>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
 builder.Services.AddSingleton<IInviteRepository, InviteRepository>();
+builder.Services.AddSingleton<ITaskTagRepository, TaskTagRepository>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => {

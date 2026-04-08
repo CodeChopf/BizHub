@@ -44,7 +44,8 @@ public static class FinanceEndpoints
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
             var name = body.GetProperty("name").GetString() ?? "";
             var color = body.TryGetProperty("color", out var c) ? c.GetString() ?? "#4f8ef7" : "#4f8ef7";
-            return Results.Ok(repo.Add(ApiHelpers.GetProjectId(request), name, color));
+            var type  = body.TryGetProperty("type",  out var t) ? t.GetString() ?? "expense" : "expense";
+            return Results.Ok(repo.Add(ApiHelpers.GetProjectId(request), name, color, type));
         });
 
         // PUT /api/categories/{id}

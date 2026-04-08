@@ -175,21 +175,80 @@ function handleEditFilePreview() {
 // ── EXPENSE MODAL ──
 let _expModalType = 'expense';
 
+function buildCategoryOptions(type) {
+    const cats = (financeData?.categories ?? []).filter(c => (c.type ?? 'expense') === type);
+    return cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
 function setExpModalType(type) {
     _expModalType = type;
-    document.getElementById('exp-type-btn-expense').classList.toggle('active', type === 'expense');
-    document.getElementById('exp-type-btn-income').classList.toggle('active', type === 'income');
+    const isIncome = type === 'income';
+    document.getElementById('exp-type-btn-expense').classList.toggle('active', !isIncome);
+    document.getElementById('exp-type-btn-income').classList.toggle('active', isIncome);
     const title = document.getElementById('expense-modal-title');
-    if (title) title.textContent = type === 'income' ? 'Einnahme erfassen' : 'Ausgabe erfassen';
+    if (title) title.textContent = isIncome ? 'Einnahme erfassen' : 'Ausgabe erfassen';
+
+    const descInput = document.getElementById('exp-description');
+    if (descInput) descInput.placeholder = isIncome ? 'z.B. Etsy-Verkauf, Kursgebühren...' : 'z.B. Filament PLA 1kg';
+
+    const linkLabel = document.getElementById('exp-link-label');
+    if (linkLabel) linkLabel.textContent = isIncome ? 'Plattform (optional)' : 'Link (optional)';
+    const linkInput = document.getElementById('exp-link');
+    if (linkInput) {
+        linkInput.type = isIncome ? 'text' : 'url';
+        linkInput.placeholder = isIncome ? 'z.B. Etsy, Shopify, Amazon...' : 'https://...';
+    }
+    const attachGroup = document.getElementById('exp-attachment-group');
+    if (attachGroup) attachGroup.style.display = isIncome ? 'none' : '';
+
+    // Kategorien nach Typ filtern
+    const sel = document.getElementById('exp-category');
+    if (sel) sel.innerHTML = buildCategoryOptions(type);
+    // Datalist-Vorschläge je nach Typ umschalten
+    const catInp = document.getElementById('exp-new-cat-name');
+    if (catInp) catInp.setAttribute('list', isIncome ? 'income-cat-suggestions' : 'expense-cat-suggestions');
+    // Neue-Kategorie-Eingabe zurücksetzen
+    cancelNewExpCat();
+}
+
+function toggleNewExpCat() {
+    const wrap = document.getElementById('exp-new-cat-wrap');
+    if (!wrap) return;
+    const isVisible = wrap.style.display !== 'none';
+    wrap.style.display = isVisible ? 'none' : '';
+    if (!isVisible) document.getElementById('exp-new-cat-name')?.focus();
+}
+
+function cancelNewExpCat() {
+    const wrap = document.getElementById('exp-new-cat-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const inp = document.getElementById('exp-new-cat-name');
+    if (inp) inp.value = '';
+}
+
+async function confirmNewExpCat() {
+    const inp = document.getElementById('exp-new-cat-name');
+    const name = inp?.value.trim();
+    if (!name) { showToast('Bitte einen Kategorienamen eingeben.'); return; }
+    const color = _expModalType === 'income' ? '#34c77b' : '#4f8ef7';
+    try {
+        const newCat = await api(withProject('/api/categories'), 'POST', { name, color, type: _expModalType });
+        financeData.categories.push(newCat);
+        const sel = document.getElementById('exp-category');
+        if (sel) {
+            sel.innerHTML = buildCategoryOptions(_expModalType);
+            sel.value = newCat.id;
+        }
+        cancelNewExpCat();
+        showToast('✓ Kategorie erstellt');
+    } catch { showToast('Fehler beim Erstellen der Kategorie.'); }
 }
 
 function openExpenseModal(type) {
     _expModalType = type ?? _finTab ?? 'expense';
-    setExpModalType(_expModalType);
 
     const sel = document.getElementById('exp-category');
-    sel.innerHTML = financeData.categories.map(c =>
-        `<option value="${c.id}">${c.name}</option>`).join('');
+    if (sel) sel.innerHTML = buildCategoryOptions(_expModalType);
 
     const weekSel = document.getElementById('exp-week');
     weekSel.innerHTML = '<option value="">Keine Zuweisung</option>' +
@@ -211,6 +270,7 @@ function openExpenseModal(type) {
     };
 
     document.getElementById('expense-modal').classList.add('open');
+    setExpModalType(_expModalType);
 }
 
 function closeExpenseModal() {
@@ -263,10 +323,67 @@ async function deleteExpense(id) {
 // ── EDIT EXPENSE MODAL ──
 function setEditExpModalType(type) {
     document.getElementById('edit-exp-type').value = type;
-    document.getElementById('edit-exp-type-btn-expense').classList.toggle('active', type === 'expense');
-    document.getElementById('edit-exp-type-btn-income').classList.toggle('active', type === 'income');
+    const isIncome = type === 'income';
+    document.getElementById('edit-exp-type-btn-expense').classList.toggle('active', !isIncome);
+    document.getElementById('edit-exp-type-btn-income').classList.toggle('active', isIncome);
     const title = document.getElementById('edit-expense-modal-title');
-    if (title) title.textContent = type === 'income' ? 'Einnahme bearbeiten' : 'Ausgabe bearbeiten';
+    if (title) title.textContent = isIncome ? 'Einnahme bearbeiten' : 'Ausgabe bearbeiten';
+
+    const descInput = document.getElementById('edit-exp-description');
+    if (descInput) descInput.placeholder = isIncome ? 'z.B. Etsy-Verkauf, Kursgebühren...' : 'z.B. Filament PLA 1kg';
+
+    const linkLabel = document.getElementById('edit-exp-link-label');
+    if (linkLabel) linkLabel.textContent = isIncome ? 'Plattform (optional)' : 'Link (optional)';
+    const linkInput = document.getElementById('edit-exp-link');
+    if (linkInput) {
+        linkInput.type = isIncome ? 'text' : 'url';
+        linkInput.placeholder = isIncome ? 'z.B. Etsy, Shopify, Amazon...' : 'https://...';
+    }
+    const attachGroup = document.getElementById('edit-exp-attachment-group');
+    if (attachGroup) attachGroup.style.display = isIncome ? 'none' : '';
+
+    // Kategorien nach Typ filtern
+    const sel = document.getElementById('edit-exp-category');
+    if (sel) sel.innerHTML = buildCategoryOptions(type);
+    // Datalist-Vorschläge je nach Typ umschalten
+    const catInp = document.getElementById('edit-exp-new-cat-name');
+    if (catInp) catInp.setAttribute('list', isIncome ? 'income-cat-suggestions' : 'expense-cat-suggestions');
+    // Neue-Kategorie-Eingabe zurücksetzen
+    cancelNewEditExpCat();
+}
+
+function toggleNewEditExpCat() {
+    const wrap = document.getElementById('edit-exp-new-cat-wrap');
+    if (!wrap) return;
+    const isVisible = wrap.style.display !== 'none';
+    wrap.style.display = isVisible ? 'none' : '';
+    if (!isVisible) document.getElementById('edit-exp-new-cat-name')?.focus();
+}
+
+function cancelNewEditExpCat() {
+    const wrap = document.getElementById('edit-exp-new-cat-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const inp = document.getElementById('edit-exp-new-cat-name');
+    if (inp) inp.value = '';
+}
+
+async function confirmNewEditExpCat() {
+    const inp = document.getElementById('edit-exp-new-cat-name');
+    const name = inp?.value.trim();
+    if (!name) { showToast('Bitte einen Kategorienamen eingeben.'); return; }
+    const editType = document.getElementById('edit-exp-type')?.value ?? 'expense';
+    const color = editType === 'income' ? '#34c77b' : '#4f8ef7';
+    try {
+        const newCat = await api(withProject('/api/categories'), 'POST', { name, color, type: editType });
+        financeData.categories.push(newCat);
+        const sel = document.getElementById('edit-exp-category');
+        if (sel) {
+            sel.innerHTML = buildCategoryOptions(editType);
+            sel.value = newCat.id;
+        }
+        cancelNewEditExpCat();
+        showToast('✓ Kategorie erstellt');
+    } catch { showToast('Fehler beim Erstellen der Kategorie.'); }
 }
 
 function openEditExpenseModal(id) {
@@ -274,7 +391,6 @@ function openEditExpenseModal(id) {
     if (!expense) return;
 
     document.getElementById('edit-exp-id').value = expense.id;
-    setEditExpModalType(expense.type ?? 'expense');
     document.getElementById('edit-exp-amount').value = expense.amount;
     document.getElementById('edit-exp-description').value = expense.description;
     document.getElementById('edit-exp-link').value = expense.link ?? '';
@@ -283,9 +399,10 @@ function openEditExpenseModal(id) {
     document.getElementById('edit-exp-file-name').textContent = '';
     document.getElementById('edit-exp-attachment-preview').innerHTML = '';
 
+    // setEditExpModalType rebuilds the category select filtered by type
+    setEditExpModalType(expense.type ?? 'expense');
     const catSel = document.getElementById('edit-exp-category');
-    catSel.innerHTML = financeData.categories.map(c =>
-        `<option value="${c.id}" ${c.id === expense.categoryId ? 'selected' : ''}>${c.name}</option>`).join('');
+    if (catSel) catSel.value = expense.categoryId;
 
     const weekSel = document.getElementById('edit-exp-week');
     weekSel.innerHTML = '<option value="">Keine Zuweisung</option>' +

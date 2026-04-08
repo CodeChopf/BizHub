@@ -14,4 +14,9 @@ public interface IAdminRepository
     AppTask UpdateTask(int id, UpdateTaskRequest req);
     void DeleteTask(int id);
     void ReorderTasks(int projectId, int weekNumber, ReorderTasksRequest req);
+
+    // Subtasks
+    AppSubtask CreateSubtask(int projectId, CreateSubtaskRequest req);
+    AppSubtask UpdateSubtask(int id, UpdateSubtaskRequest req);
+    void DeleteSubtask(int id);
 }

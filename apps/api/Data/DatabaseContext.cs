@@ -151,6 +151,26 @@ public class DatabaseContext
                 note         TEXT,
                 added_at     TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS subtasks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id     INTEGER NOT NULL,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                text        TEXT NOT NULL,
+                hours       TEXT NOT NULL DEFAULT '',
+                project_id  INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS task_tags (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL DEFAULT 1,
+                name       TEXT NOT NULL,
+                color      TEXT NOT NULL DEFAULT '#4f8ef7',
+                sort_order INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS task_tag_assignments (
+                task_id INTEGER NOT NULL,
+                tag_id  INTEGER NOT NULL,
+                PRIMARY KEY (task_id, tag_id)
+            );
             CREATE TABLE IF NOT EXISTS calendar_events (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 title       TEXT NOT NULL,
@@ -215,6 +235,7 @@ public class DatabaseContext
             "ALTER TABLE calendar_events    ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE users              ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE expenses           ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
+            "ALTER TABLE categories         ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
         };
 
         foreach (var sql in alterStatements)

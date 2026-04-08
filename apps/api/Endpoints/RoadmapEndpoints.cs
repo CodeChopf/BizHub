@@ -82,6 +82,53 @@ public static class RoadmapEndpoints
             return Results.Ok(new { reordered = true });
         });
 
+        // ── ADMIN: SUBTASKS ──
+
+        app.MapPost("/api/admin/subtasks", async (HttpRequest request, IAdminRepository repo) =>
+        {
+            var req = await JsonSerializer.DeserializeAsync<CreateSubtaskRequest>(request.Body, ApiHelpers.JsonOptions);
+            if (req == null) return Results.BadRequest();
+            return Results.Ok(repo.CreateSubtask(ApiHelpers.GetProjectId(request), req));
+        });
+
+        app.MapPut("/api/admin/subtasks/{id}", async (int id, HttpRequest request, IAdminRepository repo) =>
+        {
+            var req = await JsonSerializer.DeserializeAsync<UpdateSubtaskRequest>(request.Body, ApiHelpers.JsonOptions);
+            if (req == null) return Results.BadRequest();
+            return Results.Ok(repo.UpdateSubtask(id, req));
+        });
+
+        app.MapDelete("/api/admin/subtasks/{id}", (int id, IAdminRepository repo) =>
+        {
+            repo.DeleteSubtask(id);
+            return Results.Ok(new { deleted = true });
+        });
+
+        // ── TASK TAGS ──
+
+        app.MapGet("/api/task-tags", (HttpRequest request, ITaskTagRepository tagRepo) =>
+            Results.Ok(tagRepo.GetAll(ApiHelpers.GetProjectId(request))));
+
+        app.MapPost("/api/task-tags", async (HttpRequest request, ITaskTagRepository tagRepo) =>
+        {
+            var req = await JsonSerializer.DeserializeAsync<CreateTaskTagRequest>(request.Body, ApiHelpers.JsonOptions);
+            if (req == null) return Results.BadRequest();
+            return Results.Ok(tagRepo.Add(ApiHelpers.GetProjectId(request), req.Name, req.Color));
+        });
+
+        app.MapPut("/api/task-tags/{id}", async (int id, HttpRequest request, ITaskTagRepository tagRepo) =>
+        {
+            var req = await JsonSerializer.DeserializeAsync<UpdateTaskTagRequest>(request.Body, ApiHelpers.JsonOptions);
+            if (req == null) return Results.BadRequest();
+            return Results.Ok(tagRepo.Update(id, req.Name, req.Color));
+        });
+
+        app.MapDelete("/api/task-tags/{id}", (int id, ITaskTagRepository tagRepo) =>
+        {
+            tagRepo.Delete(id);
+            return Results.Ok(new { deleted = true });
+        });
+
         // GET /api/admin/tasks/ids
         app.MapGet("/api/admin/tasks/ids", (int weekNumber, HttpRequest request, DatabaseContext dbContext) =>
         {
