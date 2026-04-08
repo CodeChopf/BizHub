@@ -235,57 +235,74 @@
                     <div class="page-header-right" id="topbar-date"></div>
                 </div>
                 <div id="overview-project-image" style="margin-bottom:16px"></div>
-                <div class="kpi-strip" id="kpi-strip"></div>
-                <div class="overview-grid">
-                    <div class="overview-left">
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="card-title">Diese Woche</div>
-                                <div class="card-badge" id="cw-badge"></div>
-                            </div>
-                            <div class="cw-title" id="cw-title">Lädt...</div>
-                            <div class="cw-date" id="cw-date"></div>
-                            <div id="cw-tasks"></div>
+
+                <div class="dash-grid" id="dash-grid">
+
+                    <!-- Roadmap Card -->
+                    <div class="dash-card dash-card--blue" id="dash-card-roadmap" onclick="showPage('roadmap')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">📋</span>
+                            <span class="dash-card-name">Roadmap</span>
                         </div>
-                    </div>
-                    <div class="overview-right">
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="card-title">Gesamtfortschritt</div>
-                            </div>
-                            <div class="donut-wrap">
-                                <svg viewBox="0 0 120 120" class="donut-svg">
-                                    <circle class="donut-bg" cx="60" cy="60" r="50" />
-                                    <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
-                                            stroke-dasharray="0 314" stroke-dashoffset="78" />
-                                </svg>
-                                <div class="donut-center">
-                                    <div class="donut-pct" id="donut-pct">0%</div>
-                                    <div class="donut-label">Erledigt</div>
-                                </div>
-                            </div>
-                            <div class="donut-stats">
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-done">0</div>
-                                    <div class="donut-stat-label">Erledigt</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-open">0</div>
-                                    <div class="donut-stat-label">Offen</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-weeks">0</div>
-                                    <div class="donut-stat-label">Wochen</div>
-                                </div>
+                        <div class="dash-card-body">
+                            <div class="dash-stat" id="dash-roadmap-progress">—</div>
+                            <div class="dash-stat-label">Gesamtfortschritt</div>
+                            <div class="dash-row" style="margin-top:12px">
+                                <span class="dash-chip" id="dash-roadmap-week">Woche —</span>
+                                <span class="dash-chip dash-chip--muted" id="dash-roadmap-tasks">— / — Tasks</span>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="card" style="margin-top:20px">
-                    <div class="card-header">
-                        <div class="card-title">Alle Wochen</div>
+
+                    <!-- Finanzen Card -->
+                    <div class="dash-card dash-card--green" id="dash-card-finanzen" onclick="showPage('finanzen')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">💰</span>
+                            <span class="dash-card-name">Finanzen</span>
+                        </div>
+                        <div class="dash-card-body">
+                            <div class="dash-stat" id="dash-fin-balance">—</div>
+                            <div class="dash-stat-label" id="dash-fin-balance-label">Bilanz</div>
+                            <div class="dash-row" style="margin-top:12px">
+                                <span class="dash-chip" id="dash-fin-income">↑ —</span>
+                                <span class="dash-chip dash-chip--muted" id="dash-fin-expenses">↓ —</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="weeks-grid" id="weeks-grid"></div>
+
+                    <!-- Kalender Card -->
+                    <div class="dash-card dash-card--purple" id="dash-card-kalender" onclick="showPage('kalender')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">📅</span>
+                            <span class="dash-card-name">Kalender</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-cal-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
+                    <!-- Produktion Card -->
+                    <div class="dash-card dash-card--amber" id="dash-card-produktion" onclick="showPage('produktion')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">🏭</span>
+                            <span class="dash-card-name">Produktion</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-prod-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
+                    <!-- Meilensteine Card -->
+                    <div class="dash-card dash-card--red" id="dash-card-meilensteine" onclick="showPage('meilensteine')">
+                        <div class="dash-card-header">
+                            <span class="dash-card-icon">🏁</span>
+                            <span class="dash-card-name">Meilensteine</span>
+                        </div>
+                        <div class="dash-card-body" id="dash-ms-body">
+                            <div class="dash-loading">Lädt…</div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 

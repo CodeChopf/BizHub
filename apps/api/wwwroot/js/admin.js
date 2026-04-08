@@ -72,6 +72,7 @@ function updateAll() {
     });
 
     updateOverview();
+    updateDashboardCards();
 }
 
 function updateOverview() {
@@ -158,6 +159,105 @@ function updateOverview() {
         tile.onclick = () => { showPage('roadmap'); setTimeout(() => toggleWeek(w), 100); };
         grid.appendChild(tile);
     });
+}
+
+// ── DASHBOARD CARDS (sync) ──
+function updateDashboardCards() {
+    // Roadmap
+    if (appData) {
+        const total = appData.weeks.reduce((s, w) => s + w.tasks.length, 0);
+        const done  = Object.values(state).filter(Boolean).length;
+        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+        const week  = appData.weeks.find(w => w.number === (window._currentWeek ?? 1));
+        const progEl  = document.getElementById('dash-roadmap-progress');
+        const weekEl  = document.getElementById('dash-roadmap-week');
+        const tasksEl = document.getElementById('dash-roadmap-tasks');
+        if (progEl)  progEl.textContent  = pct + '%';
+        if (weekEl)  weekEl.textContent  = week ? week.title : 'Woche ' + (window._currentWeek ?? 1);
+        if (tasksEl) tasksEl.textContent = done + ' / ' + total + ' Tasks';
+    }
+    // Finanzen
+    if (financeData) {
+        const currency  = getCurrency();
+        const income    = financeData.totalIncome   ?? 0;
+        const expenses  = financeData.totalExpenses ?? 0;
+        const balance   = financeData.netBalance    ?? (income - expenses);
+        const balanceEl = document.getElementById('dash-fin-balance');
+        const labelEl   = document.getElementById('dash-fin-balance-label');
+        const incomeEl  = document.getElementById('dash-fin-income');
+        const expEl     = document.getElementById('dash-fin-expenses');
+        const sign      = balance >= 0 ? '+' : '−';
+        if (balanceEl) {
+            balanceEl.textContent = sign + currency + ' ' + fmtChf(Math.abs(balance));
+            balanceEl.style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
+        }
+        if (labelEl)  labelEl.textContent = 'Bilanz';
+        if (incomeEl) incomeEl.textContent = '↑ ' + currency + ' ' + fmtChf(income);
+        if (expEl)    expEl.textContent    = '↓ ' + currency + ' ' + fmtChf(expenses);
+    }
+}
+
+// ── DASHBOARD CARDS (async) ──
+async function loadDashboardAsync() {
+    // Kalender
+    try {
+        const events  = await api(withProject('/api/calendar'));
+        const calBody = document.getElementById('dash-cal-body');
+        if (calBody) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const upcoming = (events ?? [])
+                .filter(e => e.date >= todayStr)
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .slice(0, 3);
+            if (upcoming.length === 0) {
+                calBody.innerHTML = '<div class="dash-empty">Keine bevorstehenden Termine</div>';
+            } else {
+                calBody.innerHTML = upcoming.map(e => `
+                    <div class="dash-event-row">
+                        <div class="dash-event-date">${fmt(new Date(e.date))}${e.time ? ' · ' + e.time : ''}</div>
+                        <div class="dash-event-title">${e.title.replace(/</g, '&lt;')}</div>
+                    </div>`).join('');
+            }
+        }
+    } catch { /* silently ignore */ }
+
+    // Produktion
+    try {
+        const items    = await api(withProject('/api/production'));
+        const prodBody = document.getElementById('dash-prod-body');
+        if (prodBody) {
+            const openCount  = (items ?? []).filter(i => !i.done).length;
+            const totalCount = (items ?? []).length;
+            prodBody.innerHTML = `
+                <div class="dash-stat">${openCount}</div>
+                <div class="dash-stat-label">Offene Artikel</div>
+                <div class="dash-row" style="margin-top:12px">
+                    <span class="dash-chip">${totalCount} gesamt</span>
+                    <span class="dash-chip dash-chip--muted">${totalCount - openCount} erledigt</span>
+                </div>`;
+        }
+    } catch { /* silently ignore */ }
+
+    // Meilensteine
+    try {
+        const milestones = await api(withProject('/api/milestones'));
+        const msBody     = document.getElementById('dash-ms-body');
+        if (msBody) {
+            if (!milestones || milestones.length === 0) {
+                msBody.innerHTML = '<div class="dash-empty">Noch keine Meilensteine</div>';
+            } else {
+                const latest  = milestones[milestones.length - 1];
+                const dateStr = fmt(new Date(latest.createdAt));
+                msBody.innerHTML = `
+                    <div class="dash-stat">${milestones.length}</div>
+                    <div class="dash-stat-label">Meilensteine gesetzt</div>
+                    <div class="dash-row" style="margin-top:12px">
+                        <span class="dash-chip">${latest.name.replace(/</g, '&lt;')}</span>
+                        <span class="dash-chip dash-chip--muted">${dateStr}</span>
+                    </div>`;
+            }
+        }
+    } catch { /* silently ignore */ }
 }
 
 // ── ADMIN ──
