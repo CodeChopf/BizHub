@@ -758,11 +758,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Beschreibung</label>
+                    <label id="exp-description-label">Beschreibung</label>
                     <input type="text" id="exp-description" placeholder="z.B. Filament PLA 1kg">
                 </div>
-                <div class="form-group">
-                    <label>Link (optional)</label>
+                <div class="form-group" id="exp-link-group">
+                    <label id="exp-link-label">Link (optional)</label>
                     <input type="url" id="exp-link" placeholder="https://...">
                 </div>
                 <div class="form-row">
@@ -775,7 +775,7 @@
                         <select id="exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="exp-attachment-group">
                     <label>Beleg (optional)</label>
                     <input type="file" id="exp-file" accept="image/*" onchange="handleFilePreview()" style="display:none">
                     <button type="button" class="btn-secondary" style="width:100%;justify-content:center"
@@ -822,11 +822,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Beschreibung</label>
+                    <label id="edit-exp-description-label">Beschreibung</label>
                     <input type="text" id="edit-exp-description">
                 </div>
-                <div class="form-group">
-                    <label>Link (optional)</label>
+                <div class="form-group" id="edit-exp-link-group">
+                    <label id="edit-exp-link-label">Link (optional)</label>
                     <input type="url" id="edit-exp-link" placeholder="https://...">
                 </div>
                 <div class="form-row">
@@ -839,7 +839,7 @@
                         <select id="edit-exp-task"><option value="">Keine Zuweisung</option></select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="edit-exp-attachment-group">
                     <label>Beleg hinzufügen (optional)</label>
                     <input type="file" id="edit-exp-file" accept="image/*" onchange="handleEditFilePreview()" style="display:none">
                     <button type="button" class="btn-secondary" style="width:100%;justify-content:center"

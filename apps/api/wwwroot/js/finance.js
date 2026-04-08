@@ -177,10 +177,26 @@ let _expModalType = 'expense';
 
 function setExpModalType(type) {
     _expModalType = type;
-    document.getElementById('exp-type-btn-expense').classList.toggle('active', type === 'expense');
-    document.getElementById('exp-type-btn-income').classList.toggle('active', type === 'income');
+    const isIncome = type === 'income';
+    document.getElementById('exp-type-btn-expense').classList.toggle('active', !isIncome);
+    document.getElementById('exp-type-btn-income').classList.toggle('active', isIncome);
     const title = document.getElementById('expense-modal-title');
-    if (title) title.textContent = type === 'income' ? 'Einnahme erfassen' : 'Ausgabe erfassen';
+    if (title) title.textContent = isIncome ? 'Einnahme erfassen' : 'Ausgabe erfassen';
+
+    const descLabel = document.getElementById('exp-description-label');
+    if (descLabel) descLabel.textContent = isIncome ? 'Beschreibung' : 'Beschreibung';
+    const descInput = document.getElementById('exp-description');
+    if (descInput) descInput.placeholder = isIncome ? 'z.B. Etsy-Verkauf, Kursgebühren...' : 'z.B. Filament PLA 1kg';
+
+    const linkLabel = document.getElementById('exp-link-label');
+    if (linkLabel) linkLabel.textContent = isIncome ? 'Plattform (optional)' : 'Link (optional)';
+    const linkInput = document.getElementById('exp-link');
+    if (linkInput) {
+        linkInput.type = isIncome ? 'text' : 'url';
+        linkInput.placeholder = isIncome ? 'z.B. Etsy, Shopify, Amazon...' : 'https://...';
+    }
+    const attachGroup = document.getElementById('exp-attachment-group');
+    if (attachGroup) attachGroup.style.display = isIncome ? 'none' : '';
 }
 
 function openExpenseModal(type) {
@@ -263,10 +279,24 @@ async function deleteExpense(id) {
 // ── EDIT EXPENSE MODAL ──
 function setEditExpModalType(type) {
     document.getElementById('edit-exp-type').value = type;
-    document.getElementById('edit-exp-type-btn-expense').classList.toggle('active', type === 'expense');
-    document.getElementById('edit-exp-type-btn-income').classList.toggle('active', type === 'income');
+    const isIncome = type === 'income';
+    document.getElementById('edit-exp-type-btn-expense').classList.toggle('active', !isIncome);
+    document.getElementById('edit-exp-type-btn-income').classList.toggle('active', isIncome);
     const title = document.getElementById('edit-expense-modal-title');
-    if (title) title.textContent = type === 'income' ? 'Einnahme bearbeiten' : 'Ausgabe bearbeiten';
+    if (title) title.textContent = isIncome ? 'Einnahme bearbeiten' : 'Ausgabe bearbeiten';
+
+    const descInput = document.getElementById('edit-exp-description');
+    if (descInput) descInput.placeholder = isIncome ? 'z.B. Etsy-Verkauf, Kursgebühren...' : 'z.B. Filament PLA 1kg';
+
+    const linkLabel = document.getElementById('edit-exp-link-label');
+    if (linkLabel) linkLabel.textContent = isIncome ? 'Plattform (optional)' : 'Link (optional)';
+    const linkInput = document.getElementById('edit-exp-link');
+    if (linkInput) {
+        linkInput.type = isIncome ? 'text' : 'url';
+        linkInput.placeholder = isIncome ? 'z.B. Etsy, Shopify, Amazon...' : 'https://...';
+    }
+    const attachGroup = document.getElementById('edit-exp-attachment-group');
+    if (attachGroup) attachGroup.style.display = isIncome ? 'none' : '';
 }
 
 function openEditExpenseModal(id) {
