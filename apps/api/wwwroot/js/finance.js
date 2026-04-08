@@ -185,7 +185,6 @@ function setExpModalType(type) {
 
 function openExpenseModal(type) {
     _expModalType = type ?? _finTab ?? 'expense';
-    setExpModalType(_expModalType);
 
     const sel = document.getElementById('exp-category');
     sel.innerHTML = financeData.categories.map(c =>
@@ -211,6 +210,7 @@ function openExpenseModal(type) {
     };
 
     document.getElementById('expense-modal').classList.add('open');
+    setExpModalType(_expModalType);
 }
 
 function closeExpenseModal() {
