@@ -111,18 +111,42 @@ function toggleSubtask(row) {
     const key = row.dataset.idx;
     state[key] = !state[key];
     row.classList.toggle('done', !!state[key]);
-    saveState();
-    // Update the subtask pill count on the parent task row
-    const taskId = key.replace('subtask-', '');
+
     const list = row.closest('.subtask-list');
-    if (list) {
-        const listId = list.id; // subtask-list-{taskId}
-        const parentTaskId = listId.replace('subtask-list-', '');
-        const pill = document.querySelector(`.subtask-toggle-btn[onclick*="toggleSubtaskList(${parentTaskId},"] .subtask-pill`);
-        if (pill) {
-            const allRows = list.querySelectorAll('.subtask-row');
-            const doneRows = list.querySelectorAll('.subtask-row.done');
-            pill.textContent = `${doneRows.length}/${allRows.length}`;
+    if (!list) { saveState(); return; }
+
+    const parentTaskId = parseInt(list.id.replace('subtask-list-', ''));
+
+    // Update pill count
+    const pill = document.querySelector(`.subtask-toggle-btn[onclick*="toggleSubtaskList(${parentTaskId},"] .subtask-pill`);
+    if (pill) {
+        const doneCount = list.querySelectorAll('.subtask-row.done').length;
+        const totalCount = list.querySelectorAll('.subtask-row').length;
+        pill.textContent = `${doneCount}/${totalCount}`;
+    }
+
+    // Auto-check / auto-uncheck parent task
+    const task = findTask(parentTaskId);
+    const subs = task?.subtasks ?? [];
+    if (subs.length > 0) {
+        const allDone = subs.every(s => !!state['subtask-' + s.id]);
+        const taskKey = 'task-' + parentTaskId;
+        const taskRow = document.querySelector(`.task-row[data-idx="${taskKey}"]`);
+        if (taskRow) {
+            const taskCurrentlyDone = taskRow.classList.contains('done');
+            if (allDone && !taskCurrentlyDone) {
+                // All subtasks just completed → auto-check task
+                taskRow.classList.add('done');
+                state[taskKey] = true;
+            } else if (!allDone && taskCurrentlyDone) {
+                // A subtask was unchecked → auto-uncheck task
+                taskRow.classList.remove('done');
+                state[taskKey] = false;
+            }
         }
     }
+
+    saveState();
+    updateAll();
+    updateOverdueBanner();
 }

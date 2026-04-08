@@ -1,5 +1,27 @@
 // ── TOGGLE TASK ──
+function findTask(taskId) {
+    if (!appData) return null;
+    for (const week of appData.weeks) {
+        const task = week.tasks.find(t => t.id === taskId);
+        if (task) return task;
+    }
+    return null;
+}
+
 function toggleTask(row) {
+    const taskId = parseInt(row.dataset.idx.replace('task-', ''));
+    const task = findTask(taskId);
+    const subs = task?.subtasks ?? [];
+    const isCurrentlyDone = row.classList.contains('done');
+
+    if (!isCurrentlyDone && subs.length > 0) {
+        const allSubsDone = subs.every(s => !!state['subtask-' + s.id]);
+        if (!allSubsDone) {
+            showToast('Alle Unteraufgaben müssen zuerst abgeschlossen werden.');
+            return;
+        }
+    }
+
     row.classList.toggle('done');
     state[row.dataset.idx] = row.classList.contains('done');
     saveState();
