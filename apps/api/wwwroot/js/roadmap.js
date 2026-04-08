@@ -99,19 +99,19 @@ function renderRoadmap() {
             const stateKey = 'task-' + task.id;
             const isDone = !!state[stateKey];
             const subs = task.subtasks ?? [];
-            const subsDoneCount = subs.filter(s => !!state['subtask-' + s.id]).length;
             const hasSubs = subs.length > 0;
 
-            const subsHtml = hasSubs ? subs.map(sub => {
-                const subKey = 'subtask-' + sub.id;
-                const subDone = !!state[subKey];
-                return `
+            const subsHtml = hasSubs ? `<div class="subtask-list" id="subtask-list-${task.id}">` +
+                subs.map(sub => {
+                    const subKey = 'subtask-' + sub.id;
+                    const subDone = !!state[subKey];
+                    return `
         <div class="subtask-row${subDone ? ' done' : ''}" onclick="toggleSubtask(this)" data-idx="${subKey}">
           <div class="subtask-check"><span class="check-icon">✓</span></div>
           <span class="subtask-text">${sub.text}</span>
           <span class="task-hrs">${sub.hours}</span>
         </div>`;
-            }).join('') : '';
+                }).join('') + `</div>` : '';
 
             tasksHtml += `
         <div class="task-row${isDone ? ' done' : ''}" onclick="toggleTask(this)" data-idx="${stateKey}">
@@ -119,9 +119,8 @@ function renderRoadmap() {
           <span class="task-type type-${task.type}">${task.type === 'pc' ? 'PC' : 'Physisch'}</span>
           <span class="task-text">${task.text}</span>
           <span class="task-hrs">${task.hours}</span>
-          ${hasSubs ? `<button class="subtask-toggle-btn" onclick="event.stopPropagation();toggleSubtaskList(${task.id},this)" title="Unteraufgaben ein-/ausblenden"><span class="subtask-pill">${subsDoneCount}/${subs.length}</span></button>` : ''}
         </div>
-        ${hasSubs ? `<div class="subtask-list" id="subtask-list-${task.id}" style="display:none">${subsHtml}</div>` : ''}`;
+        ${subsHtml}`;
         });
 
         const wIdx = week.number - 1;
@@ -153,14 +152,6 @@ function renderRoadmap() {
     renderRoadmapProgress();
 }
 
-function toggleSubtaskList(taskId, btn) {
-    const list = document.getElementById('subtask-list-' + taskId);
-    if (!list) return;
-    const open = list.style.display === 'none';
-    list.style.display = open ? '' : 'none';
-    btn.classList.toggle('open', open);
-}
-
 function toggleSubtask(row) {
     const key = row.dataset.idx;
     state[key] = !state[key];
@@ -170,14 +161,6 @@ function toggleSubtask(row) {
     if (!list) { saveState(); return; }
 
     const parentTaskId = parseInt(list.id.replace('subtask-list-', ''));
-
-    // Update pill count
-    const pill = document.querySelector(`.subtask-toggle-btn[onclick*="toggleSubtaskList(${parentTaskId},"] .subtask-pill`);
-    if (pill) {
-        const doneCount = list.querySelectorAll('.subtask-row.done').length;
-        const totalCount = list.querySelectorAll('.subtask-row').length;
-        pill.textContent = `${doneCount}/${totalCount}`;
-    }
 
     // Auto-check / auto-uncheck parent task
     const task = findTask(parentTaskId);

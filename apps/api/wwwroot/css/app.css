@@ -1914,8 +1914,8 @@ textarea {
 
 .subtask-list {
     border-left: 2px solid var(--border2);
-    margin-left: 32px;
-    margin-bottom: 2px;
+    margin-left: 46px;
+    margin-bottom: 4px;
 }
 .subtask-row {
     display: grid;
