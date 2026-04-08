@@ -38,7 +38,7 @@ public class ExpenseRepository : IExpenseRepository
         using var eCmd = con.CreateCommand();
         eCmd.CommandText = @"
             SELECT e.id, e.category_id, c.name, c.color, e.amount,
-                   e.description, e.link, e.date, e.week_number, e.task_id
+                   e.description, e.link, e.date, e.week_number, e.task_id, e.type
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
             WHERE e.project_id = @pid
@@ -58,12 +58,14 @@ public class ExpenseRepository : IExpenseRepository
                 Link = eReader.IsDBNull(6) ? null : eReader.GetString(6),
                 Date = eReader.GetString(7),
                 WeekNumber = eReader.IsDBNull(8) ? null : eReader.GetInt32(8),
-                TaskId = eReader.IsDBNull(9) ? null : eReader.GetInt32(9)
+                TaskId = eReader.IsDBNull(9) ? null : eReader.GetInt32(9),
+                Type = eReader.IsDBNull(10) ? "expense" : eReader.GetString(10)
             });
         }
 
-        // Summary berechnen
+        // Summary nur für Ausgaben berechnen
         var summary = expenses
+            .Where(e => e.Type == "expense")
             .GroupBy(e => new { e.CategoryName, e.CategoryColor })
             .Select(g => new CategorySummary
             {
@@ -75,23 +77,28 @@ public class ExpenseRepository : IExpenseRepository
             .OrderByDescending(s => s.Total)
             .ToList();
 
+        var totalExpenses = expenses.Where(e => e.Type == "expense").Sum(e => e.Amount);
+        var totalIncome   = expenses.Where(e => e.Type == "income").Sum(e => e.Amount);
+
         return new FinanceData
         {
             Categories = categories,
             Expenses = expenses,
-            TotalExpenses = expenses.Sum(e => e.Amount),
+            TotalExpenses = totalExpenses,
+            TotalIncome   = totalIncome,
+            NetBalance    = totalIncome - totalExpenses,
             Summary = summary
         };
     }
 
-    public Expense Add(int projectId, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId)
+    public Expense Add(int projectId, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId, string type = "expense")
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO expenses (project_id, category_id, amount, description, link, date, week_number, task_id)
-            VALUES (@pid, @c, @a, @d, @l, @dt, @w, @t);
+            INSERT INTO expenses (project_id, category_id, amount, description, link, date, week_number, task_id, type)
+            VALUES (@pid, @c, @a, @d, @l, @dt, @w, @t, @type);
             SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@c", categoryId);
@@ -101,13 +108,13 @@ public class ExpenseRepository : IExpenseRepository
         cmd.Parameters.AddWithValue("@dt", date);
         cmd.Parameters.AddWithValue("@w", (object?)weekNumber ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@t", (object?)taskId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@type", type == "income" ? "income" : "expense");
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
 
-        // Vollständige Expense mit Kategorie zurückgeben
         using var rCmd = con.CreateCommand();
         rCmd.CommandText = @"
             SELECT e.id, e.category_id, c.name, c.color, e.amount,
-                   e.description, e.link, e.date, e.week_number, e.task_id
+                   e.description, e.link, e.date, e.week_number, e.task_id, e.type
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
             WHERE e.id = @id";
@@ -125,7 +132,8 @@ public class ExpenseRepository : IExpenseRepository
             Link = r.IsDBNull(6) ? null : r.GetString(6),
             Date = r.GetString(7),
             WeekNumber = r.IsDBNull(8) ? null : r.GetInt32(8),
-            TaskId = r.IsDBNull(9) ? null : r.GetInt32(9)
+            TaskId = r.IsDBNull(9) ? null : r.GetInt32(9),
+            Type = r.IsDBNull(10) ? "expense" : r.GetString(10)
         };
     }
 
@@ -139,7 +147,7 @@ public class ExpenseRepository : IExpenseRepository
         cmd.ExecuteNonQuery();
     }
 
-    public Expense Update(int id, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId)
+    public Expense Update(int id, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId, string type = "expense")
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -147,7 +155,7 @@ public class ExpenseRepository : IExpenseRepository
         cmd.CommandText = @"
         UPDATE expenses SET
             category_id = @c, amount = @a, description = @d,
-            link = @l, date = @dt, week_number = @w, task_id = @t
+            link = @l, date = @dt, week_number = @w, task_id = @t, type = @type
         WHERE id = @id";
         cmd.Parameters.AddWithValue("@c", categoryId);
         cmd.Parameters.AddWithValue("@a", amount);
@@ -156,13 +164,14 @@ public class ExpenseRepository : IExpenseRepository
         cmd.Parameters.AddWithValue("@dt", date);
         cmd.Parameters.AddWithValue("@w", (object?)weekNumber ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@t", (object?)taskId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@type", type == "income" ? "income" : "expense");
         cmd.Parameters.AddWithValue("@id", id);
         cmd.ExecuteNonQuery();
 
         using var rCmd = con.CreateCommand();
         rCmd.CommandText = @"
         SELECT e.id, e.category_id, c.name, c.color, e.amount,
-               e.description, e.link, e.date, e.week_number, e.task_id
+               e.description, e.link, e.date, e.week_number, e.task_id, e.type
         FROM expenses e
         JOIN categories c ON c.id = e.category_id
         WHERE e.id = @id";
@@ -180,7 +189,8 @@ public class ExpenseRepository : IExpenseRepository
             Link = r.IsDBNull(6) ? null : r.GetString(6),
             Date = r.GetString(7),
             WeekNumber = r.IsDBNull(8) ? null : r.GetInt32(8),
-            TaskId = r.IsDBNull(9) ? null : r.GetInt32(9)
+            TaskId = r.IsDBNull(9) ? null : r.GetInt32(9),
+            Type = r.IsDBNull(10) ? "expense" : r.GetString(10)
         };
     }
 }

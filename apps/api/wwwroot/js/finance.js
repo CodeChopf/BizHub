@@ -1,54 +1,85 @@
 // ── FINANZEN ──
+let _finTab = 'expense'; // 'expense' | 'income'
+
+function setFinTab(type) {
+    _finTab = type;
+    document.getElementById('fin-tab-expense').classList.toggle('active', type === 'expense');
+    document.getElementById('fin-tab-income').classList.toggle('active', type === 'income');
+    renderFinanzen();
+}
+
 function renderFinanzen() {
     if (!financeData) return;
 
     const strip = document.getElementById('fin-kpi-strip');
-    const total = financeData.totalExpenses;
-    const count = financeData.expenses.length;
-    const cats = financeData.categories.length;
     const currency = getCurrency();
+    const income   = financeData.totalIncome   ?? 0;
+    const expenses = financeData.totalExpenses ?? 0;
+    const balance  = financeData.netBalance    ?? (income - expenses);
+    const balanceColor = balance >= 0 ? 'green' : 'red';
+    const balanceSign  = balance >= 0 ? '+' : '−';
 
     strip.innerHTML = `
+    <div class="kpi-card green">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-val">${currency} ${fmtChf(income)}</div>
+      <div class="kpi-label">Einnahmen</div>
+    </div>
     <div class="kpi-card red">
-      <div class="kpi-icon">💸</div>
-      <div class="kpi-val">${currency} ${fmtChf(total)}</div>
-      <div class="kpi-label">Gesamtausgaben</div>
+      <div class="kpi-icon">📉</div>
+      <div class="kpi-val">${currency} ${fmtChf(expenses)}</div>
+      <div class="kpi-label">Ausgaben</div>
     </div>
-    <div class="kpi-card amber">
-      <div class="kpi-icon">🧾</div>
-      <div class="kpi-val">${count}</div>
-      <div class="kpi-label">Buchungen</div>
-    </div>
-    <div class="kpi-card blue">
-      <div class="kpi-icon">🏷️</div>
-      <div class="kpi-val">${cats}</div>
-      <div class="kpi-label">Kategorien</div>
+    <div class="kpi-card ${balanceColor}">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-val">${balanceSign}${currency} ${fmtChf(Math.abs(balance))}</div>
+      <div class="kpi-label">Bilanz</div>
     </div>`;
 
+    // Kategorie-Summary nach aktivem Tab
     const catSummary = document.getElementById('category-summary');
-    if (financeData.summary.length === 0) {
-        catSummary.innerHTML = '<div class="empty-state">Noch keine Ausgaben erfasst.</div>';
+    const titleEl = document.getElementById('fin-cat-title');
+    if (titleEl) titleEl.textContent = _finTab === 'income' ? 'Einnahmen nach Kategorie' : 'Ausgaben nach Kategorie';
+
+    const tabEntries = (financeData.expenses ?? []).filter(e => (e.type ?? 'expense') === _finTab);
+    const summaryData = tabEntries
+        .reduce((acc, e) => {
+            const key = e.categoryName;
+            if (!acc[key]) acc[key] = { name: e.categoryName, color: e.categoryColor, total: 0, count: 0 };
+            acc[key].total += e.amount;
+            acc[key].count++;
+            return acc;
+        }, {});
+    const summaryList = Object.values(summaryData).sort((a, b) => b.total - a.total);
+
+    if (summaryList.length === 0) {
+        catSummary.innerHTML = `<div class="empty-state">Noch keine ${_finTab === 'income' ? 'Einnahmen' : 'Ausgaben'} erfasst.</div>`;
     } else {
-        const maxTotal = Math.max(...financeData.summary.map(s => s.total));
-        catSummary.innerHTML = financeData.summary.map(s => `
+        const maxTotal = Math.max(...summaryList.map(s => s.total));
+        catSummary.innerHTML = summaryList.map(s => `
       <div class="cat-row">
-        <div class="cat-dot" style="background:${getCategoryColor(s.categoryName)}"></div>
-        <div class="cat-name">${s.categoryName}</div>
+        <div class="cat-dot" style="background:${s.color}"></div>
+        <div class="cat-name">${s.name}</div>
         <div class="cat-bar-wrap">
-          <div class="cat-bar-fill" style="width:${Math.round((s.total / maxTotal) * 100)}%;background:${getCategoryColor(s.categoryName)}"></div>
+          <div class="cat-bar-fill" style="width:${Math.round((s.total / maxTotal) * 100)}%;background:${s.color}"></div>
         </div>
         <div class="cat-count">${s.count}×</div>
         <div class="cat-amount">${currency} ${fmtChf(s.total)}</div>
       </div>`).join('');
     }
 
+    // Einträge-Liste nach aktivem Tab
     const expList = document.getElementById('expenses-list');
-    if (financeData.expenses.length === 0) {
-        expList.innerHTML = '<div class="empty-state">Noch keine Ausgaben. Klicke auf "+ Ausgabe erfassen".</div>';
+    if (tabEntries.length === 0) {
+        expList.innerHTML = `<div class="empty-state">Noch keine ${_finTab === 'income' ? 'Einnahmen' : 'Ausgaben'}. Klicke auf "+ ${_finTab === 'income' ? 'Einnahme' : 'Ausgabe'}".</div>`;
     } else {
-        expList.innerHTML = financeData.expenses.map(e => {
+        expList.innerHTML = tabEntries.map(e => {
             const weekLabel = e.weekNumber ? `<span class="exp-week-badge">W0${e.weekNumber}</span>` : '';
-            const linkHtml = e.link ? `<a href="${e.link}" target="_blank" class="exp-link">🔗 Link öffnen</a>` : '';
+            const linkHtml  = e.link ? `<a href="${e.link}" target="_blank" class="exp-link">🔗 Link öffnen</a>` : '';
+            const isIncome  = (e.type ?? 'expense') === 'income';
+            const amountStr = isIncome
+                ? `+${currency} ${fmtChf(e.amount)}`
+                : `−${currency} ${fmtChf(e.amount)}`;
             return `
         <div class="exp-row">
           <span class="exp-cat-badge" style="background:${e.categoryColor}22;color:${e.categoryColor}">${e.categoryName}</span>
@@ -57,13 +88,13 @@ function renderFinanzen() {
             <div class="exp-meta">${formatDateStr(e.date)} ${weekLabel} ${linkHtml}</div>
             <div id="attachments-${e.id}" class="exp-attachments"></div>
           </div>
-          <div class="exp-amount">−${currency} ${fmtChf(e.amount)}</div>
+          <div class="exp-amount${isIncome ? ' income' : ''}">${amountStr}</div>
           <button class="btn-icon" onclick="openEditExpenseModal(${e.id})" title="Bearbeiten">✏️</button>
           <button class="exp-delete" onclick="deleteExpense(${e.id})" title="Löschen">✕</button>
         </div>`;
         }).join('');
 
-        financeData.expenses.forEach(async e => {
+        tabEntries.forEach(async e => {
             const res = await fetch(withProject('/api/expenses/' + e.id + '/attachments'));
             const attachments = await res.json();
             const container = document.getElementById('attachments-' + e.id);
@@ -142,7 +173,20 @@ function handleEditFilePreview() {
 }
 
 // ── EXPENSE MODAL ──
-function openExpenseModal() {
+let _expModalType = 'expense';
+
+function setExpModalType(type) {
+    _expModalType = type;
+    document.getElementById('exp-type-btn-expense').classList.toggle('active', type === 'expense');
+    document.getElementById('exp-type-btn-income').classList.toggle('active', type === 'income');
+    const title = document.getElementById('expense-modal-title');
+    if (title) title.textContent = type === 'income' ? 'Einnahme erfassen' : 'Ausgabe erfassen';
+}
+
+function openExpenseModal(type) {
+    _expModalType = type ?? _finTab ?? 'expense';
+    setExpModalType(_expModalType);
+
     const sel = document.getElementById('exp-category');
     sel.innerHTML = financeData.categories.map(c =>
         `<option value="${c.id}">${c.name}</option>`).join('');
@@ -181,11 +225,12 @@ async function saveExpense() {
     const date = document.getElementById('exp-date').value;
     const weekNumber = document.getElementById('exp-week').value ? parseInt(document.getElementById('exp-week').value) : null;
     const taskId = document.getElementById('exp-task').value ? parseInt(document.getElementById('exp-task').value) : null;
+    const type = _expModalType;
 
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        const expense = await api(withProject('/api/expenses'), 'POST', { categoryId, amount, description, link, date, weekNumber, taskId });
+        const expense = await api(withProject('/api/expenses'), 'POST', { categoryId, amount, description, link, date, weekNumber, taskId, type });
 
         const fileInput = document.getElementById('exp-file');
         if (fileInput.files.length > 0) {
@@ -195,9 +240,10 @@ async function saveExpense() {
         }
 
         financeData = await api(withProject('/api/finance'));
-        renderFinanzen();
+        _finTab = type; // Tab auf gespeicherten Typ wechseln
+        setFinTab(type);
         closeExpenseModal();
-        showToast('✓ Ausgabe gespeichert');
+        showToast(type === 'income' ? '✓ Einnahme gespeichert' : '✓ Ausgabe gespeichert');
         document.getElementById('exp-amount').value = '';
         document.getElementById('exp-description').value = '';
         document.getElementById('exp-link').value = '';
@@ -205,21 +251,30 @@ async function saveExpense() {
 }
 
 async function deleteExpense(id) {
-    if (!confirm('Ausgabe löschen?')) return;
+    if (!confirm('Eintrag löschen?')) return;
     try {
         await api(withProject('/api/expenses/' + id), 'DELETE');
         financeData = await api(withProject('/api/finance'));
         renderFinanzen();
-        showToast('✓ Ausgabe gelöscht');
+        showToast('✓ Eintrag gelöscht');
     } catch { showToast('Fehler beim Löschen.'); }
 }
 
 // ── EDIT EXPENSE MODAL ──
+function setEditExpModalType(type) {
+    document.getElementById('edit-exp-type').value = type;
+    document.getElementById('edit-exp-type-btn-expense').classList.toggle('active', type === 'expense');
+    document.getElementById('edit-exp-type-btn-income').classList.toggle('active', type === 'income');
+    const title = document.getElementById('edit-expense-modal-title');
+    if (title) title.textContent = type === 'income' ? 'Einnahme bearbeiten' : 'Ausgabe bearbeiten';
+}
+
 function openEditExpenseModal(id) {
     const expense = financeData.expenses.find(e => e.id === id);
     if (!expense) return;
 
     document.getElementById('edit-exp-id').value = expense.id;
+    setEditExpModalType(expense.type ?? 'expense');
     document.getElementById('edit-exp-amount').value = expense.amount;
     document.getElementById('edit-exp-description').value = expense.description;
     document.getElementById('edit-exp-link').value = expense.link ?? '';
@@ -266,6 +321,7 @@ function closeEditExpenseModal() {
 
 async function updateExpense() {
     const id = parseInt(document.getElementById('edit-exp-id').value);
+    const type = document.getElementById('edit-exp-type').value || 'expense';
     const categoryId = parseInt(document.getElementById('edit-exp-category').value);
     const amount = parseFloat(document.getElementById('edit-exp-amount').value);
     const description = document.getElementById('edit-exp-description').value.trim();
@@ -277,7 +333,7 @@ async function updateExpense() {
     if (!description || !amount || amount <= 0) { showToast('Bitte Beschreibung und Betrag eingeben.'); return; }
 
     try {
-        await api(withProject('/api/expenses/' + id), 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId });
+        await api(withProject('/api/expenses/' + id), 'PUT', { categoryId, amount, description, link, date, weekNumber, taskId, type });
 
         const fileInput = document.getElementById('edit-exp-file');
         if (fileInput.files.length > 0) {
@@ -287,9 +343,9 @@ async function updateExpense() {
         }
 
         financeData = await api(withProject('/api/finance'));
-        renderFinanzen();
+        setFinTab(type);
         closeEditExpenseModal();
-        showToast('✓ Ausgabe aktualisiert');
+        showToast('✓ Eintrag aktualisiert');
     } catch { showToast('Fehler beim Speichern.'); }
 }
 

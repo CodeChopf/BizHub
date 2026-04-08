@@ -12,4 +12,5 @@ public class Expense
     public string Date { get; set; } = "";
     public int? WeekNumber { get; set; }
     public int? TaskId { get; set; }
+    public string Type { get; set; } = "expense";
 }

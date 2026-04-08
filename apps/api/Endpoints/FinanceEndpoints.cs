@@ -22,7 +22,8 @@ public static class FinanceEndpoints
             var date = body.GetProperty("date").GetString() ?? DateTime.Today.ToString("yyyy-MM-dd");
             var weekNumber = body.TryGetProperty("weekNumber", out var w) && w.ValueKind != JsonValueKind.Null ? w.GetInt32() : (int?)null;
             var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
-            var expense = repo.Add(ApiHelpers.GetProjectId(request), categoryId, amount, description, link, date, weekNumber, taskId);
+            var type = body.TryGetProperty("type", out var tp) ? tp.GetString() ?? "expense" : "expense";
+            var expense = repo.Add(ApiHelpers.GetProjectId(request), categoryId, amount, description, link, date, weekNumber, taskId, type);
             return Results.Ok(expense);
         });
 
@@ -96,7 +97,8 @@ public static class FinanceEndpoints
             var date = body.GetProperty("date").GetString() ?? DateTime.Today.ToString("yyyy-MM-dd");
             var weekNumber = body.TryGetProperty("weekNumber", out var w) && w.ValueKind != JsonValueKind.Null ? w.GetInt32() : (int?)null;
             var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
-            var expense = repo.Update(id, categoryId, amount, description, link, date, weekNumber, taskId);
+            var type = body.TryGetProperty("type", out var tp) ? tp.GetString() ?? "expense" : "expense";
+            var expense = repo.Update(id, categoryId, amount, description, link, date, weekNumber, taskId, type);
             return Results.Ok(expense);
         });
 

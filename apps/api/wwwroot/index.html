@@ -238,7 +238,7 @@
                 <div class="kpi-strip" id="kpi-strip"></div>
                 <div class="overview-grid">
                     <div class="overview-left">
-                        <div class="card">
+                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
                             <div class="card-header">
                                 <div class="card-title">Diese Woche</div>
                                 <div class="card-badge" id="cw-badge"></div>
@@ -249,7 +249,7 @@
                         </div>
                     </div>
                     <div class="overview-right">
-                        <div class="card">
+                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
                             <div class="card-header">
                                 <div class="card-title">Gesamtfortschritt</div>
                             </div>
@@ -282,7 +282,7 @@
                     </div>
                 </div>
                 <div class="card" style="margin-top:20px">
-                    <div class="card-header">
+                    <div class="card-header" onclick="showPage('roadmap')" style="cursor:pointer">
                         <div class="card-title">Alle Wochen</div>
                     </div>
                     <div class="weeks-grid" id="weeks-grid"></div>
@@ -326,22 +326,28 @@
                 <div class="page-header">
                     <div>
                         <div class="page-title">Finanzen</div>
-                        <div class="page-sub">Ausgaben erfassen & verwalten</div>
+                        <div class="page-sub">Einnahmen & Ausgaben erfassen</div>
                     </div>
-                    <button class="btn-primary" onclick="openExpenseModal()">+ Ausgabe erfassen</button>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn-secondary" onclick="openExpenseModal('income')">+ Einnahme</button>
+                        <button class="btn-primary" onclick="openExpenseModal('expense')">+ Ausgabe</button>
+                    </div>
                 </div>
                 <div class="fin-kpi-strip" id="fin-kpi-strip"></div>
                 <div class="fin-grid">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Nach Kategorie</div>
+                            <div class="card-title" id="fin-cat-title">Nach Kategorie</div>
                             <button class="btn-secondary" onclick="openCategoryModal()">Kategorien verwalten</button>
                         </div>
                         <div id="category-summary"></div>
                     </div>
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Alle Ausgaben</div>
+                            <div class="fin-tab-toggle">
+                                <button class="fin-tab active" id="fin-tab-expense" onclick="setFinTab('expense')">Ausgaben</button>
+                                <button class="fin-tab" id="fin-tab-income" onclick="setFinTab('income')">Einnahmen</button>
+                            </div>
                         </div>
                         <div id="expenses-list"></div>
                     </div>
@@ -575,6 +581,10 @@
                     <button class="btn-ghost btn-danger" onclick="deleteProject()">Projekt löschen</button>
                 </div>
 
+                <div style="margin-top:8px;text-align:center;font-size:12px;color:var(--text3)">
+                    BizHub <span id="app-version"></span>
+                </div>
+
             </div>
 
         </main>
@@ -704,14 +714,18 @@
         </div>
     </div>
 
-    <!-- MODAL: Ausgabe erfassen -->
+    <!-- MODAL: Ausgabe / Einnahme erfassen -->
     <div class="modal-backdrop" id="expense-modal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">Ausgabe erfassen</div>
+                <div class="modal-title" id="expense-modal-title">Ausgabe erfassen</div>
                 <button class="modal-close" onclick="closeExpenseModal()">✕</button>
             </div>
             <div class="modal-body">
+                <div class="fin-type-toggle" id="exp-type-toggle">
+                    <button class="fin-type-btn active" id="exp-type-btn-expense" onclick="setExpModalType('expense')">Ausgabe</button>
+                    <button class="fin-type-btn" id="exp-type-btn-income" onclick="setExpModalType('income')">Einnahme</button>
+                </div>
                 <div class="form-group">
                     <label>Kategorie</label>
                     <select id="exp-category"></select>
@@ -762,15 +776,20 @@
         </div>
     </div>
 
-    <!-- MODAL: Ausgabe bearbeiten -->
+    <!-- MODAL: Ausgabe / Einnahme bearbeiten -->
     <div class="modal-backdrop" id="edit-expense-modal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">Ausgabe bearbeiten</div>
+                <div class="modal-title" id="edit-expense-modal-title">Eintrag bearbeiten</div>
                 <button class="modal-close" onclick="closeEditExpenseModal()">✕</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit-exp-id">
+                <input type="hidden" id="edit-exp-type" value="expense">
+                <div class="fin-type-toggle">
+                    <button class="fin-type-btn active" id="edit-exp-type-btn-expense" onclick="setEditExpModalType('expense')">Ausgabe</button>
+                    <button class="fin-type-btn" id="edit-exp-type-btn-income" onclick="setEditExpModalType('income')">Einnahme</button>
+                </div>
                 <div class="form-group">
                     <label>Kategorie</label>
                     <select id="edit-exp-category"></select>
