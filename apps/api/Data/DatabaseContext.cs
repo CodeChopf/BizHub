@@ -215,6 +215,7 @@ public class DatabaseContext
             "ALTER TABLE calendar_events    ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE users              ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE expenses           ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
+            "ALTER TABLE categories         ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
         };
 
         foreach (var sql in alterStatements)

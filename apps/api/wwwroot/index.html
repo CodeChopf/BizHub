@@ -744,9 +744,32 @@
                     <button type="button" class="fin-type-btn" id="exp-type-btn-income" onclick="setExpModalType('income')">Einnahme</button>
                 </div>
                 <div class="form-group">
-                    <label>Kategorie</label>
-                    <select id="exp-category"></select>
+                    <label id="exp-cat-label">Kategorie</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <select id="exp-category" style="flex:1"></select>
+                        <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewExpCat()" title="Neue Kategorie erstellen">+</button>
+                    </div>
+                    <div id="exp-new-cat-wrap" style="display:none;margin-top:8px">
+                        <input type="text" id="exp-new-cat-name" list="income-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <div style="display:flex;gap:6px">
+                            <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewExpCat()">Hinzufügen</button>
+                            <button type="button" class="btn-secondary" onclick="cancelNewExpCat()">Abbrechen</button>
+                        </div>
+                    </div>
                 </div>
+                <!-- Vordefinierte Einnahme-Kategorievorschläge -->
+                <datalist id="income-cat-suggestions">
+                    <option value="Shopify">
+                    <option value="Etsy">
+                    <option value="Amazon">
+                    <option value="WooCommerce">
+                    <option value="Direktverkauf">
+                    <option value="Online-Shop">
+                    <option value="Messe / Markt">
+                    <option value="Kursgebühren">
+                    <option value="Beratung">
+                    <option value="Sonstiges">
+                </datalist>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Betrag</label>
@@ -808,8 +831,18 @@
                     <button type="button" class="fin-type-btn" id="edit-exp-type-btn-income" onclick="setEditExpModalType('income')">Einnahme</button>
                 </div>
                 <div class="form-group">
-                    <label>Kategorie</label>
-                    <select id="edit-exp-category"></select>
+                    <label id="edit-exp-cat-label">Kategorie</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <select id="edit-exp-category" style="flex:1"></select>
+                        <button type="button" class="btn-secondary" style="flex-shrink:0;padding:6px 10px" onclick="toggleNewEditExpCat()" title="Neue Kategorie erstellen">+</button>
+                    </div>
+                    <div id="edit-exp-new-cat-wrap" style="display:none;margin-top:8px">
+                        <input type="text" id="edit-exp-new-cat-name" list="income-cat-suggestions" placeholder="Kategoriename..." style="width:100%;margin-bottom:6px">
+                        <div style="display:flex;gap:6px">
+                            <button type="button" class="btn-primary" style="flex:1" onclick="confirmNewEditExpCat()">Hinzufügen</button>
+                            <button type="button" class="btn-secondary" onclick="cancelNewEditExpCat()">Abbrechen</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">

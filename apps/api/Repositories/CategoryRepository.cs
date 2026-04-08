@@ -1,4 +1,4 @@
-﻿using AuraPrintsApi.Data;
+using AuraPrintsApi.Data;
 using AuraPrintsApi.Models;
 
 namespace AuraPrintsApi.Repositories;
@@ -17,7 +17,7 @@ public class CategoryRepository : ICategoryRepository
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT id, name, color FROM categories WHERE project_id = @pid ORDER BY name";
+        cmd.CommandText = "SELECT id, name, color, type FROM categories WHERE project_id = @pid ORDER BY name";
         cmd.Parameters.AddWithValue("@pid", projectId);
         var result = new List<Category>();
         using var reader = cmd.ExecuteReader();
@@ -27,23 +27,25 @@ public class CategoryRepository : ICategoryRepository
             {
                 Id = reader.GetInt32(0),
                 Name = reader.GetString(1),
-                Color = reader.GetString(2)
+                Color = reader.GetString(2),
+                Type = reader.GetString(3)
             });
         }
         return result;
     }
 
-    public Category Add(int projectId, string name, string color)
+    public Category Add(int projectId, string name, string color, string type = "expense")
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "INSERT INTO categories (project_id, name, color) VALUES (@pid, @n, @c); SELECT last_insert_rowid();";
+        cmd.CommandText = "INSERT INTO categories (project_id, name, color, type) VALUES (@pid, @n, @c, @t); SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@c", color);
+        cmd.Parameters.AddWithValue("@t", type);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
-        return new Category { Id = (int)id, Name = name, Color = color };
+        return new Category { Id = (int)id, Name = name, Color = color, Type = type };
     }
 
     public Category Update(int id, string name, string color)
