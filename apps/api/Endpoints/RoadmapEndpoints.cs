@@ -22,11 +22,15 @@ public static class RoadmapEndpoints
             Results.Ok(repo.GetState(ApiHelpers.GetProjectId(req))));
 
         // POST /api/state
-        app.MapPost("/api/state", async (HttpRequest request, IStateRepository repo) =>
+        app.MapPost("/api/state", async (HttpRequest request, IStateRepository repo, IActivityRepository activityRepo) =>
         {
             var state = await JsonSerializer.DeserializeAsync<Dictionary<string, bool>>(request.Body);
             if (state == null) return Results.BadRequest();
-            repo.SaveState(ApiHelpers.GetProjectId(request), state);
+            var projectId = ApiHelpers.GetProjectId(request);
+            repo.SaveState(projectId, state);
+            var doneCount = state.Count(kv => kv.Value);
+            activityRepo.Add(projectId, "task", "state_saved", "Task-Status aktualisiert",
+                $"{doneCount} Aufgaben als erledigt markiert.", request.HttpContext.User?.Identity?.Name);
             return Results.Ok(new { saved = true });
         });
 

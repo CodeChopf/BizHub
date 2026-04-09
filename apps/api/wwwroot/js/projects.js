@@ -29,7 +29,7 @@ function renderProjectScreen() {
         <div class="project-select-card">
             <div style="flex:1;cursor:pointer;min-width:0" onclick="selectProject(${p.id})">
                 <div class="project-select-name">${escHtml(p.name)}</div>
-                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
+                <div class="project-select-meta">${escHtml(p.description ?? '')}${String(p.role ?? '').toLowerCase() === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
             </div>
             <button class="btn-ghost btn-sm" onclick="selectProject(${p.id})">Öffnen</button>
             <button class="btn-ghost btn-sm btn-danger" onclick="leaveProject(${p.id}, '${escHtml(p.name).replace(/'/g, "\\'")}')">Austreten</button>
@@ -77,6 +77,119 @@ async function generatePlatformInvite() {
         showToast('Fehler beim Generieren des Links.');
     }
 }
+
+let _managedUsers = [];
+
+function openUserManagementModal() {
+    document.getElementById('um-create-username').value = '';
+    document.getElementById('um-create-password').value = '';
+    document.getElementById('um-create-admin').checked = false;
+    document.getElementById('um-reset-username').value = '';
+    document.getElementById('um-reset-password').value = '';
+    document.getElementById('user-management-modal').style.display = 'flex';
+    loadManagedUsers();
+}
+
+function closeUserManagementModal() {
+    document.getElementById('user-management-modal').style.display = 'none';
+}
+
+async function loadManagedUsers() {
+    const listEl = document.getElementById('um-users-list');
+    const resetSelect = document.getElementById('um-reset-username');
+    if (!listEl || !resetSelect) return;
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px 12px">Lädt...</div>';
+
+    try {
+        const users = await api('/api/users');
+        _managedUsers = Array.isArray(users) ? users : [];
+    } catch (err) {
+        listEl.innerHTML = `<div class="user-mgmt-error">${escHtml(err?.message || 'Fehler beim Laden der Benutzer.')}</div>`;
+        return;
+    }
+
+    resetSelect.innerHTML = '<option value="">— Benutzer wählen —</option>' + _managedUsers
+        .map(u => `<option value="${escHtml(u.username)}">${escHtml(u.username)}</option>`)
+        .join('');
+
+    if (_managedUsers.length === 0) {
+        listEl.innerHTML = '<div class="empty-state" style="padding:18px 12px">Keine Benutzer gefunden.</div>';
+        return;
+    }
+
+    listEl.innerHTML = _managedUsers.map(u => {
+        const isAdmin = !!u.isAdmin;
+        const isPlatformAdmin = !!u.isPlatformAdmin;
+        const createdAt = escHtml(u.createdAt ?? '');
+        return `
+            <div class="user-mgmt-row">
+                <div>
+                    <div class="user-mgmt-name">${escHtml(u.username)}</div>
+                    <div class="user-mgmt-meta">
+                        ${isAdmin ? '<span class="user-badge">Admin</span>' : ''}
+                        ${isPlatformAdmin ? '<span class="user-badge">Platform</span>' : ''}
+                        <span>Erstellt: ${createdAt}</span>
+                    </div>
+                </div>
+                <div class="user-mgmt-actions">
+                    <button class="btn-ghost btn-sm btn-danger" onclick="deleteManagedUser('${escHtml(u.username).replace(/'/g, "\\'")}')">Löschen</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function createManagedUser() {
+    const username = document.getElementById('um-create-username').value.trim();
+    const password = document.getElementById('um-create-password').value;
+    const isAdmin = !!document.getElementById('um-create-admin').checked;
+
+    if (!username || !password) {
+        showToast('Benutzername und Passwort sind Pflicht.');
+        return;
+    }
+
+    try {
+        await api('/api/users', 'POST', { username, password, isAdmin });
+        showToast('Benutzer erstellt.');
+        document.getElementById('um-create-username').value = '';
+        document.getElementById('um-create-password').value = '';
+        document.getElementById('um-create-admin').checked = false;
+        await loadManagedUsers();
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Erstellen.');
+    }
+}
+
+async function deleteManagedUser(username) {
+    if (!username) return;
+    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+
+    try {
+        await api('/api/users/' + encodeURIComponent(username), 'DELETE');
+        showToast('Benutzer gelöscht.');
+        await loadManagedUsers();
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Löschen.');
+    }
+}
+
+async function resetManagedUserPassword() {
+    const username = document.getElementById('um-reset-username').value;
+    const password = document.getElementById('um-reset-password').value;
+    if (!username || !password) {
+        showToast('Benutzer und neues Passwort angeben.');
+        return;
+    }
+
+    try {
+        await api('/api/users/' + encodeURIComponent(username) + '/password', 'PUT', { password });
+        showToast('Passwort aktualisiert.');
+        document.getElementById('um-reset-password').value = '';
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Aktualisieren.');
+    }
+}
+
 function copyPlatformInviteLink() {
     const input = document.getElementById('platform-invite-link-input');
     if (!input) return;
@@ -131,10 +244,25 @@ async function doRegister() {
         body: JSON.stringify({ token, username, password })
     });
     if (res.ok) {
+        const loginForm = document.getElementById('login-form-section');
+        if (loginForm) loginForm.style.display = '';
         const regSection = document.getElementById('register-section');
         if (regSection) regSection.style.display = 'none';
+        const notice = document.getElementById('project-invite-notice');
+        if (notice) {
+            notice.style.display = 'none';
+            notice.textContent = '';
+        }
+        const regUser = document.getElementById('reg-username');
+        if (regUser) regUser.value = '';
+        const regPw = document.getElementById('reg-password');
+        if (regPw) regPw.value = '';
+        const regToken = document.getElementById('_reg_token');
+        if (regToken) regToken.value = '';
         const loginUser = document.getElementById('login-username');
         if (loginUser) loginUser.value = username;
+        const loginPw = document.getElementById('login-password');
+        if (loginPw) loginPw.focus();
         showToast('Account erstellt! Bitte einloggen.');
         window.history.replaceState({}, '', window.location.pathname);
     } else {
@@ -180,7 +308,9 @@ async function confirmCreateProject() {
 
 // ── MITGLIEDERVERWALTUNG ──
 async function renderMemberList() {
-    const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
+    const isProjectAdmin = (typeof isCurrentProjectAdmin === 'function')
+        ? isCurrentProjectAdmin()
+        : String(_currentProject?.role ?? '').toLowerCase() === 'admin';
     const card = document.getElementById('members-card');
     const dangerCard = document.getElementById('danger-zone-card');
     if (!card) return;
@@ -191,9 +321,17 @@ async function renderMemberList() {
     }
     card.style.display = '';
     if (dangerCard) dangerCard.style.display = '';
-    const members = await api(`/api/projects/${_currentProjectId}/members`);
     const list = document.getElementById('members-list');
-    list.innerHTML = members.map(m => `
+    if (!list) return;
+
+    try {
+        const members = await api(`/api/projects/${_currentProjectId}/members`);
+        if (!Array.isArray(members) || members.length === 0) {
+            list.innerHTML = '<div style="font-size:13px;color:var(--text3)">Keine Mitglieder gefunden.</div>';
+            return;
+        }
+
+        list.innerHTML = members.map(m => `
         <div class="user-row">
             <div class="user-info">
                 <span class="user-name">${escHtml(m.username)}</span>
@@ -204,6 +342,10 @@ async function renderMemberList() {
                     ${m.username === _currentUser?.username ? 'disabled title="Eigenen Account nicht entfernbar"' : ''}>Entfernen</button>
             </div>
         </div>`).join('');
+    } catch (err) {
+        list.innerHTML = '<div style="font-size:13px;color:var(--red)">Mitglieder konnten nicht geladen werden.</div>';
+        showToast(err?.message || 'Fehler beim Laden der Mitglieder.');
+    }
 }
 function openProjectInviteModal() {
     document.getElementById('project-invite-hours').value = '48';
@@ -235,7 +377,14 @@ async function removeMember(userId) {
     if (!confirm('Mitglied wirklich entfernen?')) return;
     const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
     if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
-    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+    else {
+        try {
+            const err = await res.json();
+            showToast(err.error ?? 'Fehler.');
+        } catch {
+            showToast('Fehler.');
+        }
+    }
 }
 
 async function deleteProject() {

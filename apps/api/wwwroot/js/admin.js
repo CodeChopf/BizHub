@@ -39,6 +39,10 @@ function toggleWeek(n) {
 
 // ── NAV ──
 function showPage(id) {
+    if (id === 'einstellungen' && typeof isCurrentProjectAdmin === 'function' && !isCurrentProjectAdmin()) {
+        showToast('Nur Projekt-Admins können die Einstellungen öffnen.');
+        id = 'overview';
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
     const page = document.getElementById('page-' + id);
@@ -105,6 +109,7 @@ function updateAll() {
 
 function updateOverview() {
     if (!appData) return;
+    if (typeof applyDashboardRoleLayout === 'function') applyDashboardRoleLayout();
     const currentWeek = window._currentWeek ?? 1;
     const week = appData.weeks.find(w => w.number === currentWeek);
     const weekRanges = getWeekRanges();
@@ -119,6 +124,14 @@ function updateOverview() {
         if (cwTasks) cwTasks.innerHTML = '';
         const weeksGrid = document.getElementById('weeks-grid');
         if (weeksGrid) weeksGrid.innerHTML = '';
+        const alerts = document.getElementById('overview-alerts-list');
+        const timeline = document.getElementById('overview-timeline-list');
+        const fin = document.getElementById('overview-finance-summary');
+        const activity = document.getElementById('overview-activity-list');
+        if (alerts) alerts.innerHTML = '';
+        if (timeline) timeline.innerHTML = '';
+        if (fin) fin.innerHTML = '';
+        if (activity) activity.innerHTML = '';
         return;
     }
 
@@ -197,6 +210,11 @@ function updateOverview() {
         tile.onclick = () => { showPage('roadmap'); setTimeout(() => toggleWeek(w), 100); };
         grid.appendChild(tile);
     });
+
+    if (typeof renderOverviewAlerts === 'function') renderOverviewAlerts();
+    if (typeof renderOverviewTimeline === 'function') renderOverviewTimeline(currentWeek, weekRanges);
+    if (typeof renderOverviewFinanceSnapshot === 'function') renderOverviewFinanceSnapshot();
+    if (typeof renderOverviewActivity === 'function') renderOverviewActivity();
 }
 
 // ── DASHBOARD CARDS (sync) ──
@@ -385,6 +403,45 @@ async function deleteTaskTag(tagId) {
 let editingWeekNumber = null;
 let editingTaskId = null;
 let editingTaskWeekNumber = null;
+let _adminMode = 'manual';
+
+function setAdminMode(mode) {
+    const isAdmin = !!_currentUser?.isAdmin;
+    if (!isAdmin) mode = 'manual';
+    _adminMode = mode === 'ai' ? 'ai' : 'manual';
+    applyAdminModeUi();
+}
+
+function applyAdminModeUi() {
+    const isAdmin = !!_currentUser?.isAdmin;
+    const switchEl = document.getElementById('admin-mode-switch');
+    const btnManual = document.getElementById('admin-mode-manual');
+    const btnAi = document.getElementById('admin-mode-ai');
+    const addWeekBtn = document.getElementById('btn-admin-add-week');
+    const content = document.getElementById('admin-content');
+    const aiSection = document.getElementById('admin-ai-section');
+
+    if (!switchEl || !btnManual || !btnAi || !addWeekBtn || !content || !aiSection) return;
+
+    if (!isAdmin) {
+        _adminMode = 'manual';
+        switchEl.style.display = 'none';
+    } else {
+        switchEl.style.display = 'inline-flex';
+    }
+
+    const isAi = isAdmin && _adminMode === 'ai';
+    btnManual.classList.toggle('active', !isAi);
+    btnAi.classList.toggle('active', isAi);
+
+    content.style.display = isAi ? 'none' : '';
+    aiSection.style.display = isAi ? '' : 'none';
+    addWeekBtn.style.display = isAi ? 'none' : '';
+
+    if (typeof setAgentVisible === 'function') {
+        setAgentVisible(isAi);
+    }
+}
 
 function renderAdmin() {
     if (!appData) return;
@@ -417,6 +474,7 @@ function renderAdmin() {
     });
 
     initDragDrop();
+    applyAdminModeUi();
 }
 
 function toggleAdminWeek(number) {

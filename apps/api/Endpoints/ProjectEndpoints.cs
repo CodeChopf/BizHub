@@ -44,7 +44,7 @@ public static class ProjectEndpoints
             var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (user == null) return Results.Unauthorized();
             var role = projectRepo.GetRole(id, user.Id);
-            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            if (role != "admin") return Results.Forbid();
             var body         = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
             var name         = body.GetProperty("name").GetString() ?? "";
             var description  = body.TryGetProperty("description", out var d) ? d.GetString() : null;
@@ -71,7 +71,7 @@ public static class ProjectEndpoints
             var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (currentUser == null) return Results.Unauthorized();
             var role = projectRepo.GetRole(id, currentUser.Id);
-            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            if (role != "admin") return Results.Forbid();
             var body     = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
             var username = body.GetProperty("username").GetString() ?? "";
             var newRole  = body.TryGetProperty("role", out var r) ? r.GetString() ?? "member" : "member";
@@ -87,7 +87,7 @@ public static class ProjectEndpoints
             var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (currentUser == null) return Results.Unauthorized();
             var role = projectRepo.GetRole(id, currentUser.Id);
-            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            if (role != "admin") return Results.Forbid();
             if (userId == currentUser.Id) return Results.BadRequest(new { error = "Du kannst dich nicht selbst entfernen." });
             projectRepo.RemoveMember(id, userId);
             return Results.Ok(new { removed = true });
@@ -99,7 +99,7 @@ public static class ProjectEndpoints
             var currentUser = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (currentUser == null) return Results.Unauthorized();
             var role = projectRepo.GetRole(id, currentUser.Id);
-            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            if (role != "admin") return Results.Forbid();
             var body       = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
             var inviteRole = body.TryGetProperty("role", out var r) ? r.GetString() ?? "member" : "member";
             var hours      = body.TryGetProperty("hoursValid", out var h) ? h.GetInt32() : 48;
@@ -154,7 +154,7 @@ public static class ProjectEndpoints
             var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (user == null) return Results.Unauthorized();
             var role = projectRepo.GetRole(id, user.Id);
-            if (role != "admin" && !ctx.User.IsInRole("admin")) return Results.Forbid();
+            if (role != "admin") return Results.Forbid();
             projectRepo.DeleteProject(id);
             return Results.Ok(new { deleted = true });
         });

@@ -53,7 +53,11 @@ function handleImportPreview() {
 async function importProject() {
     if (!_importData) return;
     try {
-        await api('/api/import', 'POST', _importData);
+        const result = await api('/api/import', 'POST', normalizeImportPayload(_importData));
+        if (Array.isArray(result?.warnings) && result.warnings.length > 0) {
+            console.warn('Import warnings:', result.warnings);
+            alert('Import teilweise abgeschlossen. Details in der Browser-Konsole.');
+        }
         location.reload();
     } catch {
         alert('Fehler beim Importieren.');
@@ -158,6 +162,9 @@ async function loadProject() {
 
     const settings = await api(withProject('/api/settings'));
     applySettings(settings);
+    if (typeof updateSettingsTabVisibility === 'function') {
+        updateSettingsTabVisibility();
+    }
 
     await loadState();
     try {

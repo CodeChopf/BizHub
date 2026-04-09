@@ -1,3 +1,4 @@
+using Anthropic.SDK;
 using AuraPrintsApi.Data;
 using AuraPrintsApi.Endpoints;
 using AuraPrintsApi.Repositories;
@@ -31,6 +32,10 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
 builder.Services.AddSingleton<IInviteRepository, InviteRepository>();
 builder.Services.AddSingleton<ITaskTagRepository, TaskTagRepository>();
+builder.Services.AddSingleton<IAgentRepository, AgentRepository>();
+builder.Services.AddSingleton<IActivityRepository, ActivityRepository>();
+builder.Services.AddSingleton(new AnthropicClient(
+    Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? ""));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => {
@@ -99,6 +104,8 @@ app.MapAuthEndpoints()
    .MapCatalogEndpoints()
    .MapProductionEndpoints()
    .MapCalendarEndpoints()
-   .MapProjectEndpoints();
+   .MapProjectEndpoints()
+   .MapAgentEndpoints()
+   .MapActivityEndpoints();
 
 app.Run();

@@ -24,7 +24,6 @@ public class ProjectRepository : IProjectRepository
             FROM projects p
             LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = @uid
             WHERE pm.user_id = @uid
-               OR EXISTS (SELECT 1 FROM users WHERE id = @uid AND is_admin = 1)
             ORDER BY p.id";
         cmd.Parameters.AddWithValue("@uid", userId);
         var result = new List<Project>();

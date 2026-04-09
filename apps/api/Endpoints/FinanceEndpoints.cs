@@ -12,7 +12,7 @@ public static class FinanceEndpoints
             Results.Ok(repo.GetAll(ApiHelpers.GetProjectId(req))));
 
         // POST /api/expenses
-        app.MapPost("/api/expenses", async (HttpRequest request, IExpenseRepository repo) =>
+        app.MapPost("/api/expenses", async (HttpRequest request, IExpenseRepository repo, IActivityRepository activityRepo) =>
         {
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
             var categoryId = body.GetProperty("categoryId").GetInt32();
@@ -23,14 +23,20 @@ public static class FinanceEndpoints
             var weekNumber = body.TryGetProperty("weekNumber", out var w) && w.ValueKind != JsonValueKind.Null ? w.GetInt32() : (int?)null;
             var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
             var type = body.TryGetProperty("type", out var tp) ? tp.GetString() ?? "expense" : "expense";
-            var expense = repo.Add(ApiHelpers.GetProjectId(request), categoryId, amount, description, link, date, weekNumber, taskId, type);
+            var projectId = ApiHelpers.GetProjectId(request);
+            var expense = repo.Add(projectId, categoryId, amount, description, link, date, weekNumber, taskId, type);
+            activityRepo.Add(projectId, "finance", "created",
+                type == "income" ? "Einnahme erfasst" : "Ausgabe erfasst",
+                description, request.HttpContext.User?.Identity?.Name);
             return Results.Ok(expense);
         });
 
         // DELETE /api/expenses/{id}
-        app.MapDelete("/api/expenses/{id}", (int id, IExpenseRepository repo) =>
+        app.MapDelete("/api/expenses/{id}", (int id, HttpRequest request, IExpenseRepository repo, IActivityRepository activityRepo) =>
         {
             repo.Delete(id);
+            var projectId = ApiHelpers.GetProjectId(request);
+            activityRepo.Add(projectId, "finance", "deleted", "Finanz-Eintrag gelöscht", $"ID {id}", request.HttpContext.User?.Identity?.Name);
             return Results.Ok(new { deleted = true });
         });
 
@@ -88,7 +94,7 @@ public static class FinanceEndpoints
         });
 
         // PUT /api/expenses/{id}
-        app.MapPut("/api/expenses/{id}", async (int id, HttpRequest request, IExpenseRepository repo) =>
+        app.MapPut("/api/expenses/{id}", async (int id, HttpRequest request, IExpenseRepository repo, IActivityRepository activityRepo) =>
         {
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
             var categoryId = body.GetProperty("categoryId").GetInt32();
@@ -100,6 +106,8 @@ public static class FinanceEndpoints
             var taskId = body.TryGetProperty("taskId", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetInt32() : (int?)null;
             var type = body.TryGetProperty("type", out var tp) ? tp.GetString() ?? "expense" : "expense";
             var expense = repo.Update(id, categoryId, amount, description, link, date, weekNumber, taskId, type);
+            var projectId = ApiHelpers.GetProjectId(request);
+            activityRepo.Add(projectId, "finance", "updated", "Finanz-Eintrag aktualisiert", description, request.HttpContext.User?.Identity?.Name);
             return Results.Ok(expense);
         });
 
@@ -115,20 +123,24 @@ public static class FinanceEndpoints
         });
 
         // POST /api/milestones
-        app.MapPost("/api/milestones", async (HttpRequest request, IMilestoneRepository repo) =>
+        app.MapPost("/api/milestones", async (HttpRequest request, IMilestoneRepository repo, IActivityRepository activityRepo) =>
         {
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body);
             var name = body.GetProperty("name").GetString() ?? "";
             var description = body.TryGetProperty("description", out var d) ? d.GetString() : null;
             var snapshot = body.GetProperty("snapshot").GetString() ?? "{}";
-            var milestone = repo.Create(ApiHelpers.GetProjectId(request), name, description, snapshot);
+            var projectId = ApiHelpers.GetProjectId(request);
+            var milestone = repo.Create(projectId, name, description, snapshot);
+            activityRepo.Add(projectId, "milestone", "created", "Meilenstein erstellt", name, request.HttpContext.User?.Identity?.Name);
             return Results.Ok(milestone);
         });
 
         // DELETE /api/milestones/{id}
-        app.MapDelete("/api/milestones/{id}", (int id, IMilestoneRepository repo) =>
+        app.MapDelete("/api/milestones/{id}", (int id, HttpRequest request, IMilestoneRepository repo, IActivityRepository activityRepo) =>
         {
             repo.Delete(id);
+            var projectId = ApiHelpers.GetProjectId(request);
+            activityRepo.Add(projectId, "milestone", "deleted", "Meilenstein gelöscht", $"ID {id}", request.HttpContext.User?.Identity?.Name);
             return Results.Ok(new { deleted = true });
         });
 

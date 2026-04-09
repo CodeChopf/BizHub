@@ -47,12 +47,45 @@ async function api(url, method = 'GET', body = null) {
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
-    return res.json();
+    const text = await res.text();
+    const data = text ? (() => {
+        try { return JSON.parse(text); } catch { return null; }
+    })() : null;
+
+    if (!res.ok) {
+        const message = (data && typeof data === 'object' && data.error)
+            ? data.error
+            : (text || `${res.status} ${res.statusText}`);
+        const err = new Error(message);
+        err.status = res.status;
+        err.payload = data;
+        throw err;
+    }
+
+    return data;
 }
 
 function withProject(url) {
     const sep = url.includes('?') ? '&' : '?';
     return url + sep + 'projectId=' + _currentProjectId;
+}
+
+function normalizeImportPayload(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+
+    const clone = JSON.parse(JSON.stringify(raw));
+    const s = clone.settings;
+    if (s && typeof s === 'object') {
+        if (s.startDate == null && s.start_date != null) s.startDate = s.start_date;
+        if (s.projectName == null && s.project_name != null) s.projectName = s.project_name;
+        if (s.projectImage == null && s.project_image != null) s.projectImage = s.project_image;
+        if (s.visibleTabs == null && s.visible_tabs != null) s.visibleTabs = s.visible_tabs;
+
+        if (s.startDate != null && typeof s.startDate !== 'string') s.startDate = String(s.startDate);
+        if (s.projectName != null && typeof s.projectName !== 'string') s.projectName = String(s.projectName);
+    }
+
+    return clone;
 }
 
 async function loadState() {

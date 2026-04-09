@@ -122,7 +122,10 @@
                 <div class="project-screen-sub" id="project-screen-welcome"></div>
             </div>
             <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:16px; text-align:center">
-                <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                    <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+                    <button class="btn-secondary" onclick="openUserManagementModal()">Accounts verwalten</button>
+                </div>
             </div>
             <div id="project-list-screen" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px"></div>
             <div class="project-screen-footer">
@@ -190,7 +193,7 @@
                     <span class="nav-icon">📂</span>
                     <span>Importieren</span>
                 </button>
-                <button class="nav-item" onclick="showPage('einstellungen')">
+                <button class="nav-item" id="nav-einstellungen" onclick="showPage('einstellungen')">
                     <span class="nav-icon">🔧</span>
                     <span>Einstellungen</span>
                 </button>
@@ -234,75 +237,89 @@
                     </div>
                     <div class="page-header-right" id="topbar-date"></div>
                 </div>
-                <div id="overview-project-image" style="margin-bottom:16px"></div>
+                <div id="overview-project-image" class="overview-project-image"></div>
+                <div class="kpi-strip" id="kpi-strip"></div>
 
-                <div class="dash-grid" id="dash-grid">
-
-                    <!-- Roadmap Card -->
-                    <div class="dash-card dash-card--blue" id="dash-card-roadmap" onclick="showPage('roadmap')">
-                        <div class="dash-card-header">
-                            <span class="dash-card-icon">📋</span>
-                            <span class="dash-card-name">Roadmap</span>
+                <div class="dashboard-grid" id="dashboard-grid">
+                    <div class="card dashboard-widget dashboard-widget-alerts" id="widget-alerts">
+                        <div class="card-header">
+                            <div class="card-title">Alerts & Risiken</div>
+                            <span class="card-badge" id="overview-alerts-count">0</span>
                         </div>
-                        <div class="dash-card-body">
-                            <div class="dash-stat" id="dash-roadmap-progress">—</div>
-                            <div class="dash-stat-label">Gesamtfortschritt</div>
-                            <div class="dash-row" style="margin-top:12px">
-                                <span class="dash-chip" id="dash-roadmap-week">Woche —</span>
-                                <span class="dash-chip dash-chip--muted" id="dash-roadmap-tasks">— / — Tasks</span>
+                        <div id="overview-alerts-list" class="overview-list"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-focus" id="widget-focus" onclick="showPage('roadmap')">
+                        <div class="card-header">
+                            <div class="card-title">Diese Woche</div>
+                            <div class="card-badge" id="cw-badge"></div>
+                        </div>
+                        <div class="cw-title" id="cw-title">Lädt...</div>
+                        <div class="cw-date" id="cw-date"></div>
+                        <div id="cw-tasks"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-timeline" id="widget-timeline">
+                        <div class="card-header">
+                            <div class="card-title">Timeline</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('meilensteine')">Meilensteine</button>
+                        </div>
+                        <div id="overview-timeline-list" class="overview-list"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-progress" id="widget-progress" onclick="showPage('roadmap')">
+                        <div class="card-header">
+                            <div class="card-title">Gesamtfortschritt</div>
+                        </div>
+                        <div class="donut-wrap">
+                            <svg viewBox="0 0 120 120" class="donut-svg">
+                                <circle class="donut-bg" cx="60" cy="60" r="50" />
+                                <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
+                                        stroke-dasharray="0 314" stroke-dashoffset="78" />
+                            </svg>
+                            <div class="donut-center">
+                                <div class="donut-pct" id="donut-pct">0%</div>
+                                <div class="donut-label">Erledigt</div>
+                            </div>
+                        </div>
+                        <div class="donut-stats">
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-done">0</div>
+                                <div class="donut-stat-label">Erledigt</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-open">0</div>
+                                <div class="donut-stat-label">Offen</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-weeks">0</div>
+                                <div class="donut-stat-label">Wochen</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Finanzen Card -->
-                    <div class="dash-card dash-card--green" id="dash-card-finanzen" onclick="showPage('finanzen')">
-                        <div class="dash-card-header">
-                            <span class="dash-card-icon">💰</span>
-                            <span class="dash-card-name">Finanzen</span>
+                    <div class="card dashboard-widget dashboard-widget-finance" id="widget-finance">
+                        <div class="card-header">
+                            <div class="card-title">Finance Health</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('finanzen')">Finanzen</button>
                         </div>
-                        <div class="dash-card-body">
-                            <div class="dash-stat" id="dash-fin-balance">—</div>
-                            <div class="dash-stat-label" id="dash-fin-balance-label">Bilanz</div>
-                            <div class="dash-row" style="margin-top:12px">
-                                <span class="dash-chip" id="dash-fin-income">↑ —</span>
-                                <span class="dash-chip dash-chip--muted" id="dash-fin-expenses">↓ —</span>
-                            </div>
-                        </div>
+                        <div id="overview-finance-summary" class="overview-finance-summary"></div>
                     </div>
 
-                    <!-- Kalender Card -->
-                    <div class="dash-card dash-card--purple" id="dash-card-kalender" onclick="showPage('kalender')">
-                        <div class="dash-card-header">
-                            <span class="dash-card-icon">📅</span>
-                            <span class="dash-card-name">Kalender</span>
+                    <div class="card dashboard-widget dashboard-widget-activity" id="widget-activity">
+                        <div class="card-header">
+                            <div class="card-title">Aktivität</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('roadmap')">Öffnen</button>
                         </div>
-                        <div class="dash-card-body" id="dash-cal-body">
-                            <div class="dash-loading">Lädt…</div>
-                        </div>
+                        <div id="overview-activity-list" class="overview-list"></div>
                     </div>
+                </div>
 
-                    <!-- Produktion Card -->
-                    <div class="dash-card dash-card--amber" id="dash-card-produktion" onclick="showPage('produktion')">
-                        <div class="dash-card-header">
-                            <span class="dash-card-icon">🏭</span>
-                            <span class="dash-card-name">Produktion</span>
-                        </div>
-                        <div class="dash-card-body" id="dash-prod-body">
-                            <div class="dash-loading">Lädt…</div>
-                        </div>
+                <div class="card dashboard-widget dashboard-widget-weeks" id="widget-weeks">
+                    <div class="card-header" onclick="showPage('roadmap')" style="cursor:pointer">
+                        <div class="card-title">Alle Wochen</div>
                     </div>
-
-                    <!-- Meilensteine Card -->
-                    <div class="dash-card dash-card--red" id="dash-card-meilensteine" onclick="showPage('meilensteine')">
-                        <div class="dash-card-header">
-                            <span class="dash-card-icon">🏁</span>
-                            <span class="dash-card-name">Meilensteine</span>
-                        </div>
-                        <div class="dash-card-body" id="dash-ms-body">
-                            <div class="dash-loading">Lädt…</div>
-                        </div>
-                    </div>
-
+                    <div id="weeks-grid" class="weeks-grid"></div>
                 </div>
             </div>
 
@@ -392,10 +409,44 @@
                         <div class="page-title">Planung</div>
                         <div class="page-sub">Wochen und Tasks verwalten</div>
                     </div>
-                    <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    <div class="admin-header-actions">
+                        <div class="admin-mode-switch" id="admin-mode-switch" style="display:none">
+                            <button class="admin-mode-btn active" id="admin-mode-manual" onclick="setAdminMode('manual')">Manuell</button>
+                            <button class="admin-mode-btn" id="admin-mode-ai" onclick="setAdminMode('ai')">KI-Modus</button>
+                        </div>
+                        <button class="btn-primary" id="btn-admin-add-week" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    </div>
                 </div>
                 <div class="admin-tags-section" id="admin-tags-section"></div>
                 <div id="admin-content"></div>
+                <div id="admin-ai-section" style="display:none">
+                    <div id="agent-panel" class="open">
+                        <div id="agent-panel-header">
+                            <span>KI-Assistent</span>
+                        </div>
+                        <div id="agent-messages"></div>
+                        <div id="agent-confirm-bar" style="display:none">
+                            <div id="agent-confirm-summary"></div>
+                            <div class="agent-confirm-buttons">
+                                <button class="btn-primary" onclick="agentConfirm()">Bestätigen</button>
+                                <button class="btn-secondary" onclick="agentCancel()">Abbrechen</button>
+                            </div>
+                        </div>
+                        <div id="agent-limit-bar" style="display:none">
+                            <span>Token-Limit erreicht. Bitte Administrator kontaktieren.</span>
+                        </div>
+                        <div id="agent-input-row">
+                            <textarea id="agent-input" placeholder="Frage stellen…"
+                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSend();}"></textarea>
+                            <button id="agent-send-btn" onclick="agentSend()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- PRODUKTION -->
@@ -608,6 +659,7 @@
             </div>
 
         </main>
+
     </div>
 
     <!-- MODAL: Kalender-Ereignis -->
@@ -1412,7 +1464,62 @@
         </div>
     </div>
 
+    <!-- MODAL: Account-Verwaltung (Platform-Admin) -->
+    <div class="modal-backdrop" id="user-management-modal">
+        <div class="modal" style="width:760px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Benutzerverwaltung</div>
+                <button class="modal-close" onclick="closeUserManagementModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="user-mgmt-grid">
+                    <div class="user-mgmt-card">
+                        <div class="settings-card-title">Neuen Benutzer erstellen</div>
+                        <div class="form-group">
+                            <label>Benutzername</label>
+                            <input type="text" id="um-create-username" placeholder="z.B. max.mustermann">
+                        </div>
+                        <div class="form-group">
+                            <label>Passwort</label>
+                            <input type="password" id="um-create-password" placeholder="Temporäres Passwort">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="um-create-admin">
+                                Plattform-Admin
+                            </label>
+                        </div>
+                        <button class="btn-primary" style="width:100%" onclick="createManagedUser()">Benutzer erstellen</button>
+                    </div>
+                    <div class="user-mgmt-card">
+                        <div class="settings-card-title">Passwort zurücksetzen</div>
+                        <div class="form-group">
+                            <label>Benutzer</label>
+                            <select id="um-reset-username">
+                                <option value="">— Benutzer wählen —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Neues Passwort</label>
+                            <input type="password" id="um-reset-password" placeholder="Neues Passwort">
+                        </div>
+                        <button class="btn-secondary" style="width:100%" onclick="resetManagedUserPassword()">Passwort zurücksetzen</button>
+                    </div>
+                </div>
+
+                <div style="margin-top:18px">
+                    <div class="settings-card-title" style="margin-bottom:10px">Registrierte Accounts</div>
+                    <div id="um-users-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUserManagementModal()">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
+
     <script src="/js/state.js"></script>
     <script src="/js/utils.js"></script>
     <script src="/js/auth.js"></script>
@@ -1427,5 +1534,6 @@
     <script src="/js/calendar.js"></script>
     <script src="/js/production.js"></script>
     <script src="/js/app.js"></script>
+    <script src="/js/agent.js"></script>
 </body>
 </html>
