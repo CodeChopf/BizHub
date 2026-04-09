@@ -17,6 +17,10 @@ function toggleWeek(n) {
 
 // ── NAV ──
 function showPage(id) {
+    if (id === 'einstellungen' && typeof isCurrentProjectAdmin === 'function' && !isCurrentProjectAdmin()) {
+        showToast('Nur Projekt-Admins können die Einstellungen öffnen.');
+        id = 'overview';
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
     const page = document.getElementById('page-' + id);

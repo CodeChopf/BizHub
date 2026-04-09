@@ -37,6 +37,17 @@ async function saveSettings() {
 // ── TAB VISIBILITY ──
 const TOGGLEABLE_TABS = ['roadmap', 'produkte', 'finanzen', 'meilensteine', 'admin', 'produktion', 'kalender'];
 
+function isCurrentProjectAdmin() {
+    return (_currentProject?.role ?? '').toLowerCase() === 'admin';
+}
+
+function updateSettingsTabVisibility() {
+    const settingsBtn = document.getElementById('nav-einstellungen')
+        || [...document.querySelectorAll('.nav-item')]
+            .find(btn => btn.getAttribute('onclick') === "showPage('einstellungen')");
+    if (settingsBtn) settingsBtn.style.display = isCurrentProjectAdmin() ? '' : 'none';
+}
+
 function applyTabVisibility(visibleTabsJson) {
     const tabs = visibleTabsJson ? JSON.parse(visibleTabsJson) : {};
     TOGGLEABLE_TABS.forEach(id => {
@@ -47,6 +58,7 @@ function applyTabVisibility(visibleTabsJson) {
         const toggle = document.getElementById('tab-toggle-' + id);
         if (toggle) toggle.checked = visible;
     });
+    updateSettingsTabVisibility();
 }
 
 async function saveTabVisibility() {

@@ -29,7 +29,7 @@ function renderProjectScreen() {
         <div class="project-select-card">
             <div style="flex:1;cursor:pointer;min-width:0" onclick="selectProject(${p.id})">
                 <div class="project-select-name">${escHtml(p.name)}</div>
-                <div class="project-select-meta">${escHtml(p.description ?? '')}${p.role === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
+                <div class="project-select-meta">${escHtml(p.description ?? '')}${String(p.role ?? '').toLowerCase() === 'admin' ? '<span style="color:var(--accent);font-size:.72rem;margin-left:6px">Admin</span>' : ''}</div>
             </div>
             <button class="btn-ghost btn-sm" onclick="selectProject(${p.id})">Öffnen</button>
             <button class="btn-ghost btn-sm btn-danger" onclick="leaveProject(${p.id}, '${escHtml(p.name).replace(/'/g, "\\'")}')">Austreten</button>
@@ -180,7 +180,9 @@ async function confirmCreateProject() {
 
 // ── MITGLIEDERVERWALTUNG ──
 async function renderMemberList() {
-    const isProjectAdmin = _currentProject?.role === 'admin' || _currentUser?.isAdmin;
+    const isProjectAdmin = (typeof isCurrentProjectAdmin === 'function')
+        ? isCurrentProjectAdmin()
+        : String(_currentProject?.role ?? '').toLowerCase() === 'admin';
     const card = document.getElementById('members-card');
     const dangerCard = document.getElementById('danger-zone-card');
     if (!card) return;
@@ -191,9 +193,17 @@ async function renderMemberList() {
     }
     card.style.display = '';
     if (dangerCard) dangerCard.style.display = '';
-    const members = await api(`/api/projects/${_currentProjectId}/members`);
     const list = document.getElementById('members-list');
-    list.innerHTML = members.map(m => `
+    if (!list) return;
+
+    try {
+        const members = await api(`/api/projects/${_currentProjectId}/members`);
+        if (!Array.isArray(members) || members.length === 0) {
+            list.innerHTML = '<div style="font-size:13px;color:var(--text3)">Keine Mitglieder gefunden.</div>';
+            return;
+        }
+
+        list.innerHTML = members.map(m => `
         <div class="user-row">
             <div class="user-info">
                 <span class="user-name">${escHtml(m.username)}</span>
@@ -204,6 +214,10 @@ async function renderMemberList() {
                     ${m.username === _currentUser?.username ? 'disabled title="Eigenen Account nicht entfernbar"' : ''}>Entfernen</button>
             </div>
         </div>`).join('');
+    } catch (err) {
+        list.innerHTML = '<div style="font-size:13px;color:var(--red)">Mitglieder konnten nicht geladen werden.</div>';
+        showToast(err?.message || 'Fehler beim Laden der Mitglieder.');
+    }
 }
 function openProjectInviteModal() {
     document.getElementById('project-invite-hours').value = '48';
@@ -235,7 +249,14 @@ async function removeMember(userId) {
     if (!confirm('Mitglied wirklich entfernen?')) return;
     const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
     if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
-    else { const err = await res.json(); showToast(err.error ?? 'Fehler.'); }
+    else {
+        try {
+            const err = await res.json();
+            showToast(err.error ?? 'Fehler.');
+        } catch {
+            showToast('Fehler.');
+        }
+    }
 }
 
 async function deleteProject() {
