@@ -15,13 +15,23 @@ public static class SettingsEndpoints
         ).AllowAnonymous();
 
         // GET /api/settings
-        app.MapGet("/api/settings", (HttpRequest request, ISettingsRepository repo) =>
-            Results.Ok(repo.GetSettings(ApiHelpers.GetProjectId(request))));
+        app.MapGet("/api/settings", (HttpRequest request, HttpContext ctx, ISettingsRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+            if (user == null) return Results.Unauthorized();
+            var projectId = ApiHelpers.GetProjectId(request);
+            if (!projectRepo.IsMember(projectId, user.Id)) return Results.Forbid();
+            return Results.Ok(repo.GetSettings(projectId));
+        });
 
         // POST /api/settings
-        app.MapPost("/api/settings", async (HttpRequest request, ISettingsRepository repo, IProjectRepository projectRepo) =>
+        app.MapPost("/api/settings", async (HttpRequest request, HttpContext ctx, ISettingsRepository repo, IProjectRepository projectRepo, IUserRepository userRepo) =>
         {
             var projectId = ApiHelpers.GetProjectId(request);
+            var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
+            if (user == null) return Results.Unauthorized();
+            var role = projectRepo.GetRole(projectId, user.Id);
+            if (role != "admin") return Results.Forbid();
             var settings = await JsonSerializer.DeserializeAsync<ProjectSettings>(request.Body, ApiHelpers.JsonOptions);
             if (settings == null) return Results.BadRequest();
             repo.SaveSettings(projectId, settings);

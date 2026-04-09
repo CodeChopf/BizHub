@@ -47,7 +47,22 @@ async function api(url, method = 'GET', body = null) {
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
-    return res.json();
+    const text = await res.text();
+    const data = text ? (() => {
+        try { return JSON.parse(text); } catch { return null; }
+    })() : null;
+
+    if (!res.ok) {
+        const message = (data && typeof data === 'object' && data.error)
+            ? data.error
+            : (text || `${res.status} ${res.statusText}`);
+        const err = new Error(message);
+        err.status = res.status;
+        err.payload = data;
+        throw err;
+    }
+
+    return data;
 }
 
 function withProject(url) {

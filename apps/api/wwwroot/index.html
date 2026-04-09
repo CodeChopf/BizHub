@@ -122,7 +122,10 @@
                 <div class="project-screen-sub" id="project-screen-welcome"></div>
             </div>
             <div id="platform-invite-btn-wrap" style="display:none; margin-bottom:16px; text-align:center">
-                <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                    <button class="btn-secondary" onclick="openPlatformInviteModal()">BizHub-Nutzer einladen</button>
+                    <button class="btn-secondary" onclick="openUserManagementModal()">Accounts verwalten</button>
+                </div>
             </div>
             <div id="project-list-screen" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px"></div>
             <div class="project-screen-footer">
@@ -190,7 +193,7 @@
                     <span class="nav-icon">📂</span>
                     <span>Importieren</span>
                 </button>
-                <button class="nav-item" onclick="showPage('einstellungen')">
+                <button class="nav-item" id="nav-einstellungen" onclick="showPage('einstellungen')">
                     <span class="nav-icon">🔧</span>
                     <span>Einstellungen</span>
                 </button>
@@ -373,9 +376,43 @@
                         <div class="page-title">Planung</div>
                         <div class="page-sub">Wochen und Tasks verwalten</div>
                     </div>
-                    <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    <div class="admin-header-actions">
+                        <div class="admin-mode-switch" id="admin-mode-switch" style="display:none">
+                            <button class="admin-mode-btn active" id="admin-mode-manual" onclick="setAdminMode('manual')">Manuell</button>
+                            <button class="admin-mode-btn" id="admin-mode-ai" onclick="setAdminMode('ai')">KI-Modus</button>
+                        </div>
+                        <button class="btn-primary" id="btn-admin-add-week" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    </div>
                 </div>
                 <div id="admin-content"></div>
+                <div id="admin-ai-section" style="display:none">
+                    <div id="agent-panel" class="open">
+                        <div id="agent-panel-header">
+                            <span>KI-Assistent</span>
+                        </div>
+                        <div id="agent-messages"></div>
+                        <div id="agent-confirm-bar" style="display:none">
+                            <div id="agent-confirm-summary"></div>
+                            <div class="agent-confirm-buttons">
+                                <button class="btn-primary" onclick="agentConfirm()">Bestätigen</button>
+                                <button class="btn-secondary" onclick="agentCancel()">Abbrechen</button>
+                            </div>
+                        </div>
+                        <div id="agent-limit-bar" style="display:none">
+                            <span>Token-Limit erreicht. Bitte Administrator kontaktieren.</span>
+                        </div>
+                        <div id="agent-input-row">
+                            <textarea id="agent-input" placeholder="Frage stellen…"
+                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSend();}"></textarea>
+                            <button id="agent-send-btn" onclick="agentSend()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- PRODUKTION -->
@@ -588,6 +625,7 @@
             </div>
 
         </main>
+
     </div>
 
     <!-- MODAL: Kalender-Ereignis -->
@@ -1302,7 +1340,62 @@
         </div>
     </div>
 
+    <!-- MODAL: Account-Verwaltung (Platform-Admin) -->
+    <div class="modal-backdrop" id="user-management-modal">
+        <div class="modal" style="width:760px;max-width:95vw">
+            <div class="modal-header">
+                <div class="modal-title">Benutzerverwaltung</div>
+                <button class="modal-close" onclick="closeUserManagementModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="user-mgmt-grid">
+                    <div class="user-mgmt-card">
+                        <div class="settings-card-title">Neuen Benutzer erstellen</div>
+                        <div class="form-group">
+                            <label>Benutzername</label>
+                            <input type="text" id="um-create-username" placeholder="z.B. max.mustermann">
+                        </div>
+                        <div class="form-group">
+                            <label>Passwort</label>
+                            <input type="password" id="um-create-password" placeholder="Temporäres Passwort">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="um-create-admin">
+                                Plattform-Admin
+                            </label>
+                        </div>
+                        <button class="btn-primary" style="width:100%" onclick="createManagedUser()">Benutzer erstellen</button>
+                    </div>
+                    <div class="user-mgmt-card">
+                        <div class="settings-card-title">Passwort zurücksetzen</div>
+                        <div class="form-group">
+                            <label>Benutzer</label>
+                            <select id="um-reset-username">
+                                <option value="">— Benutzer wählen —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Neues Passwort</label>
+                            <input type="password" id="um-reset-password" placeholder="Neues Passwort">
+                        </div>
+                        <button class="btn-secondary" style="width:100%" onclick="resetManagedUserPassword()">Passwort zurücksetzen</button>
+                    </div>
+                </div>
+
+                <div style="margin-top:18px">
+                    <div class="settings-card-title" style="margin-bottom:10px">Registrierte Accounts</div>
+                    <div id="um-users-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUserManagementModal()">Schliessen</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
+
     <script src="/js/state.js"></script>
     <script src="/js/utils.js"></script>
     <script src="/js/auth.js"></script>
@@ -1317,5 +1410,6 @@
     <script src="/js/calendar.js"></script>
     <script src="/js/production.js"></script>
     <script src="/js/app.js"></script>
+    <script src="/js/agent.js"></script>
 </body>
 </html>

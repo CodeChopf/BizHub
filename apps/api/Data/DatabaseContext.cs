@@ -198,6 +198,20 @@ public class DatabaseContext
                 expires_at TEXT NOT NULL,
                 used_at    TEXT,
                 FOREIGN KEY (project_id) REFERENCES projects(id)
+            );
+            CREATE TABLE IF NOT EXISTS agent_token_usage (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL,
+                project_id    INTEGER NOT NULL,
+                input_tokens  INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                recorded_at   TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS agent_tier_config (
+                tier         TEXT PRIMARY KEY,
+                input_limit  INTEGER NOT NULL,
+                output_limit INTEGER NOT NULL
             );";
         cmd.ExecuteNonQuery();
 
@@ -215,6 +229,7 @@ public class DatabaseContext
             "ALTER TABLE calendar_events    ADD COLUMN project_id INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE users              ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE expenses           ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'",
+            "ALTER TABLE users              ADD COLUMN agent_tier TEXT NOT NULL DEFAULT 'free'",
         };
 
         foreach (var sql in alterStatements)
@@ -234,11 +249,24 @@ public class DatabaseContext
         // Schritt 4: Migration — falls projects leer ist, Projekt 1 aus settings erstellen
         RunMigration(con);
 
+        // Schritt 4b: Agent-Tier-Konfiguration seeden
+        SeedAgentTierConfig(con);
+
         // Schritt 5: settings → settings_v2 migrieren
         MigrateSettingsToV2(con);
 
         // Schritt 6: weeks.number UNIQUE → UNIQUE(project_id, number) migrieren
         MigrateWeeksConstraint(con);
+    }
+
+    private static void SeedAgentTierConfig(SqliteConnection con)
+    {
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = @"
+            INSERT OR IGNORE INTO agent_tier_config (tier, input_limit, output_limit) VALUES ('free',  50000,    20000);
+            INSERT OR IGNORE INTO agent_tier_config (tier, input_limit, output_limit) VALUES ('basic', 500000,   200000);
+            INSERT OR IGNORE INTO agent_tier_config (tier, input_limit, output_limit) VALUES ('pro',   5000000,  2000000);";
+        cmd.ExecuteNonQuery();
     }
 
     private static void RunMigration(SqliteConnection con)

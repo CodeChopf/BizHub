@@ -158,6 +158,9 @@ async function loadProject() {
 
     const settings = await api(withProject('/api/settings'));
     applySettings(settings);
+    if (typeof updateSettingsTabVisibility === 'function') {
+        updateSettingsTabVisibility();
+    }
 
     await loadState();
     try {
