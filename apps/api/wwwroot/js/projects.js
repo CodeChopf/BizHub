@@ -244,10 +244,25 @@ async function doRegister() {
         body: JSON.stringify({ token, username, password })
     });
     if (res.ok) {
+        const loginForm = document.getElementById('login-form-section');
+        if (loginForm) loginForm.style.display = '';
         const regSection = document.getElementById('register-section');
         if (regSection) regSection.style.display = 'none';
+        const notice = document.getElementById('project-invite-notice');
+        if (notice) {
+            notice.style.display = 'none';
+            notice.textContent = '';
+        }
+        const regUser = document.getElementById('reg-username');
+        if (regUser) regUser.value = '';
+        const regPw = document.getElementById('reg-password');
+        if (regPw) regPw.value = '';
+        const regToken = document.getElementById('_reg_token');
+        if (regToken) regToken.value = '';
         const loginUser = document.getElementById('login-username');
         if (loginUser) loginUser.value = username;
+        const loginPw = document.getElementById('login-password');
+        if (loginPw) loginPw.focus();
         showToast('Account erstellt! Bitte einloggen.');
         window.history.replaceState({}, '', window.location.pathname);
     } else {
