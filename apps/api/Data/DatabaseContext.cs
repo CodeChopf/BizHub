@@ -212,6 +212,16 @@ public class DatabaseContext
                 tier         TEXT PRIMARY KEY,
                 input_limit  INTEGER NOT NULL,
                 output_limit INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id  INTEGER NOT NULL,
+                entity_type TEXT NOT NULL,
+                action      TEXT NOT NULL,
+                title       TEXT NOT NULL,
+                description TEXT,
+                actor       TEXT,
+                created_at  TEXT NOT NULL
             );";
         cmd.ExecuteNonQuery();
 

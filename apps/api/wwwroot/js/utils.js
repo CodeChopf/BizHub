@@ -70,6 +70,24 @@ function withProject(url) {
     return url + sep + 'projectId=' + _currentProjectId;
 }
 
+function normalizeImportPayload(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+
+    const clone = JSON.parse(JSON.stringify(raw));
+    const s = clone.settings;
+    if (s && typeof s === 'object') {
+        if (s.startDate == null && s.start_date != null) s.startDate = s.start_date;
+        if (s.projectName == null && s.project_name != null) s.projectName = s.project_name;
+        if (s.projectImage == null && s.project_image != null) s.projectImage = s.project_image;
+        if (s.visibleTabs == null && s.visible_tabs != null) s.visibleTabs = s.visible_tabs;
+
+        if (s.startDate != null && typeof s.startDate !== 'string') s.startDate = String(s.startDate);
+        if (s.projectName != null && typeof s.projectName !== 'string') s.projectName = String(s.projectName);
+    }
+
+    return clone;
+}
+
 async function loadState() {
     try { state = await api(withProject('/api/state')); } catch { state = {}; }
 }

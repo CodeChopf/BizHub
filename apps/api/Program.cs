@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
 builder.Services.AddSingleton<IInviteRepository, InviteRepository>();
 builder.Services.AddSingleton<IAgentRepository, AgentRepository>();
+builder.Services.AddSingleton<IActivityRepository, ActivityRepository>();
 builder.Services.AddSingleton(new AnthropicClient(
     Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? ""));
 
@@ -103,6 +104,7 @@ app.MapAuthEndpoints()
    .MapProductionEndpoints()
    .MapCalendarEndpoints()
    .MapProjectEndpoints()
-   .MapAgentEndpoints();
+   .MapAgentEndpoints()
+   .MapActivityEndpoints();
 
 app.Run();

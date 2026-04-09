@@ -237,54 +237,85 @@
                     </div>
                     <div class="page-header-right" id="topbar-date"></div>
                 </div>
-                <div id="overview-project-image" style="margin-bottom:16px"></div>
+                <div id="overview-project-image" class="overview-project-image"></div>
                 <div class="kpi-strip" id="kpi-strip"></div>
-                <div class="overview-grid">
-                    <div class="overview-left">
-                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
-                            <div class="card-header">
-                                <div class="card-title">Diese Woche</div>
-                                <div class="card-badge" id="cw-badge"></div>
+
+                <div class="dashboard-grid" id="dashboard-grid">
+                    <div class="card dashboard-widget dashboard-widget-alerts" id="widget-alerts">
+                        <div class="card-header">
+                            <div class="card-title">Alerts & Risiken</div>
+                            <span class="card-badge" id="overview-alerts-count">0</span>
+                        </div>
+                        <div id="overview-alerts-list" class="overview-list"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-focus" id="widget-focus" onclick="showPage('roadmap')">
+                        <div class="card-header">
+                            <div class="card-title">Diese Woche</div>
+                            <div class="card-badge" id="cw-badge"></div>
+                        </div>
+                        <div class="cw-title" id="cw-title">Lädt...</div>
+                        <div class="cw-date" id="cw-date"></div>
+                        <div id="cw-tasks"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-timeline" id="widget-timeline">
+                        <div class="card-header">
+                            <div class="card-title">Timeline</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('meilensteine')">Meilensteine</button>
+                        </div>
+                        <div id="overview-timeline-list" class="overview-list"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-progress" id="widget-progress" onclick="showPage('roadmap')">
+                        <div class="card-header">
+                            <div class="card-title">Gesamtfortschritt</div>
+                        </div>
+                        <div class="donut-wrap">
+                            <svg viewBox="0 0 120 120" class="donut-svg">
+                                <circle class="donut-bg" cx="60" cy="60" r="50" />
+                                <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
+                                        stroke-dasharray="0 314" stroke-dashoffset="78" />
+                            </svg>
+                            <div class="donut-center">
+                                <div class="donut-pct" id="donut-pct">0%</div>
+                                <div class="donut-label">Erledigt</div>
                             </div>
-                            <div class="cw-title" id="cw-title">Lädt...</div>
-                            <div class="cw-date" id="cw-date"></div>
-                            <div id="cw-tasks"></div>
+                        </div>
+                        <div class="donut-stats">
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-done">0</div>
+                                <div class="donut-stat-label">Erledigt</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-open">0</div>
+                                <div class="donut-stat-label">Offen</div>
+                            </div>
+                            <div class="donut-stat">
+                                <div class="donut-stat-val" id="stat-weeks">0</div>
+                                <div class="donut-stat-label">Wochen</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="overview-right">
-                        <div class="card" onclick="showPage('roadmap')" style="cursor:pointer">
-                            <div class="card-header">
-                                <div class="card-title">Gesamtfortschritt</div>
-                            </div>
-                            <div class="donut-wrap">
-                                <svg viewBox="0 0 120 120" class="donut-svg">
-                                    <circle class="donut-bg" cx="60" cy="60" r="50" />
-                                    <circle class="donut-fill" id="donut-fill" cx="60" cy="60" r="50"
-                                            stroke-dasharray="0 314" stroke-dashoffset="78" />
-                                </svg>
-                                <div class="donut-center">
-                                    <div class="donut-pct" id="donut-pct">0%</div>
-                                    <div class="donut-label">Erledigt</div>
-                                </div>
-                            </div>
-                            <div class="donut-stats">
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-done">0</div>
-                                    <div class="donut-stat-label">Erledigt</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-open">0</div>
-                                    <div class="donut-stat-label">Offen</div>
-                                </div>
-                                <div class="donut-stat">
-                                    <div class="donut-stat-val" id="stat-weeks">0</div>
-                                    <div class="donut-stat-label">Wochen</div>
-                                </div>
-                            </div>
+
+                    <div class="card dashboard-widget dashboard-widget-finance" id="widget-finance">
+                        <div class="card-header">
+                            <div class="card-title">Finance Health</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('finanzen')">Finanzen</button>
                         </div>
+                        <div id="overview-finance-summary" class="overview-finance-summary"></div>
+                    </div>
+
+                    <div class="card dashboard-widget dashboard-widget-activity" id="widget-activity">
+                        <div class="card-header">
+                            <div class="card-title">Aktivität</div>
+                            <button class="btn-secondary btn-sm" onclick="showPage('roadmap')">Öffnen</button>
+                        </div>
+                        <div id="overview-activity-list" class="overview-list"></div>
                     </div>
                 </div>
-                <div class="card" style="margin-top:20px">
+
+                <div class="card dashboard-widget dashboard-widget-weeks" id="widget-weeks">
                     <div class="card-header" onclick="showPage('roadmap')" style="cursor:pointer">
                         <div class="card-title">Alle Wochen</div>
                     </div>

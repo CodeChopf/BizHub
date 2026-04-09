@@ -374,6 +374,187 @@ body {
         overflow-y: auto;
     }
 
+.overview-project-image {
+    margin-bottom: 16px;
+}
+
+.dashboard-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    margin-bottom: 20px;
+}
+
+.dashboard-widget {
+    min-height: 220px;
+}
+
+.dashboard-widget-focus,
+.dashboard-widget-progress {
+    cursor: pointer;
+}
+
+.dashboard-widget-alerts {
+    grid-column: span 6;
+}
+
+.dashboard-widget-focus {
+    grid-column: span 6;
+}
+
+.dashboard-widget-timeline {
+    grid-column: span 8;
+}
+
+.dashboard-widget-progress {
+    grid-column: span 4;
+}
+
+.dashboard-widget-finance {
+    grid-column: span 5;
+}
+
+.dashboard-widget-activity {
+    grid-column: span 7;
+}
+
+.dashboard-widget-weeks {
+    margin-top: 0;
+}
+
+.overview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.overview-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg2);
+    border: 1px solid transparent;
+}
+
+.overview-list-item.warn {
+    border-color: var(--amber);
+    background: color-mix(in srgb, var(--amber) 8%, var(--bg2));
+}
+
+.overview-list-item.critical {
+    border-color: var(--red);
+    background: color-mix(in srgb, var(--red) 8%, var(--bg2));
+}
+
+.overview-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.overview-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.overview-item-sub {
+    font-size: 12px;
+    color: var(--text3);
+}
+
+.overview-item-meta {
+    font-size: 11px;
+    color: var(--text2);
+    white-space: nowrap;
+}
+
+.status-chip {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
+.status-chip.ok {
+    background: var(--green-dim);
+    color: var(--green);
+}
+
+.status-chip.warning {
+    background: var(--amber-dim);
+    color: var(--amber);
+}
+
+.status-chip.critical {
+    background: var(--red-dim);
+    color: var(--red);
+}
+
+.overview-finance-summary {
+    display: grid;
+    gap: 10px;
+}
+
+.overview-fin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 8px;
+}
+
+.overview-fin-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.overview-fin-label {
+    font-size: 12px;
+    color: var(--text2);
+}
+
+.overview-fin-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.overview-fin-value.neg {
+    color: var(--red);
+}
+
+.overview-fin-value.pos {
+    color: var(--green);
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+#page-overview.dashboard-admin .dashboard-widget-finance {
+    grid-column: span 7;
+}
+
+#page-overview.dashboard-admin .dashboard-widget-activity {
+    grid-column: span 5;
+}
+
+#page-overview.dashboard-member .dashboard-widget-focus {
+    grid-column: span 7;
+}
+
+#page-overview.dashboard-member .dashboard-widget-alerts {
+    grid-column: span 5;
+}
+
 /* ── CARD ── */
 .card {
     background: var(--card);
@@ -2434,6 +2615,59 @@ textarea {
 }
 .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+@media (max-width: 1400px) {
+    .kpi-strip {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .dashboard-widget-alerts,
+    .dashboard-widget-focus,
+    .dashboard-widget-timeline,
+    .dashboard-widget-progress,
+    .dashboard-widget-finance,
+    .dashboard-widget-activity {
+        grid-column: span 6;
+    }
+
+    .weeks-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 1050px) {
+    .kpi-strip {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-widget-alerts,
+    .dashboard-widget-focus,
+    .dashboard-widget-timeline,
+    .dashboard-widget-progress,
+    .dashboard-widget-finance,
+    .dashboard-widget-activity {
+        grid-column: auto;
+        min-height: auto;
+    }
+
+    .weeks-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 720px) {
+    .kpi-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .weeks-grid {
+        grid-template-columns: 1fr;
+    }
+}
 
 /* ── KALENDER ── */
 .cal-weekdays {

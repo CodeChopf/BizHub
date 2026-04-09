@@ -80,6 +80,7 @@ function updateAll() {
 
 function updateOverview() {
     if (!appData) return;
+    if (typeof applyDashboardRoleLayout === 'function') applyDashboardRoleLayout();
     const currentWeek = window._currentWeek ?? 1;
     const week = appData.weeks.find(w => w.number === currentWeek);
     const weekRanges = getWeekRanges();
@@ -89,6 +90,14 @@ function updateOverview() {
         document.getElementById('cw-date').textContent = '';
         document.getElementById('cw-tasks').innerHTML = '';
         document.getElementById('weeks-grid').innerHTML = '';
+        const alerts = document.getElementById('overview-alerts-list');
+        const timeline = document.getElementById('overview-timeline-list');
+        const fin = document.getElementById('overview-finance-summary');
+        const activity = document.getElementById('overview-activity-list');
+        if (alerts) alerts.innerHTML = '';
+        if (timeline) timeline.innerHTML = '';
+        if (fin) fin.innerHTML = '';
+        if (activity) activity.innerHTML = '';
         return;
     }
 
@@ -163,6 +172,11 @@ function updateOverview() {
         tile.onclick = () => { showPage('roadmap'); setTimeout(() => toggleWeek(w), 100); };
         grid.appendChild(tile);
     });
+
+    if (typeof renderOverviewAlerts === 'function') renderOverviewAlerts();
+    if (typeof renderOverviewTimeline === 'function') renderOverviewTimeline(currentWeek, weekRanges);
+    if (typeof renderOverviewFinanceSnapshot === 'function') renderOverviewFinanceSnapshot();
+    if (typeof renderOverviewActivity === 'function') renderOverviewActivity();
 }
 
 // ── ADMIN ──

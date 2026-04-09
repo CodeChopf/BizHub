@@ -144,15 +144,20 @@ function handleImportFileChange() {
 async function confirmImport() {
     if (!_importData) return;
     try {
+        const payload = normalizeImportPayload(_importData);
         const res = await fetch(withProject('/api/import'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(_importData)
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (!res.ok) {
             showToast('Import fehlgeschlagen: ' + (data.error ?? 'Unbekannter Fehler'));
             return;
+        }
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+            showToast('Import teilweise abgeschlossen. Details in Konsole.');
+            console.warn('Import warnings:', data.warnings);
         }
         closeImportModal();
         showToast('✓ Import erfolgreich — App wird neu geladen');
