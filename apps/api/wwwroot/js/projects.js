@@ -77,6 +77,119 @@ async function generatePlatformInvite() {
         showToast('Fehler beim Generieren des Links.');
     }
 }
+
+let _managedUsers = [];
+
+function openUserManagementModal() {
+    document.getElementById('um-create-username').value = '';
+    document.getElementById('um-create-password').value = '';
+    document.getElementById('um-create-admin').checked = false;
+    document.getElementById('um-reset-username').value = '';
+    document.getElementById('um-reset-password').value = '';
+    document.getElementById('user-management-modal').style.display = 'flex';
+    loadManagedUsers();
+}
+
+function closeUserManagementModal() {
+    document.getElementById('user-management-modal').style.display = 'none';
+}
+
+async function loadManagedUsers() {
+    const listEl = document.getElementById('um-users-list');
+    const resetSelect = document.getElementById('um-reset-username');
+    if (!listEl || !resetSelect) return;
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px 12px">Lädt...</div>';
+
+    try {
+        const users = await api('/api/users');
+        _managedUsers = Array.isArray(users) ? users : [];
+    } catch (err) {
+        listEl.innerHTML = `<div class="user-mgmt-error">${escHtml(err?.message || 'Fehler beim Laden der Benutzer.')}</div>`;
+        return;
+    }
+
+    resetSelect.innerHTML = '<option value="">— Benutzer wählen —</option>' + _managedUsers
+        .map(u => `<option value="${escHtml(u.username)}">${escHtml(u.username)}</option>`)
+        .join('');
+
+    if (_managedUsers.length === 0) {
+        listEl.innerHTML = '<div class="empty-state" style="padding:18px 12px">Keine Benutzer gefunden.</div>';
+        return;
+    }
+
+    listEl.innerHTML = _managedUsers.map(u => {
+        const isAdmin = !!u.isAdmin;
+        const isPlatformAdmin = !!u.isPlatformAdmin;
+        const createdAt = escHtml(u.createdAt ?? '');
+        return `
+            <div class="user-mgmt-row">
+                <div>
+                    <div class="user-mgmt-name">${escHtml(u.username)}</div>
+                    <div class="user-mgmt-meta">
+                        ${isAdmin ? '<span class="user-badge">Admin</span>' : ''}
+                        ${isPlatformAdmin ? '<span class="user-badge">Platform</span>' : ''}
+                        <span>Erstellt: ${createdAt}</span>
+                    </div>
+                </div>
+                <div class="user-mgmt-actions">
+                    <button class="btn-ghost btn-sm btn-danger" onclick="deleteManagedUser('${escHtml(u.username).replace(/'/g, "\\'")}')">Löschen</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function createManagedUser() {
+    const username = document.getElementById('um-create-username').value.trim();
+    const password = document.getElementById('um-create-password').value;
+    const isAdmin = !!document.getElementById('um-create-admin').checked;
+
+    if (!username || !password) {
+        showToast('Benutzername und Passwort sind Pflicht.');
+        return;
+    }
+
+    try {
+        await api('/api/users', 'POST', { username, password, isAdmin });
+        showToast('Benutzer erstellt.');
+        document.getElementById('um-create-username').value = '';
+        document.getElementById('um-create-password').value = '';
+        document.getElementById('um-create-admin').checked = false;
+        await loadManagedUsers();
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Erstellen.');
+    }
+}
+
+async function deleteManagedUser(username) {
+    if (!username) return;
+    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+
+    try {
+        await api('/api/users/' + encodeURIComponent(username), 'DELETE');
+        showToast('Benutzer gelöscht.');
+        await loadManagedUsers();
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Löschen.');
+    }
+}
+
+async function resetManagedUserPassword() {
+    const username = document.getElementById('um-reset-username').value;
+    const password = document.getElementById('um-reset-password').value;
+    if (!username || !password) {
+        showToast('Benutzer und neues Passwort angeben.');
+        return;
+    }
+
+    try {
+        await api('/api/users/' + encodeURIComponent(username) + '/password', 'PUT', { password });
+        showToast('Passwort aktualisiert.');
+        document.getElementById('um-reset-password').value = '';
+    } catch (err) {
+        showToast(err?.message || 'Fehler beim Aktualisieren.');
+    }
+}
+
 function copyPlatformInviteLink() {
     const input = document.getElementById('platform-invite-link-input');
     if (!input) return;

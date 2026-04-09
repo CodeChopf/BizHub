@@ -2671,6 +2671,64 @@ textarea {
     margin-top: 16px;
 }
 
+/* ── PLATFORM ADMIN USER MANAGEMENT ── */
+.user-mgmt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.user-mgmt-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.user-mgmt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg2);
+    margin-bottom: 8px;
+}
+
+.user-mgmt-row:last-child {
+    margin-bottom: 0;
+}
+
+.user-mgmt-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.user-mgmt-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text3);
+}
+
+.user-mgmt-actions {
+    flex-shrink: 0;
+}
+
+.user-mgmt-error {
+    font-size: 13px;
+    color: var(--red);
+    background: var(--red-dim);
+    border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
 /* ── USER MANAGEMENT ── */
 .user-row {
     display: flex;
