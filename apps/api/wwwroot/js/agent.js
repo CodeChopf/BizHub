@@ -6,11 +6,13 @@ let _agentPending = null; // AgentAction | null
 let _agentBusy    = false;
 
 function toggleAgentChat() {
-    _agentOpen = !_agentOpen;
+    setAgentVisible(!_agentOpen);
+}
+
+function setAgentVisible(visible) {
+    _agentOpen = !!visible;
     const panel = document.getElementById('agent-panel');
-    const fab   = document.getElementById('agent-fab');
     if (panel) panel.classList.toggle('open', _agentOpen);
-    if (fab)   fab.classList.toggle('active', _agentOpen);
     if (_agentOpen && _agentHistory.length === 0) {
         _agentWelcome();
     }
@@ -23,6 +25,10 @@ function _agentWelcome() {
 }
 
 function agentSend() {
+    if (!_currentUser?.isAdmin) {
+        showToast('Nur Admins können den KI-Modus verwenden.');
+        return;
+    }
     if (_agentBusy) return;
     const input = document.getElementById('agent-input');
     const text  = (input?.value ?? '').trim();
@@ -81,7 +87,7 @@ async function _agentPost(body) {
     } finally {
         _agentBusy = false;
         _agentSetInputEnabled(true);
-        document.getElementById('agent-input')?.focus();
+        if (_agentOpen) document.getElementById('agent-input')?.focus();
     }
 
     if (data.status === 'ok') {

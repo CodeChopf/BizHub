@@ -373,9 +373,43 @@
                         <div class="page-title">Planung</div>
                         <div class="page-sub">Wochen und Tasks verwalten</div>
                     </div>
-                    <button class="btn-primary" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    <div class="admin-header-actions">
+                        <div class="admin-mode-switch" id="admin-mode-switch" style="display:none">
+                            <button class="admin-mode-btn active" id="admin-mode-manual" onclick="setAdminMode('manual')">Manuell</button>
+                            <button class="admin-mode-btn" id="admin-mode-ai" onclick="setAdminMode('ai')">KI-Modus</button>
+                        </div>
+                        <button class="btn-primary" id="btn-admin-add-week" onclick="openNewWeekModal()">+ Woche hinzufügen</button>
+                    </div>
                 </div>
                 <div id="admin-content"></div>
+                <div id="admin-ai-section" style="display:none">
+                    <div id="agent-panel" class="open">
+                        <div id="agent-panel-header">
+                            <span>KI-Assistent</span>
+                        </div>
+                        <div id="agent-messages"></div>
+                        <div id="agent-confirm-bar" style="display:none">
+                            <div id="agent-confirm-summary"></div>
+                            <div class="agent-confirm-buttons">
+                                <button class="btn-primary" onclick="agentConfirm()">Bestätigen</button>
+                                <button class="btn-secondary" onclick="agentCancel()">Abbrechen</button>
+                            </div>
+                        </div>
+                        <div id="agent-limit-bar" style="display:none">
+                            <span>Token-Limit erreicht. Bitte Administrator kontaktieren.</span>
+                        </div>
+                        <div id="agent-input-row">
+                            <textarea id="agent-input" placeholder="Frage stellen…"
+                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSend();}"></textarea>
+                            <button id="agent-send-btn" onclick="agentSend()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- PRODUKTION -->
@@ -589,42 +623,6 @@
 
         </main>
 
-        <!-- KI-ASSISTENT FAB + PANEL (inside #app so it hides with the app) -->
-        <button id="agent-fab" onclick="toggleAgentChat()" title="KI-Assistent">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                <circle cx="12" cy="16" r="1"></circle>
-            </svg>
-        </button>
-
-        <div id="agent-panel">
-            <div id="agent-panel-header">
-                <span>KI-Assistent</span>
-                <button id="agent-panel-close" onclick="toggleAgentChat()">✕</button>
-            </div>
-            <div id="agent-messages"></div>
-            <div id="agent-confirm-bar" style="display:none">
-                <div id="agent-confirm-summary"></div>
-                <div class="agent-confirm-buttons">
-                    <button class="btn-primary" onclick="agentConfirm()">Bestätigen</button>
-                    <button class="btn-secondary" onclick="agentCancel()">Abbrechen</button>
-                </div>
-            </div>
-            <div id="agent-limit-bar" style="display:none">
-                <span>Token-Limit erreicht. Bitte Administrator kontaktieren.</span>
-            </div>
-            <div id="agent-input-row">
-                <textarea id="agent-input" placeholder="Frage stellen…"
-                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSend();}"></textarea>
-                <button id="agent-send-btn" onclick="agentSend()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                </button>
-            </div>
-        </div>
     </div>
 
     <!-- MODAL: Kalender-Ereignis -->

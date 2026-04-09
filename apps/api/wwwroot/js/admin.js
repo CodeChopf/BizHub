@@ -165,6 +165,45 @@ function updateOverview() {
 let editingWeekNumber = null;
 let editingTaskId = null;
 let editingTaskWeekNumber = null;
+let _adminMode = 'manual';
+
+function setAdminMode(mode) {
+    const isAdmin = !!_currentUser?.isAdmin;
+    if (!isAdmin) mode = 'manual';
+    _adminMode = mode === 'ai' ? 'ai' : 'manual';
+    applyAdminModeUi();
+}
+
+function applyAdminModeUi() {
+    const isAdmin = !!_currentUser?.isAdmin;
+    const switchEl = document.getElementById('admin-mode-switch');
+    const btnManual = document.getElementById('admin-mode-manual');
+    const btnAi = document.getElementById('admin-mode-ai');
+    const addWeekBtn = document.getElementById('btn-admin-add-week');
+    const content = document.getElementById('admin-content');
+    const aiSection = document.getElementById('admin-ai-section');
+
+    if (!switchEl || !btnManual || !btnAi || !addWeekBtn || !content || !aiSection) return;
+
+    if (!isAdmin) {
+        _adminMode = 'manual';
+        switchEl.style.display = 'none';
+    } else {
+        switchEl.style.display = 'inline-flex';
+    }
+
+    const isAi = isAdmin && _adminMode === 'ai';
+    btnManual.classList.toggle('active', !isAi);
+    btnAi.classList.toggle('active', isAi);
+
+    content.style.display = isAi ? 'none' : '';
+    aiSection.style.display = isAi ? '' : 'none';
+    addWeekBtn.style.display = isAi ? 'none' : '';
+
+    if (typeof setAgentVisible === 'function') {
+        setAgentVisible(isAi);
+    }
+}
 
 function renderAdmin() {
     if (!appData) return;
@@ -194,6 +233,7 @@ function renderAdmin() {
     });
 
     initDragDrop();
+    applyAdminModeUi();
 }
 
 function renderAdminTasks(week) {

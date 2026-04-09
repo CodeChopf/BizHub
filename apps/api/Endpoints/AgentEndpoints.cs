@@ -45,6 +45,7 @@ public static class AgentEndpoints
             var username = ctx.User.Identity?.Name ?? "";
             var user = userRepo.GetByUsername(username);
             if (user == null) return Results.Unauthorized();
+            if (!ctx.User.IsInRole("admin")) return Results.Forbid();
 
             var projectId = ApiHelpers.GetProjectId(req);
 
