@@ -34,6 +34,7 @@ public static class AgentEndpoints
             HttpRequest req,
             HttpContext ctx,
             IUserRepository userRepo,
+            IProjectRepository projectRepo,
             IAgentRepository agentRepo,
             IRoadmapRepository roadmapRepo,
             IStateRepository stateRepo,
@@ -47,7 +48,8 @@ public static class AgentEndpoints
             if (user == null) return Results.Unauthorized();
             if (!ctx.User.IsInRole("admin")) return Results.Forbid();
 
-            var projectId = ApiHelpers.GetProjectId(req);
+            var auth = ApiHelpers.EnsureProjectMember(req, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
 
             // Token limit check
             var tier = agentRepo.GetUserTier(user.Id);
@@ -404,7 +406,7 @@ public static class AgentEndpoints
             }
             case ToolUpdateTask:
             {
-                var task = adminRepo.UpdateTask(Int("task_id"), new UpdateTaskRequest
+                var task = adminRepo.UpdateTask(projectId, Int("task_id"), new UpdateTaskRequest
                 {
                     Type  = Str("type"),
                     Text  = Str("text"),
@@ -417,7 +419,7 @@ public static class AgentEndpoints
                 var attrJson = p.TryGetValue("attribute_values", out var av)
                     ? av.GetRawText() : "{}";
                 var product = catalogRepo.CreateProduct(
-                    Int("category_id"), Str("name"), NullStr("description"), attrJson);
+                    projectId, Int("category_id"), Str("name"), NullStr("description"), attrJson);
                 return JsonSerializer.Serialize(product, ApiHelpers.JsonOptions);
             }
             case ToolUpdateProduct:
@@ -425,7 +427,7 @@ public static class AgentEndpoints
                 var attrJson = p.TryGetValue("attribute_values", out var av)
                     ? av.GetRawText() : "{}";
                 var product = catalogRepo.UpdateProduct(
-                    Int("product_id"), Str("name"), NullStr("description"), attrJson);
+                    projectId, Int("product_id"), Str("name"), NullStr("description"), attrJson);
                 return JsonSerializer.Serialize(product, ApiHelpers.JsonOptions);
             }
             default:

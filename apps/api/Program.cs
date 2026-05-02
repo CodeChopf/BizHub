@@ -4,6 +4,7 @@ using AuraPrintsApi.Endpoints;
 using AuraPrintsApi.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -41,6 +42,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         o.Cookie.Name = "bizhub_session";
         o.Cookie.HttpOnly = true;
         o.Cookie.SameSite = SameSiteMode.Strict;
+        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         o.ExpireTimeSpan = TimeSpan.FromHours(24);
         o.SlidingExpiration = true;
         o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
@@ -59,6 +61,16 @@ builder.Services.AddRateLimiter(opt => {
         o.Window = TimeSpan.FromMinutes(1);
         o.QueueLimit = 0;
     });
+    opt.AddFixedWindowLimiter("register", o => {
+        o.PermitLimit = 3;
+        o.Window = TimeSpan.FromMinutes(5);
+        o.QueueLimit = 0;
+    });
+    opt.AddFixedWindowLimiter("writes", o => {
+        o.PermitLimit = 120;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueLimit = 0;
+    });
     opt.RejectionStatusCode = 429;
 });
 
@@ -66,9 +78,41 @@ var app = builder.Build();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+app.Use(async (ctx, next) =>
+{
+    if (HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method) || HttpMethods.IsOptions(ctx.Request.Method))
+    {
+        await next();
+        return;
+    }
+
+    if (!ctx.User.Identity?.IsAuthenticated ?? true)
+    {
+        await next();
+        return;
+    }
+
+    var origin = ctx.Request.Headers.Origin.ToString();
+    if (!string.IsNullOrWhiteSpace(origin))
+    {
+        var expected = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+        if (!origin.Equals(expected, StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await ctx.Response.WriteAsJsonAsync(new { error = "CSRF check failed." });
+            return;
+        }
+    }
+
+    await next();
+});
 
 var seeder = new DatabaseSeeder(dbContext);
 dbContext.Initialize();
@@ -106,5 +150,7 @@ app.MapAuthEndpoints()
    .MapProjectEndpoints()
    .MapAgentEndpoints()
    .MapActivityEndpoints();
+
+app.MapGet("/health", () => Results.Ok(new { ok = true, utc = DateTime.UtcNow }));
 
 app.Run();

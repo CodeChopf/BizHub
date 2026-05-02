@@ -62,7 +62,7 @@ public class CalendarRepository : ICalendarRepository
         return GetAll(projectId).First(e => e.Id == (int)id);
     }
 
-    public void Update(int id, string title, string date, string? endDate, string? time, string? description, string color, string type)
+    public void Update(int projectId, int id, string title, string date, string? endDate, string? time, string? description, string color, string type)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -71,7 +71,7 @@ public class CalendarRepository : ICalendarRepository
             UPDATE calendar_events
             SET title=@title, date=@date, end_date=@end, time=@time,
                 description=@desc, color=@color, type=@type
-            WHERE id=@id";
+            WHERE id=@id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@title", title);
         cmd.Parameters.AddWithValue("@date",  date);
         cmd.Parameters.AddWithValue("@end",   (object?)endDate ?? DBNull.Value);
@@ -80,16 +80,18 @@ public class CalendarRepository : ICalendarRepository
         cmd.Parameters.AddWithValue("@color", color);
         cmd.Parameters.AddWithValue("@type",  type);
         cmd.Parameters.AddWithValue("@id",    id);
+        cmd.Parameters.AddWithValue("@pid",   projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM calendar_events WHERE id = @id";
+        cmd.CommandText = "DELETE FROM calendar_events WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 }

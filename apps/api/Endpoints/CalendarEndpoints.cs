@@ -8,12 +8,18 @@ public static class CalendarEndpoints
     public static WebApplication MapCalendarEndpoints(this WebApplication app)
     {
         // GET /api/calendar
-        app.MapGet("/api/calendar", (HttpRequest req, ICalendarRepository repo) =>
-            Results.Ok(repo.GetAll(ApiHelpers.GetProjectId(req))));
+        app.MapGet("/api/calendar", (HttpRequest req, HttpContext ctx, ICalendarRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var auth = ApiHelpers.EnsureProjectMember(req, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            return Results.Ok(repo.GetAll(projectId));
+        });
 
         // POST /api/calendar
-        app.MapPost("/api/calendar", async (HttpRequest request, ICalendarRepository repo) =>
+        app.MapPost("/api/calendar", async (HttpRequest request, HttpContext ctx, ICalendarRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectMember(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
             var title       = body.GetProperty("title").GetString() ?? "";
             var date        = body.GetProperty("date").GetString() ?? "";
@@ -22,12 +28,14 @@ public static class CalendarEndpoints
             var description = body.TryGetProperty("description", out var d) && d.ValueKind != JsonValueKind.Null ? d.GetString() : null;
             var color       = body.TryGetProperty("color", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? "#4f8ef7" : "#4f8ef7";
             var type        = body.TryGetProperty("type", out var ty) && ty.ValueKind != JsonValueKind.Null ? ty.GetString() ?? "event" : "event";
-            return Results.Ok(repo.Add(ApiHelpers.GetProjectId(request), title, date, endDate, time, description, color, type));
+            return Results.Ok(repo.Add(projectId, title, date, endDate, time, description, color, type));
         });
 
         // PUT /api/calendar/{id}
-        app.MapPut("/api/calendar/{id}", async (int id, HttpRequest request, ICalendarRepository repo) =>
+        app.MapPut("/api/calendar/{id}", async (int id, HttpRequest request, HttpContext ctx, ICalendarRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectMember(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
             var title       = body.GetProperty("title").GetString() ?? "";
             var date        = body.GetProperty("date").GetString() ?? "";
@@ -36,14 +44,16 @@ public static class CalendarEndpoints
             var description = body.TryGetProperty("description", out var d) && d.ValueKind != JsonValueKind.Null ? d.GetString() : null;
             var color       = body.TryGetProperty("color", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? "#4f8ef7" : "#4f8ef7";
             var type        = body.TryGetProperty("type", out var ty) && ty.ValueKind != JsonValueKind.Null ? ty.GetString() ?? "event" : "event";
-            repo.Update(id, title, date, endDate, time, description, color, type);
+            repo.Update(projectId, id, title, date, endDate, time, description, color, type);
             return Results.Ok(new { updated = true });
         });
 
         // DELETE /api/calendar/{id}
-        app.MapDelete("/api/calendar/{id}", (int id, ICalendarRepository repo) =>
+        app.MapDelete("/api/calendar/{id}", (int id, HttpRequest request, HttpContext ctx, ICalendarRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
-            repo.Delete(id);
+            var auth = ApiHelpers.EnsureProjectMember(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            repo.Delete(projectId, id);
             return Results.Ok(new { deleted = true });
         });
 

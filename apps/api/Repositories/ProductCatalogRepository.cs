@@ -122,21 +122,22 @@ public class ProductCatalogRepository : IProductCatalogRepository
         return new ProductCategory { Id = (int)id, Name = name, Description = description, Color = color };
     }
 
-    public ProductCategory UpdateCategory(int id, string name, string? description, string color)
+    public ProductCategory UpdateCategory(int projectId, int id, string name, string? description, string color)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE product_categories SET name = @n, description = @d, color = @c WHERE id = @id";
+        cmd.CommandText = "UPDATE product_categories SET name = @n, description = @d, color = @c WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@d", (object?)description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@c", color);
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
         return new ProductCategory { Id = id, Name = name, Description = description, Color = color };
     }
 
-    public void DeleteCategory(int id)
+    public void DeleteCategory(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -144,37 +145,42 @@ public class ProductCatalogRepository : IProductCatalogRepository
 
         // Variationen der Produkte in dieser Kategorie löschen
         using var delVar = con.CreateCommand();
-        delVar.CommandText = "DELETE FROM product_variations WHERE product_id IN (SELECT id FROM products_v2 WHERE category_id = @id)";
+        delVar.CommandText = "DELETE FROM product_variations WHERE product_id IN (SELECT p.id FROM products_v2 p JOIN product_categories c ON c.id = p.category_id WHERE p.category_id = @id AND c.project_id = @pid)";
         delVar.Parameters.AddWithValue("@id", id);
+        delVar.Parameters.AddWithValue("@pid", projectId);
         delVar.ExecuteNonQuery();
 
         using var delAttr = con.CreateCommand();
-        delAttr.CommandText = "DELETE FROM product_attributes WHERE category_id = @id";
+        delAttr.CommandText = "DELETE FROM product_attributes WHERE category_id = @id AND category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)";
         delAttr.Parameters.AddWithValue("@id", id);
+        delAttr.Parameters.AddWithValue("@pid", projectId);
         delAttr.ExecuteNonQuery();
 
         using var delProd = con.CreateCommand();
-        delProd.CommandText = "DELETE FROM products_v2 WHERE category_id = @id";
+        delProd.CommandText = "DELETE FROM products_v2 WHERE category_id = @id AND category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)";
         delProd.Parameters.AddWithValue("@id", id);
+        delProd.Parameters.AddWithValue("@pid", projectId);
         delProd.ExecuteNonQuery();
 
         using var delCat = con.CreateCommand();
-        delCat.CommandText = "DELETE FROM product_categories WHERE id = @id";
+        delCat.CommandText = "DELETE FROM product_categories WHERE id = @id AND project_id = @pid";
         delCat.Parameters.AddWithValue("@id", id);
+        delCat.Parameters.AddWithValue("@pid", projectId);
         delCat.ExecuteNonQuery();
 
         tx.Commit();
     }
 
     // ── ATTRIBUTE ──
-    public ProductAttribute AddAttribute(int categoryId, string name, string fieldType, string? options, bool required, int sortOrder)
+    public ProductAttribute AddAttribute(int projectId, int categoryId, string name, string fieldType, string? options, bool required, int sortOrder)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO product_attributes (category_id, name, field_type, options, required, sort_order)
-            VALUES (@c, @n, @ft, @o, @r, @s);
+            SELECT @c, @n, @ft, @o, @r, @s
+            WHERE EXISTS (SELECT 1 FROM product_categories WHERE id = @c AND project_id = @pid);
             SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@c", categoryId);
         cmd.Parameters.AddWithValue("@n", name);
@@ -182,22 +188,24 @@ public class ProductCatalogRepository : IProductCatalogRepository
         cmd.Parameters.AddWithValue("@o", (object?)options ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@r", required ? 1 : 0);
         cmd.Parameters.AddWithValue("@s", sortOrder);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
         return new ProductAttribute { Id = (int)id, CategoryId = categoryId, Name = name, FieldType = fieldType, Options = options, Required = required, SortOrder = sortOrder };
     }
 
-    public void DeleteAttribute(int id)
+    public void DeleteAttribute(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM product_attributes WHERE id = @id";
+        cmd.CommandText = "DELETE FROM product_attributes WHERE id = @id AND category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 
     // ── PRODUKTE ──
-    public ProductV2 CreateProduct(int categoryId, string name, string? description, string attributeValues)
+    public ProductV2 CreateProduct(int projectId, int categoryId, string name, string? description, string attributeValues)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -205,20 +213,23 @@ public class ProductCatalogRepository : IProductCatalogRepository
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO products_v2 (category_id, name, description, attribute_values, created_at)
-            VALUES (@c, @n, @d, @av, @ca);
+            SELECT @c, @n, @d, @av, @ca
+            WHERE EXISTS (SELECT 1 FROM product_categories WHERE id = @c AND project_id = @pid);
             SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@c", categoryId);
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@d", (object?)description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@av", attributeValues);
         cmd.Parameters.AddWithValue("@ca", createdAt);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
 
         using var rCmd = con.CreateCommand();
         rCmd.CommandText = @"
             SELECT p.id, p.category_id, pc.name, pc.color, p.name, p.description, p.attribute_values, p.created_at
-            FROM products_v2 p JOIN product_categories pc ON pc.id = p.category_id WHERE p.id = @id";
+            FROM products_v2 p JOIN product_categories pc ON pc.id = p.category_id WHERE p.id = @id AND pc.project_id = @pid";
         rCmd.Parameters.AddWithValue("@id", id);
+        rCmd.Parameters.AddWithValue("@pid", projectId);
         using var r = rCmd.ExecuteReader();
         r.Read();
         return new ProductV2
@@ -234,23 +245,25 @@ public class ProductCatalogRepository : IProductCatalogRepository
         };
     }
 
-    public ProductV2 UpdateProduct(int id, string name, string? description, string attributeValues)
+    public ProductV2 UpdateProduct(int projectId, int id, string name, string? description, string attributeValues)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE products_v2 SET name = @n, description = @d, attribute_values = @av WHERE id = @id";
+        cmd.CommandText = "UPDATE products_v2 SET name = @n, description = @d, attribute_values = @av WHERE id = @id AND category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)";
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@d", (object?)description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@av", attributeValues);
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         using var rCmd = con.CreateCommand();
         rCmd.CommandText = @"
             SELECT p.id, p.category_id, pc.name, pc.color, p.name, p.description, p.attribute_values, p.created_at
-            FROM products_v2 p JOIN product_categories pc ON pc.id = p.category_id WHERE p.id = @id";
+            FROM products_v2 p JOIN product_categories pc ON pc.id = p.category_id WHERE p.id = @id AND pc.project_id = @pid";
         rCmd.Parameters.AddWithValue("@id", id);
+        rCmd.Parameters.AddWithValue("@pid", projectId);
         using var r = rCmd.ExecuteReader();
         r.Read();
         return new ProductV2
@@ -266,24 +279,26 @@ public class ProductCatalogRepository : IProductCatalogRepository
         };
     }
 
-    public void DeleteProduct(int id)
+    public void DeleteProduct(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var tx = con.BeginTransaction();
         using var delVar = con.CreateCommand();
-        delVar.CommandText = "DELETE FROM product_variations WHERE product_id = @id";
+        delVar.CommandText = "DELETE FROM product_variations WHERE product_id = @id AND product_id IN (SELECT p.id FROM products_v2 p JOIN product_categories c ON c.id = p.category_id WHERE c.project_id = @pid)";
         delVar.Parameters.AddWithValue("@id", id);
+        delVar.Parameters.AddWithValue("@pid", projectId);
         delVar.ExecuteNonQuery();
         using var delProd = con.CreateCommand();
-        delProd.CommandText = "DELETE FROM products_v2 WHERE id = @id";
+        delProd.CommandText = "DELETE FROM products_v2 WHERE id = @id AND category_id IN (SELECT id FROM product_categories WHERE project_id = @pid)";
         delProd.Parameters.AddWithValue("@id", id);
+        delProd.Parameters.AddWithValue("@pid", projectId);
         delProd.ExecuteNonQuery();
         tx.Commit();
     }
 
     // ── VARIATIONEN ──
-    public ProductVariation AddVariation(int productId, string name, string sku, decimal price, int stock)
+    public ProductVariation AddVariation(int projectId, int productId, string name, string sku, decimal price, int stock)
     {
         using var con = _context.CreateConnection();
         con.Open();
@@ -291,7 +306,12 @@ public class ProductCatalogRepository : IProductCatalogRepository
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO product_variations (product_id, name, sku, price, stock, created_at)
-            VALUES (@p, @n, @s, @pr, @st, @ca);
+            SELECT @p, @n, @s, @pr, @st, @ca
+            WHERE EXISTS (
+                SELECT 1 FROM products_v2 p
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE p.id = @p AND c.project_id = @pid
+            );
             SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@p", productId);
         cmd.Parameters.AddWithValue("@n", name);
@@ -299,68 +319,100 @@ public class ProductCatalogRepository : IProductCatalogRepository
         cmd.Parameters.AddWithValue("@pr", price);
         cmd.Parameters.AddWithValue("@st", stock);
         cmd.Parameters.AddWithValue("@ca", createdAt);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var id = (long)(cmd.ExecuteScalar() ?? 0L);
         return new ProductVariation { Id = (int)id, ProductId = productId, Name = name, Sku = sku, Price = price, Stock = stock, CreatedAt = createdAt };
     }
 
-    public ProductVariation UpdateVariation(int id, string name, string sku, decimal price, int stock)
+    public ProductVariation UpdateVariation(int projectId, int id, string name, string sku, decimal price, int stock)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE product_variations SET name = @n, sku = @s, price = @pr, stock = @st WHERE id = @id";
+        cmd.CommandText = @"
+            UPDATE product_variations
+            SET name = @n, sku = @s, price = @pr, stock = @st
+            WHERE id = @id AND product_id IN (
+                SELECT p.id FROM products_v2 p
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE c.project_id = @pid
+            )";
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@s", sku);
         cmd.Parameters.AddWithValue("@pr", price);
         cmd.Parameters.AddWithValue("@st", stock);
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         using var rCmd = con.CreateCommand();
-        rCmd.CommandText = "SELECT id, product_id, name, sku, price, stock, created_at FROM product_variations WHERE id = @id";
+        rCmd.CommandText = @"
+            SELECT v.id, v.product_id, v.name, v.sku, v.price, v.stock, v.created_at
+            FROM product_variations v
+            JOIN products_v2 p ON p.id = v.product_id
+            JOIN product_categories c ON c.id = p.category_id
+            WHERE v.id = @id AND c.project_id = @pid";
         rCmd.Parameters.AddWithValue("@id", id);
+        rCmd.Parameters.AddWithValue("@pid", projectId);
         using var r = rCmd.ExecuteReader();
         r.Read();
         return new ProductVariation { Id = r.GetInt32(0), ProductId = r.GetInt32(1), Name = r.GetString(2), Sku = r.GetString(3), Price = r.GetDecimal(4), Stock = r.GetInt32(5), CreatedAt = r.GetString(6) };
     }
 
-    public void DeleteVariation(int id)
+    public void DeleteVariation(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM product_variations WHERE id = @id";
+        cmd.CommandText = @"
+            DELETE FROM product_variations
+            WHERE id = @id AND product_id IN (
+                SELECT p.id FROM products_v2 p
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE c.project_id = @pid
+            )";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public bool SkuExists(string sku, int? excludeId = null)
+    public bool SkuExists(int projectId, string sku, int? excludeId = null)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         if (excludeId.HasValue)
         {
-            cmd.CommandText = "SELECT COUNT(*) FROM product_variations WHERE sku = @s AND id != @id";
+            cmd.CommandText = @"
+                SELECT COUNT(*) FROM product_variations v
+                JOIN products_v2 p ON p.id = v.product_id
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE v.sku = @s AND v.id != @id AND c.project_id = @pid";
             cmd.Parameters.AddWithValue("@id", excludeId.Value);
         }
         else
         {
-            cmd.CommandText = "SELECT COUNT(*) FROM product_variations WHERE sku = @s";
+            cmd.CommandText = @"
+                SELECT COUNT(*) FROM product_variations v
+                JOIN products_v2 p ON p.id = v.product_id
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE v.sku = @s AND c.project_id = @pid";
         }
         cmd.Parameters.AddWithValue("@s", sku);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         return (long)(cmd.ExecuteScalar() ?? 0L) > 0;
     }
 
-    public string GenerateSku(int categoryId, int productId, string variationName)
+    public string GenerateSku(int projectId, int categoryId, int productId, string variationName)
     {
         using var con = _context.CreateConnection();
         con.Open();
 
         // Kategorie-Kürzel
         using var catCmd = con.CreateCommand();
-        catCmd.CommandText = "SELECT name FROM product_categories WHERE id = @id";
+        catCmd.CommandText = "SELECT name FROM product_categories WHERE id = @id AND project_id = @pid";
         catCmd.Parameters.AddWithValue("@id", categoryId);
+        catCmd.Parameters.AddWithValue("@pid", projectId);
         var catName = catCmd.ExecuteScalar()?.ToString() ?? "XX";
         var catCode = GenerateCode(catName, 3);
 
@@ -382,7 +434,7 @@ public class ProductCatalogRepository : IProductCatalogRepository
         // Einzigartigkeit sicherstellen
         var sku = baseSku;
         var counter = 1;
-        while (SkuExists(sku))
+        while (SkuExists(projectId, sku))
         {
             sku = $"{baseSku}-{counter++}";
         }

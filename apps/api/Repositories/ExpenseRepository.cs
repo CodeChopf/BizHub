@@ -95,6 +95,14 @@ public class ExpenseRepository : IExpenseRepository
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using (var checkCmd = con.CreateCommand())
+        {
+            checkCmd.CommandText = "SELECT COUNT(*) FROM categories WHERE id = @cid AND project_id = @pid";
+            checkCmd.Parameters.AddWithValue("@cid", categoryId);
+            checkCmd.Parameters.AddWithValue("@pid", projectId);
+            if ((long)(checkCmd.ExecuteScalar() ?? 0L) == 0L)
+                throw new InvalidOperationException("Category not found in current project.");
+        }
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO expenses (project_id, category_id, amount, description, link, date, week_number, task_id, type)
@@ -137,26 +145,35 @@ public class ExpenseRepository : IExpenseRepository
         };
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM expenses WHERE id = @id";
+        cmd.CommandText = "DELETE FROM expenses WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public Expense Update(int id, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId, string type = "expense")
+    public Expense Update(int projectId, int id, int categoryId, decimal amount, string description, string? link, string date, int? weekNumber, int? taskId, string type = "expense")
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using (var checkCmd = con.CreateCommand())
+        {
+            checkCmd.CommandText = "SELECT COUNT(*) FROM categories WHERE id = @cid AND project_id = @pid";
+            checkCmd.Parameters.AddWithValue("@cid", categoryId);
+            checkCmd.Parameters.AddWithValue("@pid", projectId);
+            if ((long)(checkCmd.ExecuteScalar() ?? 0L) == 0L)
+                throw new InvalidOperationException("Category not found in current project.");
+        }
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
         UPDATE expenses SET
             category_id = @c, amount = @a, description = @d,
             link = @l, date = @dt, week_number = @w, task_id = @t, type = @type
-        WHERE id = @id";
+        WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@c", categoryId);
         cmd.Parameters.AddWithValue("@a", amount);
         cmd.Parameters.AddWithValue("@d", description);
@@ -166,6 +183,7 @@ public class ExpenseRepository : IExpenseRepository
         cmd.Parameters.AddWithValue("@t", (object?)taskId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@type", type == "income" ? "income" : "expense");
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         using var rCmd = con.CreateCommand();
@@ -174,8 +192,9 @@ public class ExpenseRepository : IExpenseRepository
                e.description, e.link, e.date, e.week_number, e.task_id, e.type
         FROM expenses e
         JOIN categories c ON c.id = e.category_id
-        WHERE e.id = @id";
+        WHERE e.id = @id AND e.project_id = @pid";
         rCmd.Parameters.AddWithValue("@id", id);
+        rCmd.Parameters.AddWithValue("@pid", projectId);
         using var r = rCmd.ExecuteReader();
         r.Read();
         return new Expense

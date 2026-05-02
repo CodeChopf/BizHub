@@ -4,7 +4,7 @@ namespace AuraPrintsApi.Repositories;
 
 public interface IAttachmentRepository
 {
-    List<ExpenseAttachment> GetByExpenseId(int expenseId);
-    ExpenseAttachment Add(int expenseId, string fileName, string mimeType, string data);
-    void Delete(int id);
+    List<ExpenseAttachment> GetByExpenseId(int projectId, int expenseId);
+    ExpenseAttachment Add(int projectId, int expenseId, string fileName, string mimeType, string data);
+    void Delete(int projectId, int id);
 }

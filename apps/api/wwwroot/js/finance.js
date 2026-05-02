@@ -59,7 +59,7 @@ function renderFinanzen() {
         catSummary.innerHTML = summaryList.map(s => `
       <div class="cat-row">
         <div class="cat-dot" style="background:${s.color}"></div>
-        <div class="cat-name">${s.name}</div>
+        <div class="cat-name">${escHtml(s.name)}</div>
         <div class="cat-bar-wrap">
           <div class="cat-bar-fill" style="width:${Math.round((s.total / maxTotal) * 100)}%;background:${s.color}"></div>
         </div>
@@ -75,16 +75,17 @@ function renderFinanzen() {
     } else {
         expList.innerHTML = tabEntries.map(e => {
             const weekLabel = e.weekNumber ? `<span class="exp-week-badge">W0${e.weekNumber}</span>` : '';
-            const linkHtml  = e.link ? `<a href="${e.link}" target="_blank" class="exp-link">🔗 Link öffnen</a>` : '';
+            const linkHref = safeUrl(e.link);
+            const linkHtml  = linkHref ? `<a href="${linkHref}" target="_blank" rel="noopener noreferrer" class="exp-link">🔗 Link öffnen</a>` : '';
             const isIncome  = (e.type ?? 'expense') === 'income';
             const amountStr = isIncome
                 ? `+${currency} ${fmtChf(e.amount)}`
                 : `−${currency} ${fmtChf(e.amount)}`;
             return `
         <div class="exp-row">
-          <span class="exp-cat-badge" style="background:${e.categoryColor}22;color:${e.categoryColor}">${e.categoryName}</span>
+          <span class="exp-cat-badge" style="background:${e.categoryColor}22;color:${e.categoryColor}">${escHtml(e.categoryName)}</span>
           <div>
-            <div class="exp-desc">${e.description}</div>
+            <div class="exp-desc">${escHtml(e.description)}</div>
             <div class="exp-meta">${formatDateStr(e.date)} ${weekLabel} ${linkHtml}</div>
             <div id="attachments-${e.id}" class="exp-attachments"></div>
           </div>
@@ -95,8 +96,7 @@ function renderFinanzen() {
         }).join('');
 
         tabEntries.forEach(async e => {
-            const res = await fetch(withProject('/api/expenses/' + e.id + '/attachments'));
-            const attachments = await res.json();
+            const attachments = await api(withProject('/api/expenses/' + e.id + '/attachments'));
             const container = document.getElementById('attachments-' + e.id);
             if (container) renderAttachments(e.id, attachments, container);
         });
@@ -115,22 +115,27 @@ function renderAttachments(expenseId, attachments, container) {
         <div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;margin-right:6px">
             <img src="data:${a.mimeType};base64,${a.data}"
                 style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border2);cursor:pointer"
-                onclick="openAttachment('${a.mimeType}','${a.data}')" title="${a.fileName}">
+                onclick="openAttachment('${a.mimeType}','${a.data}')" title="${escHtml(a.fileName)}">
             <button class="exp-delete" onclick="deleteAttachment(${a.id}, ${expenseId})" title="Beleg löschen">✕</button>
         </div>`).join('');
 }
 
 function openAttachment(mimeType, base64) {
-    const win = window.open();
-    win.document.write(`<img src="data:${mimeType};base64,${base64}" style="max-width:100%;max-height:100vh;object-fit:contain">`);
+    const win = window.open('', '_blank', 'noopener,noreferrer');
+    if (!win) return;
+    const img = win.document.createElement('img');
+    img.src = `data:${mimeType};base64,${base64}`;
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100vh';
+    img.style.objectFit = 'contain';
+    win.document.body.appendChild(img);
 }
 
 async function deleteAttachment(id, expenseId) {
     if (!confirm('Beleg löschen?')) return;
     try {
         await api('/api/attachments/' + id, 'DELETE');
-        const res = await fetch(withProject('/api/expenses/' + expenseId + '/attachments'));
-        const attachments = await res.json();
+        const attachments = await api(withProject('/api/expenses/' + expenseId + '/attachments'));
         const container = document.getElementById('attachments-' + expenseId);
         if (container) renderAttachments(expenseId, attachments, container);
         showToast('✓ Beleg gelöscht');

@@ -70,7 +70,7 @@ public static class AuthEndpoints
             userRepo.CreateWithHash(username, BC.HashPassword(password), isAdmin: false);
             inviteRepo.MarkUsed(token);
             return Results.Ok(new { ok = true });
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("register");
 
         return app;
     }

@@ -34,13 +34,14 @@ public class MilestoneRepository : IMilestoneRepository
         return result;
     }
 
-    public Milestone GetById(int id)
+    public Milestone GetById(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "SELECT id, name, description, created_at, snapshot FROM milestones WHERE id = @id";
+        cmd.CommandText = "SELECT id, name, description, created_at, snapshot FROM milestones WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         using var reader = cmd.ExecuteReader();
         if (!reader.Read()) throw new KeyNotFoundException($"Milestone {id} not found");
         return new Milestone
@@ -80,13 +81,14 @@ public class MilestoneRepository : IMilestoneRepository
         };
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM milestones WHERE id = @id";
+        cmd.CommandText = "DELETE FROM milestones WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 }

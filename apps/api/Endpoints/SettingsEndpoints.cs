@@ -22,7 +22,7 @@ public static class SettingsEndpoints
             var projectId = ApiHelpers.GetProjectId(request);
             if (!projectRepo.IsMember(projectId, user.Id)) return Results.Forbid();
             return Results.Ok(repo.GetSettings(projectId));
-        });
+        }).RequireRateLimiting("writes");
 
         // POST /api/settings
         app.MapPost("/api/settings", async (HttpRequest request, HttpContext ctx, ISettingsRepository repo, IProjectRepository projectRepo, IUserRepository userRepo) =>
@@ -37,12 +37,13 @@ public static class SettingsEndpoints
             repo.SaveSettings(projectId, settings);
             projectRepo.Update(projectId, settings.ProjectName, settings.Description, settings.StartDate, settings.Currency ?? "CHF", settings.ProjectImage, settings.VisibleTabs);
             return Results.Ok(repo.GetSettings(projectId));
-        });
+        }).RequireRateLimiting("writes");
 
         // GET /api/export
-        app.MapGet("/api/export", (HttpRequest request, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo) =>
+        app.MapGet("/api/export", (HttpRequest request, HttpContext ctx, ISettingsRepository settingsRepo, IRoadmapRepository roadmapRepo, IExpenseRepository expenseRepo, IStateRepository stateRepo, IProductCatalogRepository catalogRepo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
-            var projectId = ApiHelpers.GetProjectId(request);
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var settings = settingsRepo.GetSettings(projectId);
             var roadmap = roadmapRepo.GetAll(projectId);
             var finance = expenseRepo.GetAll(projectId);
@@ -122,18 +123,21 @@ public static class SettingsEndpoints
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
             var fileName = $"{settings.ProjectName.Replace(" ", "_")}_{DateTime.Now:yyyy-MM-dd}.json";
             return Results.File(bytes, "application/json", fileName);
-        });
+        }).RequireRateLimiting("writes");
 
         // POST /api/import
-        app.MapPost("/api/import", async (HttpRequest request,
+        app.MapPost("/api/import", async (HttpRequest request, HttpContext ctx,
             ISettingsRepository settingsRepo,
             IStateRepository stateRepo,
             IRoadmapRepository roadmapRepo,
-            DatabaseContext dbContext) =>
+            DatabaseContext dbContext,
+            IUserRepository userRepo,
+            IProjectRepository projectRepo) =>
         {
             try
             {
-                var projectId = ApiHelpers.GetProjectId(request);
+                var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+                if (auth != null) return auth;
                 var body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, ApiHelpers.JsonOptions);
                 var warnings = new List<string>();
 
@@ -422,7 +426,7 @@ public static class SettingsEndpoints
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-        });
+        }).RequireRateLimiting("writes");
 
         return app;
     }

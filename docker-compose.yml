@@ -12,7 +12,6 @@ services:
     networks:
       - internal
     restart: unless-stopped
-    user: root
 
   caddy:
     image: caddy:2-alpine

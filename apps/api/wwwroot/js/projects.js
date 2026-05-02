@@ -38,16 +38,13 @@ function renderProjectScreen() {
 
 async function leaveProject(id, name) {
     if (!confirm(`Aus Projekt "${name}" austreten?`)) return;
-    const res = await fetch(`/api/projects/${id}/leave`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-    });
-    if (res.ok) {
+    try {
+        await api(`/api/projects/${id}/leave`, 'POST');
         _projects = _projects.filter(p => p.id !== id);
         renderProjectScreen();
         showToast('Aus Projekt ausgetreten.');
-    } else {
-        try { const err = await res.json(); showToast(err.error ?? 'Fehler.'); } catch { showToast('Fehler.'); }
+    } catch (err) {
+        showToast(err?.message || 'Fehler.');
     }
 }
 
@@ -205,9 +202,7 @@ async function checkInviteParam() {
     const token = params.get('invite');
     if (!token) return;
     try {
-        const res = await fetch(`/api/invites/${token}`);
-        const info = await res.json();
-        if (!res.ok) { return; } // abgelaufen / ungültig — still login screen
+        const info = await api(`/api/invites/${token}`);
         if (info.type === 'platform') {
             // Registrierung für neuen User — Login-Felder ausblenden
             const loginForm = document.getElementById('login-form-section');
@@ -217,15 +212,24 @@ async function checkInviteParam() {
             const regToken = document.getElementById('_reg_token');
             if (regToken) regToken.value = token;
         } else if (info.type === 'project') {
-            // Projekt-Einladung: Token speichern, Hinweis zeigen
-            sessionStorage.setItem('pendingProjectInvite', token);
-            const notice = document.getElementById('project-invite-notice');
-            if (notice) {
-                notice.textContent = `Du wurdest eingeladen dem Projekt „${info.projectName}" beizutreten. Bitte melde dich an.`;
-                notice.style.display = 'block';
+            if (_currentUser) {
+                try {
+                    await api(`/api/invites/${encodeURIComponent(token)}/accept`, 'POST');
+                    showToast(`Einladung für "${info.projectName}" angenommen.`);
+                } catch (err) {
+                    showToast(err?.message || 'Einladung konnte nicht angenommen werden.');
+                }
+            } else {
+                sessionStorage.setItem('pendingProjectInvite', token);
+                const notice = document.getElementById('project-invite-notice');
+                if (notice) {
+                    notice.textContent = `Du wurdest eingeladen dem Projekt "${info.projectName}" beizutreten. Bitte melde dich an.`;
+                    notice.style.display = 'block';
+                }
             }
         }
     } catch { /* Netzwerkfehler — einfach Login zeigen */ }
+    window.history.replaceState({}, '', window.location.pathname);
 }
 
 async function doRegister() {
@@ -375,26 +379,23 @@ function copyProjectInviteLink() {
 }
 async function removeMember(userId) {
     if (!confirm('Mitglied wirklich entfernen?')) return;
-    const res = await fetch(`/api/projects/${_currentProjectId}/members/${userId}`, { method: 'DELETE' });
-    if (res.ok) { renderMemberList(); showToast('Mitglied entfernt.'); }
-    else {
-        try {
-            const err = await res.json();
-            showToast(err.error ?? 'Fehler.');
-        } catch {
-            showToast('Fehler.');
-        }
+    try {
+        await api(`/api/projects/${_currentProjectId}/members/${userId}`, 'DELETE');
+        renderMemberList();
+        showToast('Mitglied entfernt.');
+    } catch (err) {
+        showToast(err?.message || 'Fehler.');
     }
 }
 
 async function deleteProject() {
     if (!confirm(`Projekt "${_currentProject?.name}" wirklich löschen? Alle Daten gehen verloren.`)) return;
-    const res = await fetch(`/api/projects/${_currentProjectId}`, { method: 'DELETE' });
-    if (res.ok) {
+    try {
+        await api(`/api/projects/${_currentProjectId}`, 'DELETE');
         _projects = _projects.filter(p => p.id !== _currentProjectId);
         showToast('Projekt gelöscht.');
         showProjectScreen();
-    } else {
-        try { const err = await res.json(); showToast(err.error ?? 'Fehler.'); } catch { showToast('Fehler.'); }
+    } catch (err) {
+        showToast(err?.message || 'Fehler.');
     }
 }

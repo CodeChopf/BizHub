@@ -37,7 +37,7 @@ function renderCatalogSidebar() {
                 style="${isActive ? `background:${cat.color};border-color:${cat.color}` : ''}"
                 onclick="switchCategory(${cat.id})">
                 <div class="catalog-category-dot" style="background:${isActive ? '#fff' : cat.color}"></div>
-                <span style="flex:1">${cat.name}</span>
+                <span style="flex:1">${escHtml(cat.name)}</span>
                 <span class="catalog-category-count">${count}</span>
             </button>`;
         }).join('');
@@ -63,8 +63,8 @@ function renderCatalogMain() {
     let html = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <div>
-                <div style="font-size:16px;font-weight:600;color:var(--text)">${category.name}</div>
-                ${category.description ? `<div style="font-size:12px;color:var(--text3)">${category.description}</div>` : ''}
+                <div style="font-size:16px;font-weight:600;color:var(--text)">${escHtml(category.name)}</div>
+                ${category.description ? `<div style="font-size:12px;color:var(--text3)">${escHtml(category.description)}</div>` : ''}
             </div>
             <button class="btn-secondary" onclick="openManageAttributesModal(${category.id})">⚙️ Attribute (${category.attributes?.length ?? 0})</button>
         </div>`;
@@ -92,8 +92,8 @@ function renderProductCard(product, category) {
             .filter(a => attrValues[a.id])
             .map(a => `
                 <div class="catalog-attr-item">
-                    <div class="catalog-attr-label">${a.name}</div>
-                    <div class="catalog-attr-value">${attrValues[a.id]}</div>
+                    <div class="catalog-attr-label">${escHtml(a.name)}</div>
+                    <div class="catalog-attr-value">${escHtml(attrValues[a.id])}</div>
                 </div>`).join('');
         if (attrItems) {
             attrsHtml = `<div class="catalog-attr-grid">${attrItems}</div>`;
@@ -105,8 +105,8 @@ function renderProductCard(product, category) {
         const currency = getCurrency();
         const rows = product.variations.map(v => `
             <div class="catalog-variation-row">
-                <div class="catalog-variation-name">${v.name}</div>
-                <div class="catalog-variation-sku">${v.sku}</div>
+                <div class="catalog-variation-name">${escHtml(v.name)}</div>
+                <div class="catalog-variation-sku">${escHtml(v.sku)}</div>
                 <div class="catalog-variation-price">${currency} ${fmtChf(v.price)}</div>
                 <div class="catalog-variation-stock">
                     <span class="stock-badge ${v.stock > 0 ? 'stock-ok' : 'stock-zero'}">
@@ -134,8 +134,8 @@ function renderProductCard(product, category) {
         <div class="catalog-product-card">
             <div class="catalog-product-header" onclick="toggleProductCard(${product.id})">
                 <div>
-                    <div class="catalog-product-name">${product.name}</div>
-                    ${product.description ? `<div class="catalog-product-desc">${product.description}</div>` : ''}
+                    <div class="catalog-product-name">${escHtml(product.name)}</div>
+                    ${product.description ? `<div class="catalog-product-desc">${escHtml(product.description)}</div>` : ''}
                 </div>
                 <div style="display:flex;gap:6px;margin-left:12px">
                     <span style="font-size:11px;color:var(--text3)">${product.variations?.length ?? 0} Variationen</span>
@@ -182,8 +182,8 @@ function renderCatalogCategoriesList() {
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
             <div style="width:12px;height:12px;border-radius:50%;background:${cat.color};flex-shrink:0"></div>
             <div style="flex:1">
-                <div style="font-size:13px;font-weight:500;color:var(--text)">${cat.name}</div>
-                ${cat.description ? `<div style="font-size:11px;color:var(--text3)">${cat.description}</div>` : ''}
+                <div style="font-size:13px;font-weight:500;color:var(--text)">${escHtml(cat.name)}</div>
+                ${cat.description ? `<div style="font-size:11px;color:var(--text3)">${escHtml(cat.description)}</div>` : ''}
             </div>
             <span style="font-size:11px;color:var(--text3)">${cat.attributes?.length ?? 0} Attribute</span>
             <button class="btn-icon" onclick="openManageAttributesModal(${cat.id});closeManageCatalogModal()">⚙️ Attribute</button>
@@ -238,9 +238,9 @@ function renderAttributesList() {
     }
     list.innerHTML = '<div class="attr-list">' + cat.attributes.map(a => `
         <div class="attr-row">
-            <div class="attr-row-name">${a.name}${a.required ? ' *' : ''}</div>
-            <div class="attr-row-type">${a.fieldType}</div>
-            ${a.options ? `<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${a.options}</div>` : '<div></div>'}
+            <div class="attr-row-name">${escHtml(a.name)}${a.required ? ' *' : ''}</div>
+            <div class="attr-row-type">${escHtml(a.fieldType)}</div>
+            ${a.options ? `<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${escHtml(a.options)}</div>` : '<div></div>'}
             <button class="btn-icon danger" onclick="deleteCatalogAttribute(${a.id})">🗑</button>
         </div>`).join('') + '</div>';
 }
@@ -283,11 +283,11 @@ function buildProductForm(categoryId, existingProduct = null) {
     let html = `
         <div class="form-group">
             <label>Produktname *</label>
-            <input type="text" id="cp-name" value="${existingProduct?.name ?? ''}" placeholder="z.B. Buchstabe A">
+            <input type="text" id="cp-name" value="${escHtml(existingProduct?.name ?? '')}" placeholder="z.B. Buchstabe A">
         </div>
         <div class="form-group">
             <label>Beschreibung (optional)</label>
-            <textarea id="cp-desc" rows="2">${existingProduct?.description ?? ''}</textarea>
+            <textarea id="cp-desc" rows="2">${escHtml(existingProduct?.description ?? '')}</textarea>
         </div>`;
 
     if (cat?.attributes?.length > 0) {
@@ -299,18 +299,18 @@ function buildProductForm(categoryId, existingProduct = null) {
                 const opts = (a.options ?? '').split(',').map(o => o.trim()).filter(Boolean);
                 input = `<select id="cp-attr-${a.id}">
                     <option value="">— auswählen —</option>
-                    ${opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('')}
+                    ${opts.map(o => `<option value="${escHtml(o)}" ${o === val ? 'selected' : ''}>${escHtml(o)}</option>`).join('')}
                 </select>`;
             } else if (a.fieldType === 'number') {
-                input = `<input type="number" id="cp-attr-${a.id}" value="${val}" step="0.01">`;
+                input = `<input type="number" id="cp-attr-${a.id}" value="${escHtml(val)}" step="0.01">`;
             } else if (a.fieldType === 'url') {
-                input = `<input type="url" id="cp-attr-${a.id}" value="${val}" placeholder="https://...">`;
+                input = `<input type="url" id="cp-attr-${a.id}" value="${escHtml(val)}" placeholder="https://...">`;
             } else if (a.fieldType === 'textarea') {
-                input = `<textarea id="cp-attr-${a.id}" rows="2">${val}</textarea>`;
+                input = `<textarea id="cp-attr-${a.id}" rows="2">${escHtml(val)}</textarea>`;
             } else {
-                input = `<input type="text" id="cp-attr-${a.id}" value="${val}" placeholder="${a.name}">`;
+                input = `<input type="text" id="cp-attr-${a.id}" value="${escHtml(val)}" placeholder="${escHtml(a.name)}">`;
             }
-            return `<div class="form-group"><label>${a.name}${a.required ? ' *' : ''}</label>${input}</div>`;
+            return `<div class="form-group"><label>${escHtml(a.name)}${a.required ? ' *' : ''}</label>${input}</div>`;
         }).join('');
     }
 
@@ -426,8 +426,7 @@ async function generateSku() {
     const varName = document.getElementById('var-name').value.trim();
     if (!varName) { showToast('Bitte zuerst den Variationsnamen eingeben.'); return; }
     try {
-        const res = await fetch(withProject(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`));
-        const data = await res.json();
+        const data = await api(withProject(`/api/catalog/products/${productId}/sku?variationName=${encodeURIComponent(varName)}`));
         document.getElementById('var-sku').value = data.sku;
     } catch { showToast('Fehler beim Generieren der SKU.'); }
 }
@@ -447,28 +446,19 @@ async function saveVariation() {
 
     try {
         if (editingVariationId) {
-            const res = await fetch(withProject('/api/catalog/variations/' + editingVariationId), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, sku, price, stock })
-            });
-            const data = await res.json();
-            if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
+            await api(withProject('/api/catalog/variations/' + editingVariationId), 'PUT', { name, sku, price, stock });
             showToast('✓ Variation aktualisiert');
         } else {
-            const res = await fetch(withProject('/api/catalog/variations'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ productId, name, sku, price, stock })
-            });
-            const data = await res.json();
-            if (data.error) { skuError.textContent = data.error; skuError.style.display = 'block'; return; }
+            await api(withProject('/api/catalog/variations'), 'POST', { productId, name, sku, price, stock });
             showToast('✓ Variation hinzugefügt');
         }
         catalogData = await api(withProject('/api/catalog'));
         closeVariationModal();
         renderCatalogMain();
-    } catch { showToast('Fehler beim Speichern.'); }
+    } catch (err) {
+        skuError.textContent = err?.message || 'Fehler beim Speichern.';
+        skuError.style.display = 'block';
+    }
 }
 
 async function deleteVariation(id) {

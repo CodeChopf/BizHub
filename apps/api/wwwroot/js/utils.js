@@ -41,6 +41,7 @@ let state = {};
 let appData = null;
 let productData = null;
 let financeData = null;
+let _isHandlingUnauthorized = false;
 
 // ── API HELPERS ──
 async function api(url, method = 'GET', body = null) {
@@ -59,10 +60,37 @@ async function api(url, method = 'GET', body = null) {
         const err = new Error(message);
         err.status = res.status;
         err.payload = data;
+        if (res.status === 401) handleUnauthorized();
         throw err;
     }
 
     return data;
+}
+
+function safeUrl(url) {
+    if (!url) return null;
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.href;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+function handleUnauthorized() {
+    if (_isHandlingUnauthorized) return;
+    _isHandlingUnauthorized = true;
+    sessionStorage.removeItem('pendingProjectInvite');
+    _currentUser = null;
+    _currentProject = null;
+    _currentProjectId = null;
+    showToast('Sitzung abgelaufen. Bitte erneut anmelden.');
+    setTimeout(() => {
+        location.href = '/';
+    }, 250);
 }
 
 function withProject(url) {

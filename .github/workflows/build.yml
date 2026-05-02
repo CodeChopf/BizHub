@@ -12,5 +12,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        working-directory: apps/api
+        run: dotnet restore AuraPrintsApi.csproj
+
+      - name: Build API
+        working-directory: apps/api
+        run: dotnet build AuraPrintsApi.csproj --configuration Release --no-restore
+
       - name: Build Docker image
         run: docker build --build-arg VERSION=${{ github.ref_name }} .

@@ -13,7 +13,7 @@ public static class ProjectEndpoints
             var user = userRepo.GetByUsername(ctx.User.Identity?.Name ?? "");
             if (user == null) return Results.Unauthorized();
             return Results.Ok(projectRepo.GetForUser(user.Id));
-        });
+        }).RequireRateLimiting("writes");
 
         // POST /api/projects
         app.MapPost("/api/projects", async (HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
@@ -26,7 +26,7 @@ public static class ProjectEndpoints
             var startDate   = body.TryGetProperty("startDate", out var sd) && sd.ValueKind != JsonValueKind.Null ? sd.GetString() : null;
             var currency    = body.TryGetProperty("currency", out var cur) ? cur.GetString() ?? "CHF" : "CHF";
             return Results.Ok(projectRepo.Create(name, description, startDate, currency, user.Id));
-        });
+        }).RequireRateLimiting("writes");
 
         // GET /api/projects/{id}
         app.MapGet("/api/projects/{id}", (int id, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>
@@ -36,7 +36,7 @@ public static class ProjectEndpoints
             if (!projectRepo.IsMember(id, user.Id)) return Results.Forbid();
             var project = projectRepo.GetById(id);
             return project == null ? Results.NotFound() : Results.Ok(project);
-        });
+        }).RequireRateLimiting("writes");
 
         // PUT /api/projects/{id}
         app.MapPut("/api/projects/{id}", async (int id, HttpRequest request, HttpContext ctx, IUserRepository userRepo, IProjectRepository projectRepo) =>

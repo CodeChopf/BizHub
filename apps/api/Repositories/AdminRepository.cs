@@ -138,16 +138,17 @@ public class AdminRepository : IAdminRepository
         };
     }
 
-    public AppTask UpdateTask(int id, UpdateTaskRequest req)
+    public AppTask UpdateTask(int projectId, int id, UpdateTaskRequest req)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE tasks SET type = @t, text = @tx, hours = @h WHERE id = @id";
+        cmd.CommandText = "UPDATE tasks SET type = @t, text = @tx, hours = @h WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@t", req.Type);
         cmd.Parameters.AddWithValue("@tx", req.Text);
         cmd.Parameters.AddWithValue("@h", req.Hours);
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
 
         return new AppTask
@@ -158,13 +159,14 @@ public class AdminRepository : IAdminRepository
         };
     }
 
-    public void DeleteTask(int id)
+    public void DeleteTask(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM tasks WHERE id = @id";
+        cmd.CommandText = "DELETE FROM tasks WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 

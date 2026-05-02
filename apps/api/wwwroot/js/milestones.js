@@ -18,8 +18,8 @@ async function renderMilestones() {
             <div class="milestone-card">
                 <div class="milestone-icon">🏁</div>
                 <div>
-                    <div class="milestone-name">${m.name}</div>
-                    ${m.description ? `<div class="milestone-desc">${m.description}</div>` : ''}
+                    <div class="milestone-name">${escHtml(m.name)}</div>
+                    ${m.description ? `<div class="milestone-desc">${escHtml(m.description)}</div>` : ''}
                     <div class="milestone-meta">
                         <div class="milestone-meta-item">📅 <span>${date} ${time}</span></div>
                     </div>
@@ -97,7 +97,7 @@ async function openMilestoneDetail(id) {
                 <div class="ms-stat"><div class="ms-stat-val">${currency} ${fmtChf(snap.totalExpenses ?? 0)}</div><div class="ms-stat-label">Ausgaben</div></div>
             </div>
             <div style="font-size:12px;color:var(--text3)">Gespeichert am ${date} um ${time} Uhr</div>
-            ${milestone.description ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${milestone.description}</div>` : ''}
+            ${milestone.description ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${escHtml(milestone.description)}</div>` : ''}
         </div>`;
 
     if (snap.weeks?.length > 0) {
@@ -109,7 +109,7 @@ async function openMilestoneDetail(id) {
             html += `
             <div class="ms-detail-section">
                 <div class="ms-detail-label">
-                    W0${week.number} — ${week.title}
+                    W0${week.number} — ${escHtml(week.title)}
                     <span style="float:right;color:${wPct === 100 ? 'var(--green)' : 'var(--text2)'}">
                         ${wDone}/${wTotal} (${wPct}%)
                     </span>
@@ -125,7 +125,7 @@ async function openMilestoneDetail(id) {
                         ${task.type === 'pc' ? 'PC' : 'Physisch'}
                     </span></td>
                     <td style="color:${isDone ? 'var(--text3)' : 'var(--text)'}">
-                        ${isDone ? '<s>' : ''}${task.text}${isDone ? '</s>' : ''}
+                        ${isDone ? '<s>' : ''}${escHtml(task.text)}${isDone ? '</s>' : ''}
                     </td>
                     <td style="white-space:nowrap">${task.hours}</td>
                 </tr>`;
@@ -142,8 +142,8 @@ async function openMilestoneDetail(id) {
         snap.expenses.forEach(e => {
             html += `<tr>
                 <td>${formatDateStr(e.date)}</td>
-                <td>${e.categoryName}</td>
-                <td>${e.description}</td>
+                <td>${escHtml(e.categoryName)}</td>
+                <td>${escHtml(e.description)}</td>
                 <td style="color:var(--red)">−${currency} ${fmtChf(e.amount)}</td>
             </tr>`;
         });
@@ -163,28 +163,22 @@ function exportMilestonePdf() {
     if (!window._currentMilestone) return;
     const { milestone } = window._currentMilestone;
     const content = document.getElementById('ms-detail-body').innerHTML;
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head>
-        <meta charset="UTF-8">
-        <title>Meilenstein — ${milestone.name}</title>
-        <style>
-            body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 32px; }
-            h1 { font-size: 22px; margin-bottom: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-            th { font-size: 10px; text-transform: uppercase; color: #888; padding: 6px 8px; border-bottom: 2px solid #eee; text-align: left; }
-            td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
-            .ms-stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
-            .ms-stat { background: #f8f8f8; border-radius: 8px; padding: 12px; }
-            .ms-stat-val { font-size: 20px; font-weight: 700; }
-            .ms-stat-label { font-size: 11px; color: #888; }
-            .ms-detail-label { font-size: 10px; text-transform: uppercase; color: #888; letter-spacing: 0.1em; margin: 16px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-            @media print { body { padding: 0; } }
-        </style></head><body>
-        <h1>Meilenstein: ${milestone.name}</h1>
-        ${content}
-        <script>window.onload = () => { window.print(); }<\/script>
-        </body></html>`);
-    win.document.close();
+    const win = window.open('', '_blank', 'noopener,noreferrer');
+    if (!win) return;
+    const doc = win.document;
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Meilenstein Export</title></head><body></body></html>');
+    doc.close();
+    const style = doc.createElement('style');
+    style.textContent = 'body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px}h1{font-size:22px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{font-size:10px;text-transform:uppercase;color:#888;padding:6px 8px;border-bottom:2px solid #eee;text-align:left}td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.ms-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.ms-stat{background:#f8f8f8;border-radius:8px;padding:12px}.ms-stat-val{font-size:20px;font-weight:700}.ms-stat-label{font-size:11px;color:#888}.ms-detail-label{font-size:10px;text-transform:uppercase;color:#888;letter-spacing:.1em;margin:16px 0 8px;border-bottom:1px solid #eee;padding-bottom:4px}@media print{body{padding:0}}';
+    doc.head.appendChild(style);
+    const h1 = doc.createElement('h1');
+    h1.textContent = `Meilenstein: ${milestone.name}`;
+    doc.body.appendChild(h1);
+    const contentWrap = doc.createElement('div');
+    contentWrap.innerHTML = content;
+    doc.body.appendChild(contentWrap);
+    win.print();
 }
 
 function exportMilestoneExcel() {

@@ -46,26 +46,28 @@ public class CategoryRepository : ICategoryRepository
         return new Category { Id = (int)id, Name = name, Color = color };
     }
 
-    public Category Update(int id, string name, string color)
+    public Category Update(int projectId, int id, string name, string color)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE categories SET name = @n, color = @c WHERE id = @id";
+        cmd.CommandText = "UPDATE categories SET name = @n, color = @c WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@n", name);
         cmd.Parameters.AddWithValue("@c", color);
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
         return new Category { Id = id, Name = name, Color = color };
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM categories WHERE id = @id";
+        cmd.CommandText = "DELETE FROM categories WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 }

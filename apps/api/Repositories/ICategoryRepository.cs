@@ -6,6 +6,6 @@ public interface ICategoryRepository
 {
     List<Category> GetAll(int projectId);
     Category Add(int projectId, string name, string color);
-    Category Update(int id, string name, string color);
-    void Delete(int id);
+    Category Update(int projectId, int id, string name, string color);
+    void Delete(int projectId, int id);
 }

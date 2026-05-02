@@ -60,6 +60,30 @@ public class ProductionRepository : IProductionRepository
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using (var productCheck = con.CreateCommand())
+        {
+            productCheck.CommandText = @"
+                SELECT COUNT(*) FROM products_v2 p
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE p.id = @productId AND c.project_id = @pid";
+            productCheck.Parameters.AddWithValue("@productId", productId);
+            productCheck.Parameters.AddWithValue("@pid", projectId);
+            if ((long)(productCheck.ExecuteScalar() ?? 0L) == 0L)
+                throw new InvalidOperationException("Product not found in current project.");
+        }
+        if (variationId.HasValue)
+        {
+            using var variationCheck = con.CreateCommand();
+            variationCheck.CommandText = @"
+                SELECT COUNT(*) FROM product_variations v
+                JOIN products_v2 p ON p.id = v.product_id
+                JOIN product_categories c ON c.id = p.category_id
+                WHERE v.id = @variationId AND c.project_id = @pid";
+            variationCheck.Parameters.AddWithValue("@variationId", variationId.Value);
+            variationCheck.Parameters.AddWithValue("@pid", projectId);
+            if ((long)(variationCheck.ExecuteScalar() ?? 0L) == 0L)
+                throw new InvalidOperationException("Variation not found in current project.");
+        }
         using var cmd = con.CreateCommand();
         var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         cmd.CommandText = @"
@@ -77,45 +101,49 @@ public class ProductionRepository : IProductionRepository
         return GetAll(projectId).First(i => i.Id == (int)id);
     }
 
-    public void SetDone(int id, bool done)
+    public void SetDone(int projectId, int id, bool done)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE production_queue SET done = @done WHERE id = @id";
+        cmd.CommandText = "UPDATE production_queue SET done = @done WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@done", done ? 1 : 0);
         cmd.Parameters.AddWithValue("@id",   id);
+        cmd.Parameters.AddWithValue("@pid",  projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public void UpdateItem(int id, int quantity, string? note)
+    public void UpdateItem(int projectId, int id, int quantity, string? note)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "UPDATE production_queue SET quantity = @qty, note = @note WHERE id = @id";
+        cmd.CommandText = "UPDATE production_queue SET quantity = @qty, note = @note WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@qty",  quantity);
         cmd.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@id",   id);
+        cmd.Parameters.AddWithValue("@pid",  projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM production_queue WHERE id = @id";
+        cmd.CommandText = "DELETE FROM production_queue WHERE id = @id AND project_id = @pid";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 
-    public void DeleteAllDone()
+    public void DeleteAllDone(int projectId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM production_queue WHERE done = 1";
+        cmd.CommandText = "DELETE FROM production_queue WHERE done = 1 AND project_id = @pid";
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 }

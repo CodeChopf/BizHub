@@ -69,9 +69,7 @@ let _currentUser = null;
 
 async function checkAuth() {
     try {
-        const res = await fetch('/api/auth/me');
-        if (res.status === 401) { showLoginScreen(); return false; }
-        _currentUser = await res.json();
+        _currentUser = await api('/api/auth/me');
         return true;
     } catch {
         showLoginScreen();
@@ -94,38 +92,25 @@ async function doLogin() {
     const errEl = document.getElementById('login-error');
     errEl.style.display = 'none';
     try {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password: pw })
-        });
-        if (res.ok) {
-            _currentUser = await res.json();
+        _currentUser = await api('/api/auth/login', 'POST', { username, password: pw });
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('login-password').value = '';
             const pendingInvite = sessionStorage.getItem('pendingProjectInvite');
             if (pendingInvite) {
                 sessionStorage.removeItem('pendingProjectInvite');
                 try {
-                    await fetch(`/api/invites/${pendingInvite}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                    await api(`/api/invites/${encodeURIComponent(pendingInvite)}/accept`, 'POST');
                 } catch { /* Bei Fehler einfach normal weiter */ }
             }
             await init();
-        } else if (res.status === 429) {
-            errEl.textContent = 'Zu viele Versuche. Bitte warte eine Minute.';
-            errEl.style.display = 'block';
-        } else {
-            errEl.textContent = 'Falscher Benutzername oder Passwort.';
-            errEl.style.display = 'block';
-        }
-    } catch {
-        errEl.textContent = 'Verbindungsfehler.';
+    } catch (err) {
+        errEl.textContent = err?.message || 'Verbindungsfehler.';
         errEl.style.display = 'block';
     }
 }
 
 async function doLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await api('/api/auth/logout', 'POST');
     showLoginScreen();
 }
 
@@ -169,11 +154,11 @@ async function loadProject() {
     await loadState();
     try {
         const [dataRes, finRes] = await Promise.all([
-            fetch(withProject('/api/data')),
-            fetch(withProject('/api/finance'))
+            api(withProject('/api/data')),
+            api(withProject('/api/finance'))
         ]);
-        appData = await dataRes.json();
-        financeData = await finRes.json();
+        appData = dataRes;
+        financeData = finRes;
     } catch {
         document.getElementById('roadmap-content').innerHTML =
             '<p style="color:var(--red);padding:20px">Fehler beim Laden.</p>';

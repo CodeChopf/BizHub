@@ -12,17 +12,19 @@ public class AttachmentRepository : IAttachmentRepository
         _context = context;
     }
 
-    public List<ExpenseAttachment> GetByExpenseId(int expenseId)
+    public List<ExpenseAttachment> GetByExpenseId(int projectId, int expenseId)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
             SELECT id, expense_id, file_name, mime_type, data, created_at
-            FROM expense_attachments
-            WHERE expense_id = @eid
+            FROM expense_attachments ea
+            JOIN expenses e ON e.id = ea.expense_id
+            WHERE ea.expense_id = @eid AND e.project_id = @pid
             ORDER BY id";
         cmd.Parameters.AddWithValue("@eid", expenseId);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         var result = new List<ExpenseAttachment>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -40,10 +42,18 @@ public class AttachmentRepository : IAttachmentRepository
         return result;
     }
 
-    public ExpenseAttachment Add(int expenseId, string fileName, string mimeType, string data)
+    public ExpenseAttachment Add(int projectId, int expenseId, string fileName, string mimeType, string data)
     {
         using var con = _context.CreateConnection();
         con.Open();
+        using (var checkCmd = con.CreateCommand())
+        {
+            checkCmd.CommandText = "SELECT COUNT(*) FROM expenses WHERE id = @eid AND project_id = @pid";
+            checkCmd.Parameters.AddWithValue("@eid", expenseId);
+            checkCmd.Parameters.AddWithValue("@pid", projectId);
+            if ((long)(checkCmd.ExecuteScalar() ?? 0L) == 0L)
+                throw new InvalidOperationException("Expense not found in current project.");
+        }
         var createdAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         using var cmd = con.CreateCommand();
         cmd.CommandText = @"
@@ -68,13 +78,18 @@ public class AttachmentRepository : IAttachmentRepository
         };
     }
 
-    public void Delete(int id)
+    public void Delete(int projectId, int id)
     {
         using var con = _context.CreateConnection();
         con.Open();
         using var cmd = con.CreateCommand();
-        cmd.CommandText = "DELETE FROM expense_attachments WHERE id = @id";
+        cmd.CommandText = @"
+            DELETE FROM expense_attachments
+            WHERE id = @id AND expense_id IN (
+                SELECT id FROM expenses WHERE project_id = @pid
+            )";
         cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@pid", projectId);
         cmd.ExecuteNonQuery();
     }
 }

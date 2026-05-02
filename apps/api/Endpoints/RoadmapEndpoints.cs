@@ -10,23 +10,32 @@ public static class RoadmapEndpoints
     public static WebApplication MapRoadmapEndpoints(this WebApplication app)
     {
         // GET /api/data
-        app.MapGet("/api/data", (HttpRequest req, IRoadmapRepository repo) =>
-            Results.Ok(repo.GetAll(ApiHelpers.GetProjectId(req))));
+        app.MapGet("/api/data", (HttpRequest req, HttpContext ctx, IRoadmapRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var auth = ApiHelpers.EnsureProjectMember(req, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            return Results.Ok(repo.GetAll(projectId));
+        });
 
         // GET /api/products (Legacy — generische Produkte)
         app.MapGet("/api/products", (IProductRepository repo) =>
             Results.Ok(repo.GetAll()));
 
         // GET /api/state
-        app.MapGet("/api/state", (HttpRequest req, IStateRepository repo) =>
-            Results.Ok(repo.GetState(ApiHelpers.GetProjectId(req))));
+        app.MapGet("/api/state", (HttpRequest req, HttpContext ctx, IStateRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
+        {
+            var auth = ApiHelpers.EnsureProjectMember(req, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            return Results.Ok(repo.GetState(projectId));
+        });
 
         // POST /api/state
-        app.MapPost("/api/state", async (HttpRequest request, IStateRepository repo, IActivityRepository activityRepo) =>
+        app.MapPost("/api/state", async (HttpRequest request, HttpContext ctx, IStateRepository repo, IActivityRepository activityRepo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectMember(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var state = await JsonSerializer.DeserializeAsync<Dictionary<string, bool>>(request.Body);
             if (state == null) return Results.BadRequest();
-            var projectId = ApiHelpers.GetProjectId(request);
             repo.SaveState(projectId, state);
             var doneCount = state.Count(kv => kv.Value);
             activityRepo.Add(projectId, "task", "state_saved", "Task-Status aktualisiert",
@@ -36,60 +45,75 @@ public static class RoadmapEndpoints
 
         // ── ADMIN: WOCHEN ──
 
-        app.MapPost("/api/admin/weeks", async (HttpRequest request, IAdminRepository repo) =>
+        app.MapPost("/api/admin/weeks", async (HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var req = await JsonSerializer.DeserializeAsync<CreateWeekRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            return Results.Ok(repo.CreateWeek(ApiHelpers.GetProjectId(request), req));
+            return Results.Ok(repo.CreateWeek(projectId, req));
         });
 
-        app.MapPut("/api/admin/weeks/{number}", async (int number, HttpRequest request, IAdminRepository repo) =>
+        app.MapPut("/api/admin/weeks/{number}", async (int number, HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var req = await JsonSerializer.DeserializeAsync<UpdateWeekRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            return Results.Ok(repo.UpdateWeek(ApiHelpers.GetProjectId(request), number, req));
+            return Results.Ok(repo.UpdateWeek(projectId, number, req));
         });
 
-        app.MapDelete("/api/admin/weeks/{number}", (int number, HttpRequest request, IAdminRepository repo) =>
+        app.MapDelete("/api/admin/weeks/{number}", (int number, HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
-            repo.DeleteWeek(ApiHelpers.GetProjectId(request), number);
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            repo.DeleteWeek(projectId, number);
             return Results.Ok(new { deleted = true });
         });
 
         // ── ADMIN: TASKS ──
 
-        app.MapPost("/api/admin/tasks", async (HttpRequest request, IAdminRepository repo) =>
+        app.MapPost("/api/admin/tasks", async (HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var req = await JsonSerializer.DeserializeAsync<CreateTaskRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            return Results.Ok(repo.CreateTask(ApiHelpers.GetProjectId(request), req));
+            return Results.Ok(repo.CreateTask(projectId, req));
         });
 
-        app.MapPut("/api/admin/tasks/{id}", async (int id, HttpRequest request, IAdminRepository repo) =>
+        app.MapPut("/api/admin/tasks/{id}", async (int id, HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var req = await JsonSerializer.DeserializeAsync<UpdateTaskRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            return Results.Ok(repo.UpdateTask(id, req));
+            return Results.Ok(repo.UpdateTask(projectId, id, req));
         });
 
-        app.MapDelete("/api/admin/tasks/{id}", (int id, IAdminRepository repo) =>
+        app.MapDelete("/api/admin/tasks/{id}", (int id, HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
-            repo.DeleteTask(id);
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
+            repo.DeleteTask(projectId, id);
             return Results.Ok(new { deleted = true });
         });
 
-        app.MapPut("/api/admin/weeks/{number}/reorder", async (int number, HttpRequest request, IAdminRepository repo) =>
+        app.MapPut("/api/admin/weeks/{number}/reorder", async (int number, HttpRequest request, HttpContext ctx, IAdminRepository repo, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             var req = await JsonSerializer.DeserializeAsync<ReorderTasksRequest>(request.Body, ApiHelpers.JsonOptions);
             if (req == null) return Results.BadRequest();
-            repo.ReorderTasks(ApiHelpers.GetProjectId(request), number, req);
+            repo.ReorderTasks(projectId, number, req);
             return Results.Ok(new { reordered = true });
         });
 
         // GET /api/admin/tasks/ids
-        app.MapGet("/api/admin/tasks/ids", (int weekNumber, HttpRequest request, DatabaseContext dbContext) =>
+        app.MapGet("/api/admin/tasks/ids", (int weekNumber, HttpRequest request, HttpContext ctx, DatabaseContext dbContext, IUserRepository userRepo, IProjectRepository projectRepo) =>
         {
-            var projectId = ApiHelpers.GetProjectId(request);
+            var auth = ApiHelpers.EnsureProjectAdmin(request, ctx, userRepo, projectRepo, out var projectId);
+            if (auth != null) return auth;
             using var con = dbContext.CreateConnection();
             con.Open();
             using var cmd = con.CreateCommand();
